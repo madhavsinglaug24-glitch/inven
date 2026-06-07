@@ -184,7 +184,7 @@ def log_history(item_id: str, item_name: str, action: str, qty: int, editor_phon
     """Log an inventory change to the History tab."""
     try:
         ws = _worksheet("History")
-        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         ws.append_row([timestamp, item_id, item_name, action, qty, editor_phone, previous_stock, new_stock])
     except Exception as e:
         logger.error(f"Failed to log history: {e}")
