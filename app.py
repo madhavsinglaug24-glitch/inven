@@ -676,13 +676,7 @@ def _handle_session(phone: str, role: str, text: str, session: dict):
         min_stock = session["min_stock"]
         supplier_id = session["supplier_id"]
 
-        if action == "Deduct" and qty > current_stock:
-            send_text(
-                phone,
-                f"⚠️ Cannot deduct {qty} — only {current_stock} in stock.\n"
-                "Enter a smaller number or type *cancel*.",
-            )
-            return
+
 
         # ---- Worker: create approval request ----------------------------------
         if role == "worker":
@@ -718,43 +712,63 @@ def _handle_session(phone: str, role: str, text: str, session: dict):
 
         # ---- Manager: direct update ------------------------------------------
         if role == "manager":
-            new_stock = (
-                current_stock + qty if action == "Add" else current_stock - qty
-            )
-            update_inventory_stock(item_id, new_stock)
-            log_history(item_id, item_name, action, qty, phone, current_stock, new_stock)
-            item = get_inventory_item(item_id)
-            price = item.get("Purchase_Price", "N/A") if item else "N/A"
-            supplier_id_val = item.get("Supplier_ID", "") if item else ""
-            supplier = get_supplier(supplier_id_val)
-            supplier_name = supplier["Name"] if supplier else "N/A"
-            
-            # Calculate global average
-            items = get_all_inventory()
-            total_items_with_price = 0
-            sum_purchase_price = 0
-            for it in items:
-                price_val = it.get("Purchase_Price")
-                if price_val and str(price_val).isdigit():
-                    sum_purchase_price += int(price_val)
-                    total_items_with_price += 1
-            avg_price = (sum_purchase_price / total_items_with_price) if total_items_with_price > 0 else 0
+            if action == "Add":
+                user_sessions[phone]["qty_to_add"] = qty
+                user_sessions[phone]["state"] = "awaiting_add_stock_supplier"
+                
+                ws = _worksheet("Suppliers")
+                records = ws.get_all_records()
+                rows = [{"id": "sel_add_sup_NONE", "title": "Unknown/None", "description": "No specific supplier"}]
+                for sup in records[:9]:
+                    rows.append({
+                        "id": f"sel_add_sup_{sup['Supplier_ID']}",
+                        "title": str(sup["Name"])[:24],
+                        "description": str(sup["Supplier_ID"])[:72]
+                    })
+                
+                send_list_message(
+                    to=phone,
+                    header="➕ Select Supplier",
+                    body=f"You are adding {qty} of {item_name}.\nWho is the supplier for this batch?",
+                    button_text="Select Supplier",
+                    sections=[{"title": "Suppliers", "rows": rows}]
+                )
+                return
+            else:
+                new_stock = current_stock - qty
+                update_inventory_stock(item_id, new_stock)
+                log_history(item_id, item_name, action, qty, phone, current_stock, new_stock)
+                item = get_inventory_item(item_id)
+                price = item.get("Purchase_Price", "N/A") if item else "N/A"
+                supplier_id_val = item.get("Supplier_ID", "") if item else ""
+                supplier = get_supplier(supplier_id_val)
+                supplier_name = supplier["Name"] if supplier else "N/A"
+                
+                # Calculate global average
+                items = get_all_inventory()
+                total_items_with_price = 0
+                sum_purchase_price = 0
+                for it in items:
+                    price_val = it.get("Purchase_Price")
+                    if price_val and str(price_val).isdigit():
+                        sum_purchase_price += int(price_val)
+                        total_items_with_price += 1
+                avg_price = (sum_purchase_price / total_items_with_price) if total_items_with_price > 0 else 0
 
-            send_text(
-                phone,
-                f"✅ *Inventory updated!*\n\n"
-                f"Item: {item_name}\n"
-                f"Action: {action} {qty}\n"
-                f"New stock: {new_stock}\n"
-                f"Item Price: ₹{price}\n"
-                f"Supplier: {supplier_name}\n"
-                f"Global Avg Price: ₹{avg_price:.2f}",
-            )
-            # JIT check for deductions
-            if action == "Deduct":
+                send_text(
+                    phone,
+                    f"✅ *Inventory updated!*\n\n"
+                    f"Item: {item_name}\n"
+                    f"Action: {action} {qty}\n"
+                    f"New stock: {new_stock}\n"
+                    f"Item Price: ₹{price}\n"
+                    f"Supplier: {supplier_name}\n"
+                    f"Global Avg Price: ₹{avg_price:.2f}",
+                )
+                # JIT check for deductions
                 _jit_check(phone, item_id, item_name, new_stock, min_stock, supplier_id)
-            reset_session(phone)
-            return
+                reset_session(phone)
+                return
 
 
 # ---------------------------------------------------------------------------
@@ -811,6 +825,49 @@ def _handle_list_reply(phone: str, list_id: str):
         log_history(new_id, name, "Create", initial_stock, phone, 0, initial_stock)
         
         send_text(phone, f"✅ *Item Created!*\n\nID: {new_id}\nName: {name}\nStock: {initial_stock}\nPrice: ₹{price}\nSupplier: {sup_id}")
+        reset_session(phone)
+    elif list_id.startswith("sel_add_sup_") and user_sessions.get(phone, {}).get("state") == "awaiting_add_stock_supplier":
+        sup_id = list_id.replace("sel_add_sup_", "")
+        if sup_id == "NONE":
+            sup_id = ""
+        
+        session = user_sessions[phone]
+        item_id = session["item_id"]
+        item_name = session["item_name"]
+        current_stock = session["current_stock"]
+        qty = session["qty_to_add"]
+
+        new_stock = current_stock + qty
+        update_inventory_stock(item_id, new_stock)
+        
+        log_history(item_id, item_name, "Add", qty, phone, current_stock, new_stock)
+        
+        item = get_inventory_item(item_id)
+        price = item.get("Purchase_Price", "N/A") if item else "N/A"
+        supplier = get_supplier(sup_id) if sup_id else None
+        supplier_name = supplier["Name"] if supplier else "Unknown/None"
+        
+        # Calculate global average
+        items = get_all_inventory()
+        total_items_with_price = 0
+        sum_purchase_price = 0
+        for it in items:
+            price_val = it.get("Purchase_Price")
+            if price_val and str(price_val).isdigit():
+                sum_purchase_price += int(price_val)
+                total_items_with_price += 1
+        avg_price = (sum_purchase_price / total_items_with_price) if total_items_with_price > 0 else 0
+
+        send_text(
+            phone,
+            f"✅ *Inventory updated!*\n\n"
+            f"Item: {item_name}\n"
+            f"Action: Add {qty}\n"
+            f"New stock: {new_stock}\n"
+            f"Item Price: ₹{price}\n"
+            f"Supplier (this batch): {supplier_name}\n"
+            f"Global Avg Price: ₹{avg_price:.2f}",
+        )
         reset_session(phone)
     elif list_id == "cmd_view":
         _send_inventory_list(phone, role)
