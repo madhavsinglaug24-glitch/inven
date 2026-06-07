@@ -899,7 +899,7 @@ def process_webhook():
                         logger.info("Interactive from %s: %s", phone, json.dumps(interactive_data))
                         handle_interactive(phone, interactive_data)
 
-                    elif msg_type in ("image", "audio"):
+                    elif msg_type in ("image", "audio", "voice"):
                         if not GEMINI_API_KEY:
                             send_text(phone, "🤖 AI is currently disabled. Please provide a GEMINI_API_KEY.")
                             continue
