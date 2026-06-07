@@ -357,19 +357,9 @@ def _send_main_menu(phone: str, role: str, name: str):
         {"id": "cmd_add", "title": "➕ Add Stock", "description": "Request to add stock"},
         {"id": "cmd_deduct", "title": "➖ Deduct Stock", "description": "Request to deduct stock"},
     ]
-    if role == "manager":
-        rows.append(
-            {"id": "cmd_pending", "title": "🕐 Pending Approvals", "description": "Review worker requests"}
-        )
-        rows.append(
-            {"id": "cmd_history", "title": "🕒 Recent History", "description": "View recent edits"}
-        )
-        rows.append(
-            {"id": "cmd_order", "title": "🛒 Order from Supplier", "description": "Message supplier to order stock"}
-        )
-        rows.append(
-            {"id": "cmd_add_dealer", "title": "➕ Add Dealer", "description": "Register a new supplier"}
-        )
+    rows.append(
+        {"id": "cmd_more", "title": "⚙️ More Options...", "description": "View advanced commands"}
+    )
 
     send_list_message(
         to=phone,
@@ -377,6 +367,25 @@ def _send_main_menu(phone: str, role: str, name: str):
         body=f"You are logged in as *{role.capitalize()}*.\nSelect an option below.",
         button_text="Menu",
         sections=[{"title": "Options", "rows": rows}],
+    )
+
+def _send_more_menu(phone: str, role: str):
+    """Present advanced options in a secondary menu."""
+    rows = []
+    if role == "manager":
+        rows.append({"id": "cmd_pending", "title": "🕐 Pending Approvals", "description": "Review worker requests"})
+        rows.append({"id": "cmd_history", "title": "🕒 Recent History", "description": "View recent edits"})
+        rows.append({"id": "cmd_order", "title": "🛒 Order from Supplier", "description": "Message supplier to order stock"})
+        rows.append({"id": "cmd_add_dealer", "title": "➕ Add Dealer", "description": "Register a new supplier"})
+    
+    rows.append({"id": "cmd_new_item", "title": "➕ Add New Item", "description": "Create a new inventory item"})
+
+    send_list_message(
+        to=phone,
+        header="⚙️ More Options",
+        body="Select an advanced command below.",
+        button_text="Options",
+        sections=[{"title": "More", "rows": rows}],
     )
 
 
@@ -473,6 +482,58 @@ def _handle_session(phone: str, role: str, text: str, session: dict):
     if text.strip().lower() in ("cancel", "exit", "quit"):
         reset_session(phone)
         send_text(phone, "❌ Operation cancelled.  Type *menu* to start over.")
+        return
+
+    # Step: Add New Item
+    if state == "awaiting_new_item_name":
+        session["new_item_name"] = text.strip()
+        session["state"] = "awaiting_new_item_price"
+        send_text(phone, f"➕ *Add New Item*\n\nName: {session['new_item_name']}\n\nWhat is the *Purchase Price* (e.g. 500)?")
+        return
+
+    if state == "awaiting_new_item_price":
+        if not text.strip().isdigit():
+            send_text(phone, "⚠️ Please enter a valid number for price. Try again or type *cancel*.")
+            return
+        session["new_item_price"] = int(text.strip())
+        session["state"] = "awaiting_new_item_min_stock"
+        send_text(phone, "What is the *Minimum Stock Alert Level* (e.g. 10)?")
+        return
+
+    if state == "awaiting_new_item_min_stock":
+        if not text.strip().isdigit():
+            send_text(phone, "⚠️ Please enter a valid number. Try again or type *cancel*.")
+            return
+        session["new_item_min_stock"] = int(text.strip())
+        session["state"] = "awaiting_new_item_initial_stock"
+        send_text(phone, "What is the *Initial Stock Quantity* (e.g. 0)?")
+        return
+
+    if state == "awaiting_new_item_initial_stock":
+        if not text.strip().isdigit():
+            send_text(phone, "⚠️ Please enter a valid number. Try again or type *cancel*.")
+            return
+        session["new_item_initial_stock"] = int(text.strip())
+        session["state"] = "awaiting_new_item_supplier"
+        
+        # Send supplier selection
+        ws = _worksheet("Suppliers")
+        records = ws.get_all_records()
+        rows = [{"id": "sel_sup_NONE", "title": "None", "description": "No supplier"}]
+        for sup in records[:9]:
+            rows.append({
+                "id": f"sel_sup_{sup['Supplier_ID']}",
+                "title": str(sup["Name"])[:24],
+                "description": str(sup["Supplier_ID"])[:72]
+            })
+        
+        send_list_message(
+            to=phone,
+            header="➕ Add New Item",
+            body="Select the Supplier for this item:",
+            button_text="Select Supplier",
+            sections=[{"title": "Suppliers", "rows": rows}]
+        )
         return
 
     # Step: Add Dealer Name
@@ -699,7 +760,39 @@ def _handle_list_reply(phone: str, list_id: str):
     role = str(user.get("Role", "")).strip().lower() if user else "worker"
 
     # Menu commands
-    if list_id == "cmd_view":
+    if list_id == "cmd_more":
+        _send_more_menu(phone, role)
+    elif list_id == "cmd_new_item":
+        user_sessions[phone] = {"state": "awaiting_new_item_name", "action": "AddNewItem"}
+        send_text(phone, "➕ *Add New Item*\n\nWhat is the *Name* of the new item?")
+    elif list_id.startswith("sel_sup_") and user_sessions.get(phone, {}).get("state") == "awaiting_new_item_supplier":
+        sup_id = list_id.replace("sel_sup_", "")
+        if sup_id == "NONE":
+            sup_id = ""
+        
+        session = user_sessions[phone]
+        name = session["new_item_name"]
+        price = session["new_item_price"]
+        min_stock = session["new_item_min_stock"]
+        initial_stock = session["new_item_initial_stock"]
+        
+        ws = _worksheet("Inventory")
+        records = ws.get_all_records()
+        max_num = 0
+        for r in records:
+            item_id = str(r.get("Item_ID", ""))
+            if item_id.startswith("ITEM-"):
+                num = item_id.replace("ITEM-", "")
+                if num.isdigit() and int(num) > max_num:
+                    max_num = int(num)
+        new_id = f"ITEM-{max_num + 1}"
+        
+        ws.append_row([new_id, name, initial_stock, min_stock, price, sup_id])
+        log_history(new_id, name, "Create", initial_stock, phone, 0, initial_stock)
+        
+        send_text(phone, f"✅ *Item Created!*\n\nID: {new_id}\nName: {name}\nStock: {initial_stock}\nPrice: ₹{price}\nSupplier: {sup_id}")
+        reset_session(phone)
+    elif list_id == "cmd_view":
         _send_inventory_list(phone, role)
     elif list_id == "cmd_search":
         user_sessions[phone] = {"state": "awaiting_search_term", "action": "Search"}
