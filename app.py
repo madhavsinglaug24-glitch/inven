@@ -712,6 +712,16 @@ def execute_ai_actions(phone: str, actions: list):
 # Flask routes
 # ---------------------------------------------------------------------------
 
+@app.route("/models", methods=["GET"])
+def get_models():
+    """Debug route to list available Gemini models."""
+    try:
+        import google.generativeai as genai
+        models = [m.name for m in genai.list_models()]
+        return jsonify({"models": models})
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
 @app.route("/webhook", methods=["GET"])
 def verify_webhook():
     """Meta webhook verification (challenge–response)."""
