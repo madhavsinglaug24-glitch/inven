@@ -725,6 +725,9 @@ def _handle_session(phone: str, role: str, text: str, session: dict):
             log_history(item_id, item_name, action, qty, phone, current_stock, new_stock)
             item = get_inventory_item(item_id)
             price = item.get("Purchase_Price", "N/A") if item else "N/A"
+            supplier_id_val = item.get("Supplier_ID", "") if item else ""
+            supplier = get_supplier(supplier_id_val)
+            supplier_name = supplier["Name"] if supplier else "N/A"
             
             # Calculate global average
             items = get_all_inventory()
@@ -744,6 +747,7 @@ def _handle_session(phone: str, role: str, text: str, session: dict):
                 f"Action: {action} {qty}\n"
                 f"New stock: {new_stock}\n"
                 f"Item Price: ₹{price}\n"
+                f"Supplier: {supplier_name}\n"
                 f"Global Avg Price: ₹{avg_price:.2f}",
             )
             # JIT check for deductions
