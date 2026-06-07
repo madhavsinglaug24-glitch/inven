@@ -316,21 +316,12 @@ def handle_message(phone: str, text: str):
     name = user.get("Name", "User")
     text_lower = text.strip().lower()
 
-    # Greetings / main menu
-    if text_lower in ("hi", "hello", "hey", "menu", "start"):
-        _send_main_menu(phone, role, name)
-        return
-
-    # Quick commands
-    if text_lower in ("view", "inventory", "stock", "list"):
-        _send_inventory_list(phone, role)
-        return
-
+    # Only keep the pending check for managers
     if text_lower == "pending" and role == "manager":
         _send_pending_approvals(phone)
         return
 
-    # Fallback to AI Processing
+    # Fallback to AI Processing for everything
     if GEMINI_API_KEY:
         send_text(phone, "🤖 AI is thinking...")
         ai_resp = process_with_gemini(phone, None, None, text)
@@ -339,101 +330,8 @@ def handle_message(phone: str, text: str):
         send_text(
             phone,
             "🤖 I didn't understand that.\n\n"
-            "Type *menu* to see available options.",
+            "Please provide a GEMINI_API_KEY.",
         )
-
-
-def _send_main_menu(phone: str, role: str, name: str):
-    """Present the main menu as a List message."""
-    rows = [
-        {"id": "cmd_view", "title": "📦 View Inventory", "description": "See current stock levels"},
-        {"id": "cmd_search", "title": "🔍 Search Item", "description": "Check stock for one item"},
-        {"id": "cmd_add", "title": "➕ Add Stock", "description": "Request to add stock"},
-        {"id": "cmd_deduct", "title": "➖ Deduct Stock", "description": "Request to deduct stock"},
-    ]
-    rows.append(
-        {"id": "cmd_more", "title": "⚙️ More Options...", "description": "View advanced commands"}
-    )
-
-    send_list_message(
-        to=phone,
-        header=f"Welcome, {name}!",
-        body=f"You are logged in as *{role.capitalize()}*.\nSelect an option below.",
-        button_text="Menu",
-        sections=[{"title": "Options", "rows": rows}],
-    )
-
-def _send_more_menu(phone: str, role: str):
-    """Present advanced options in a secondary menu."""
-    rows = []
-    if role == "manager":
-        rows.append({"id": "cmd_pending", "title": "🕐 Pending Approvals", "description": "Review worker requests"})
-        rows.append({"id": "cmd_history", "title": "🕒 Recent History", "description": "View recent edits"})
-        rows.append({"id": "cmd_order", "title": "🛒 Order from Supplier", "description": "Message supplier to order stock"})
-        rows.append({"id": "cmd_add_dealer", "title": "➕ Add Dealer", "description": "Register a new supplier"})
-    
-    rows.append({"id": "cmd_new_item", "title": "➕ Add New Item", "description": "Create a new inventory item"})
-
-    send_list_message(
-        to=phone,
-        header="⚙️ More Options",
-        body="Select an advanced command below.",
-        button_text="Options",
-        sections=[{"title": "More", "rows": rows}],
-    )
-
-
-def _send_inventory_list(phone: str, role: str):
-    """Send inventory as a WhatsApp list.  Workers don't see prices."""
-    items = get_all_inventory()
-    if not items:
-        send_text(phone, "📭 The inventory is empty.")
-        return
-
-    rows = []
-    total_value = 0
-    total_items_with_price = 0
-    sum_purchase_price = 0
-
-    for item in items:
-        stock = int(item.get("Current_Stock", 0))
-        price = item.get("Purchase_Price")
-        
-        desc = f"Stock: {stock}"
-        if role == "manager":
-            if price and str(price).isdigit():
-                p = int(price)
-                desc += f" | Price: ₹{p}"
-                total_value += (stock * p)
-                sum_purchase_price += p
-                total_items_with_price += 1
-            else:
-                desc += " | Price: N/A"
-
-        rows.append({
-            "id": f"inv_{item['Item_ID']}",
-            "title": str(item["Item_Name"])[:24],
-            "description": desc[:72],
-        })
-
-    body_text = "Here is the current stock."
-    if role == "manager":
-        avg_price = (sum_purchase_price / total_items_with_price) if total_items_with_price > 0 else 0
-        body_text = (
-            f"Tap an item to view details.\n\n"
-            f"📊 *Summary*\n"
-            f"Avg Price: ₹{avg_price:.2f}\n"
-            f"Total Value: ₹{total_value}"
-        )
-
-    send_list_message(
-        to=phone,
-        header="📦 Inventory",
-        body=body_text,
-        button_text="View Items",
-        sections=[{"title": "Items", "rows": rows[:10]}], # Max 10 items for list message
-    )
-
 
 def _send_pending_approvals(phone: str):
     """Show all Pending approval requests to the Manager."""
@@ -479,46 +377,6 @@ def handle_interactive(phone: str, interactive_data: dict):
     if msg_type == "button_reply":
         button_id = interactive_data["button_reply"]["id"]
         _handle_button_reply(phone, button_id)
-
-    elif msg_type == "list_reply":
-        list_id = interactive_data["list_reply"]["id"]
-        _handle_list_reply(phone, list_id)
-
-
-def _handle_list_reply(phone: str, list_id: str):
-    """Process a list-selection reply."""
-    user = get_user(phone)
-    role = str(user.get("Role", "")).strip().lower() if user else "worker"
-
-    if list_id == "cmd_more":
-        _send_more_menu(phone, role)
-    elif list_id == "cmd_view":
-        _send_inventory_list(phone, role)
-    elif list_id == "cmd_history" and role == "manager":
-        recent = get_recent_history(5)
-        if not recent:
-            send_text(phone, "No recent history found.")
-            return
-        msg = "🕒 *Recent History*\n\n"
-        for r in recent:
-            msg += f"• {r['Timestamp']} - {r['Action']} {r['Quantity']} {r['Item_Name']} by {r['Editor_Phone']}\n"
-        send_text(phone, msg)
-    else:
-        command_map = {
-            "cmd_search": "I want to search for an item.",
-            "cmd_new_item": "I want to create a new item.",
-            "cmd_add": "I want to add stock.",
-            "cmd_deduct": "I want to deduct stock.",
-            "cmd_order": "I want to order stock.",
-            "cmd_add_dealer": "I want to add a new dealer."
-        }
-        if list_id in command_map:
-            if GEMINI_API_KEY:
-                send_text(phone, "🤖 AI is thinking...")
-                ai_resp = process_with_gemini(phone, None, None, command_map[list_id])
-                propose_ai_actions(phone, ai_resp)
-            else:
-                send_text(phone, "🤖 AI is disabled. Please add a GEMINI_API_KEY to use this feature.")
 
 
 def _handle_button_reply(phone: str, button_id: str):
@@ -914,8 +772,11 @@ def process_webhook():
                             send_text(phone, "🤖 Failed to download media.")
                             
                     else:
-                        # Unsupported message type
-                        send_text(phone, "🤖 I can only process text, voice notes, and images. Type *menu* to begin.")
+                        # Pass unsupported types to AI to handle naturally
+                        if GEMINI_API_KEY:
+                            send_text(phone, "🤖 AI is thinking...")
+                            ai_resp = process_with_gemini(phone, None, None, f"(System note: User sent a '{msg_type}' message which is unsupported. Tell them you only accept text, voice notes, and images.)")
+                            propose_ai_actions(phone, ai_resp)
 
     except Exception:
         logger.exception("Error processing webhook payload")
