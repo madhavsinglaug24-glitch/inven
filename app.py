@@ -585,7 +585,7 @@ def process_with_gemini(phone: str, file_path: str, mime_type: str, user_text: s
     """
     
     try:
-        model = genai.GenerativeModel('gemini-1.5-flash-latest')
+        model = genai.GenerativeModel('gemini-1.5-flash')
         
         if phone not in user_sessions:
             user_sessions[phone] = {}
