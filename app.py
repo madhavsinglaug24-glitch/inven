@@ -723,12 +723,28 @@ def _handle_session(phone: str, role: str, text: str, session: dict):
             )
             update_inventory_stock(item_id, new_stock)
             log_history(item_id, item_name, action, qty, phone, current_stock, new_stock)
+            item = get_inventory_item(item_id)
+            price = item.get("Purchase_Price", "N/A") if item else "N/A"
+            
+            # Calculate global average
+            items = get_all_inventory()
+            total_items_with_price = 0
+            sum_purchase_price = 0
+            for it in items:
+                price_val = it.get("Purchase_Price")
+                if price_val and str(price_val).isdigit():
+                    sum_purchase_price += int(price_val)
+                    total_items_with_price += 1
+            avg_price = (sum_purchase_price / total_items_with_price) if total_items_with_price > 0 else 0
+
             send_text(
                 phone,
                 f"✅ *Inventory updated!*\n\n"
                 f"Item: {item_name}\n"
                 f"Action: {action} {qty}\n"
-                f"New stock: {new_stock}",
+                f"New stock: {new_stock}\n"
+                f"Item Price: ₹{price}\n"
+                f"Global Avg Price: ₹{avg_price:.2f}",
             )
             # JIT check for deductions
             if action == "Deduct":
