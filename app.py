@@ -32,11 +32,17 @@ load_dotenv()
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.urandom(24)
 
+import google.generativeai as genai
+
 WHATSAPP_TOKEN = os.environ["WHATSAPP_TOKEN"]
 WHATSAPP_PHONE_ID = os.environ["WHATSAPP_PHONE_ID"]
 VERIFY_TOKEN = os.environ["VERIFY_TOKEN"]
 GOOGLE_SHEET_ID = os.environ["GOOGLE_SHEET_ID"]
 GOOGLE_CREDENTIALS_FILE = os.environ.get("GOOGLE_CREDENTIALS_FILE", "credentials.json")
+
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
 
 WHATSAPP_API_URL = (
     f"https://graph.facebook.com/v21.0/{WHATSAPP_PHONE_ID}/messages"
@@ -341,12 +347,17 @@ def handle_message(phone: str, text: str):
         _send_pending_approvals(phone)
         return
 
-    # Fallback
-    send_text(
-        phone,
-        "🤖 I didn't understand that.\n\n"
-        "Type *menu* to see available options.",
-    )
+    # Fallback to AI Processing
+    if GEMINI_API_KEY:
+        send_text(phone, "🤖 AI is thinking...")
+        ai_resp = process_with_gemini(phone, None, None, text)
+        propose_ai_actions(phone, ai_resp)
+    else:
+        send_text(
+            phone,
+            "🤖 I didn't understand that.\n\n"
+            "Type *menu* to see available options.",
+        )
 
 
 def _send_main_menu(phone: str, role: str, name: str):
@@ -1005,7 +1016,22 @@ def _handle_list_reply(phone: str, list_id: str):
 
 
 def _handle_button_reply(phone: str, button_id: str):
-    """Process Approve / Reject button clicks."""
+    """Process Approve / Reject button clicks and AI confirmation."""
+    if button_id == "ai_confirm_yes":
+        session = user_sessions.get(phone)
+        if session and session.get("state") == "awaiting_ai_confirm":
+            actions = session.get("pending_actions", [])
+            execute_ai_actions(phone, actions)
+            reset_session(phone)
+        else:
+            send_text(phone, "🤖 This action has expired.")
+        return
+        
+    if button_id == "ai_confirm_no":
+        send_text(phone, "❌ AI updates cancelled.")
+        reset_session(phone)
+        return
+
     user = get_user(phone)
     if not user or str(user.get("Role", "")).strip().lower() != "manager":
         send_text(phone, "⛔ Only Managers can approve or reject requests.")
@@ -1135,6 +1161,146 @@ def _jit_check(manager_phone: str, item_id: str, item_name: str, new_stock: int,
 
 
 # ---------------------------------------------------------------------------
+# AI Processing (Gemini)
+# ---------------------------------------------------------------------------
+
+import tempfile
+
+def _download_whatsapp_media(media_id: str) -> tuple[str, str]:
+    """Download media from WhatsApp servers."""
+    url = f"https://graph.facebook.com/v21.0/{media_id}"
+    resp = requests.get(url, headers=_wa_headers())
+    if resp.status_code != 200:
+        logger.error(f"Failed to get media url: {resp.text}")
+        return None, None
+        
+    data = resp.json()
+    media_url = data.get("url")
+    mime_type = data.get("mime_type")
+    
+    file_resp = requests.get(media_url, headers=_wa_headers())
+    if file_resp.status_code != 200:
+        logger.error(f"Failed to download media file: {file_resp.text}")
+        return None, None
+
+    ext = ".jpg" if "image" in mime_type else ".ogg"
+    fd, filepath = tempfile.mkstemp(suffix=ext)
+    with os.fdopen(fd, 'wb') as f:
+        f.write(file_resp.content)
+        
+    return filepath, mime_type
+
+def process_with_gemini(phone: str, file_path: str, mime_type: str, user_text: str = None) -> str:
+    """Send text, image, or audio to Gemini to parse inventory actions."""
+    items = get_all_inventory()
+    items_str = json.dumps([{"id": i["Item_ID"], "name": i["Item_Name"], "stock": i["Current_Stock"]} for i in items])
+    
+    prompt = f"""
+    You are an AI inventory assistant. 
+    Current inventory: {items_str}
+    
+    Extract the inventory updates the user wants to make from the provided text, voice note, or bill image.
+    If it's an image of a bill, extract the items and assume action is "Add" (receiving new stock).
+    
+    Return ONLY a JSON array of actions. Format:
+    [{{"action": "Add" | "Deduct", "item_id": "ITEM-X", "quantity": 10, "supplier_name": "Optional Name"}}]
+    If you cannot identify any updates, return an empty array [].
+    Do not return Markdown formatting, just raw JSON.
+    """
+    
+    try:
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        if file_path:
+            gemini_file = genai.upload_file(path=file_path, mime_type=mime_type)
+            response = model.generate_content([gemini_file, prompt])
+            genai.delete_file(gemini_file.name)
+            os.remove(file_path)
+            return response.text
+        else:
+            response = model.generate_content([user_text, prompt])
+            return response.text
+    except Exception as e:
+        logger.error(f"Gemini API Error: {e}")
+        return "[]"
+
+def propose_ai_actions(phone: str, actions_json: str):
+    """Parse Gemini JSON and prompt the user for confirmation."""
+    try:
+        clean_json = actions_json.strip()
+        if clean_json.startswith("```json"):
+            clean_json = clean_json[7:-3]
+        elif clean_json.startswith("```"):
+            clean_json = clean_json[3:-3]
+            
+        actions = json.loads(clean_json.strip())
+        
+        if not isinstance(actions, list) or not actions:
+            send_text(phone, "🤖 I couldn't clearly understand any inventory updates. Please try again or type *menu*.")
+            return
+
+        summary = "🤖 *AI understood the following:*\n\n"
+        for act in actions:
+            action = act.get("action", "Add").capitalize()
+            item_id = act.get("item_id", "")
+            qty = act.get("quantity", 0)
+            
+            # Auto-capitalize Add/Deduct
+            if action not in ["Add", "Deduct"]:
+                action = "Add"
+                
+            item = get_inventory_item(item_id)
+            if item:
+                summary += f"• {action} {qty} of {item['Item_Name']}\n"
+                act["action"] = action # ensure cleaned
+            else:
+                summary += f"• {action} {qty} of Unknown Item ({item_id})\n"
+                
+        user_sessions[phone] = {"state": "awaiting_ai_confirm", "pending_actions": actions}
+        
+        send_button_message(
+            to=phone,
+            body=f"{summary}\nDo you want to apply these changes?",
+            buttons=[
+                {"id": "ai_confirm_yes", "title": "✅ Yes, apply"},
+                {"id": "ai_confirm_no", "title": "❌ Cancel"}
+            ]
+        )
+            
+    except Exception as e:
+        logger.error(f"AI Parse Error: {e}")
+        send_text(phone, "🤖 Sorry, I had trouble processing that with AI. Please use the menu.")
+
+def execute_ai_actions(phone: str, actions: list):
+    """Actually apply the confirmed actions."""
+    try:
+        results = []
+        for act in actions:
+            action = act.get("action")
+            item_id = act.get("item_id")
+            qty = act.get("quantity")
+            
+            item = get_inventory_item(item_id)
+            if not item:
+                continue
+                
+            current_stock = int(item["Current_Stock"])
+            new_stock = current_stock + qty if action == "Add" else current_stock - qty
+            
+            update_inventory_stock(item_id, new_stock)
+            log_history(item_id, item["Item_Name"], action, qty, phone, current_stock, new_stock)
+            
+            results.append(f"✅ {action} {qty} {item['Item_Name']} (New stock: {new_stock})")
+            
+        if results:
+            send_text(phone, "🤖 *Updates Applied:*\n" + "\n".join(results))
+        else:
+            send_text(phone, "⚠️ No valid items were updated.")
+            
+    except Exception as e:
+        logger.error(f"AI Execute Error: {e}")
+        send_text(phone, "🤖 Error applying updates.")
+
+# ---------------------------------------------------------------------------
 # Flask routes
 # ---------------------------------------------------------------------------
 
@@ -1183,9 +1349,23 @@ def process_webhook():
                         logger.info("Interactive from %s: %s", phone, json.dumps(interactive_data))
                         handle_interactive(phone, interactive_data)
 
+                    elif msg_type in ("image", "audio"):
+                        if not GEMINI_API_KEY:
+                            send_text(phone, "🤖 AI is currently disabled. Please provide a GEMINI_API_KEY.")
+                            continue
+                            
+                        send_text(phone, f"🤖 AI is processing your {msg_type}...")
+                        media_id = msg[msg_type]["id"]
+                        file_path, mime_type = _download_whatsapp_media(media_id)
+                        if file_path:
+                            ai_resp = process_with_gemini(phone, file_path, mime_type)
+                            propose_ai_actions(phone, ai_resp)
+                        else:
+                            send_text(phone, "🤖 Failed to download media.")
+                            
                     else:
                         # Unsupported message type
-                        send_text(phone, "🤖 I can only process text and interactive messages. Type *menu* to begin.")
+                        send_text(phone, "🤖 I can only process text, voice notes, and images. Type *menu* to begin.")
 
     except Exception:
         logger.exception("Error processing webhook payload")
