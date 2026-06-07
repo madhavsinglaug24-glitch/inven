@@ -321,26 +321,9 @@ def handle_message(phone: str, text: str):
         _send_main_menu(phone, role, name)
         return
 
-    # Check for active multi-step session
-    session = user_sessions.get(phone)
-
-    if session:
-        _handle_session(phone, role, text, session)
-        return
-
     # Quick commands
     if text_lower in ("view", "inventory", "stock", "list"):
         _send_inventory_list(phone, role)
-        return
-
-    if text_lower in ("add", "deduct") and role == "worker":
-        user_sessions[phone] = {"state": "awaiting_item_id", "action": text_lower.capitalize()}
-        send_text(phone, f"📝 *{text_lower.capitalize()} Stock*\n\nPlease enter the *Item ID*:")
-        return
-
-    if text_lower in ("add", "deduct") and role == "manager":
-        user_sessions[phone] = {"state": "awaiting_item_id", "action": text_lower.capitalize()}
-        send_text(phone, f"📝 *{text_lower.capitalize()} Stock*\n\nPlease enter the *Item ID*:")
         return
 
     if text_lower == "pending" and role == "manager":
@@ -485,303 +468,6 @@ def _send_pending_approvals(phone: str):
 # Multi-step session handler (Add / Deduct flow)
 # ---------------------------------------------------------------------------
 
-def _handle_session(phone: str, role: str, text: str, session: dict):
-    """Walk the user through Add / Deduct steps."""
-    state = session.get("state")
-    action = session.get("action", "Add")
-
-    if text.strip().lower() in ("cancel", "exit", "quit"):
-        reset_session(phone)
-        send_text(phone, "❌ Operation cancelled.  Type *menu* to start over.")
-        return
-
-    # Step: Add New Item
-    if state == "awaiting_new_item_name":
-        session["new_item_name"] = text.strip()
-        session["state"] = "awaiting_new_item_price"
-        send_text(phone, f"➕ *Add New Item*\n\nName: {session['new_item_name']}\n\nWhat is the *Purchase Price* (e.g. 500)?")
-        return
-
-    if state == "awaiting_new_item_price":
-        if not text.strip().isdigit():
-            send_text(phone, "⚠️ Please enter a valid number for price. Try again or type *cancel*.")
-            return
-        session["new_item_price"] = int(text.strip())
-        session["state"] = "awaiting_new_item_min_stock"
-        send_text(phone, "What is the *Minimum Stock Alert Level* (e.g. 10)?")
-        return
-
-    if state == "awaiting_new_item_min_stock":
-        if not text.strip().isdigit():
-            send_text(phone, "⚠️ Please enter a valid number. Try again or type *cancel*.")
-            return
-        session["new_item_min_stock"] = int(text.strip())
-        session["state"] = "awaiting_new_item_initial_stock"
-        send_text(phone, "What is the *Initial Stock Quantity* (e.g. 0)?")
-        return
-
-    if state == "awaiting_new_item_initial_stock":
-        if not text.strip().isdigit():
-            send_text(phone, "⚠️ Please enter a valid number. Try again or type *cancel*.")
-            return
-        session["new_item_initial_stock"] = int(text.strip())
-        session["state"] = "awaiting_new_item_supplier"
-        
-        # Send supplier selection
-        ws = _worksheet("Suppliers")
-        records = ws.get_all_records()
-        rows = [{"id": "sel_sup_NONE", "title": "None", "description": "No supplier"}]
-        for sup in records[:9]:
-            rows.append({
-                "id": f"sel_sup_{sup['Supplier_ID']}",
-                "title": str(sup["Name"])[:24],
-                "description": str(sup["Supplier_ID"])[:72]
-            })
-        
-        send_list_message(
-            to=phone,
-            header="➕ Add New Item",
-            body="Select the Supplier for this item:",
-            button_text="Select Supplier",
-            sections=[{"title": "Suppliers", "rows": rows}]
-        )
-        return
-
-    # Step: Add Dealer Name
-    if state == "awaiting_dealer_name":
-        session["dealer_name"] = text.strip()
-        session["state"] = "awaiting_dealer_phone"
-        send_text(phone, f"➕ *Add Dealer*\n\nName: {text.strip()}\n\nPlease enter their *Phone Number* (with country code, no + or spaces, e.g. 919876543210):")
-        return
-
-    # Step: Add Dealer Phone
-    if state == "awaiting_dealer_phone":
-        dealer_phone = text.strip()
-        if not dealer_phone.isdigit():
-            send_text(phone, "⚠️ Phone number must contain only digits. Try again or type *cancel*.")
-            return
-        dealer_name = session["dealer_name"]
-        ws = _worksheet("Suppliers")
-        records = ws.get_all_records()
-        new_id = f"SUP-{len(records) + 1}"
-        ws.append_row([new_id, dealer_name, dealer_phone])
-        send_text(phone, f"✅ Dealer added successfully!\n\nName: {dealer_name}\nPhone: {dealer_phone}\nID: {new_id}")
-        reset_session(phone)
-        return
-
-    # Step: Action Search Term (Add / Deduct / Order)
-    if state == "awaiting_action_search_term":
-        term = text.strip().lower()
-        items = get_all_inventory()
-        matches = []
-        if term == "all":
-            matches = items
-        else:
-            for it in items:
-                if term in str(it.get("Item_ID", "")).lower() or term in str(it.get("Item_Name", "")).lower():
-                    matches.append(it)
-        
-        if not matches:
-            send_text(phone, "⚠️ No items found matching your search. Try again or type *cancel*.")
-            return
-
-        rows = []
-        for item in matches[:10]:
-            rows.append({
-                "id": f"sel_item_{item['Item_ID']}",
-                "title": str(item["Item_Name"])[:24],
-                "description": f"ID: {item['Item_ID']} | Stock: {item['Current_Stock']}"
-            })
-        
-        send_list_message(
-            to=phone,
-            header=f"🔍 Search: {term}",
-            body=f"Select the item to {action.lower()}:",
-            button_text="Select Item",
-            sections=[{"title": "Matches", "rows": rows}],
-        )
-        return
-
-    # Step: Order Item - Prompt
-    if state == "awaiting_order_prompt":
-        item_name = session["item_name"]
-        supplier_name = session["supplier_name"]
-        supplier_number = session["supplier_number"]
-        custom_msg = text.strip()
-        
-        wa_link = f"https://wa.me/{supplier_number}?text={requests.utils.quote(custom_msg)}"
-        
-        send_text(
-            phone,
-            f"✅ *Message ready!*\n\n"
-            f"To: {supplier_name}\n"
-            f"Item: {item_name}\n\n"
-            f"📲 Tap below to send your message via WhatsApp:\n{wa_link}"
-        )
-        reset_session(phone)
-        return
-
-    # Step: Search Item
-    if state == "awaiting_search_term":
-        term = text.strip().lower()
-        items = get_all_inventory()
-        matches = []
-        for it in items:
-            if term in str(it.get("Item_ID", "")).lower() or term in str(it.get("Item_Name", "")).lower():
-                matches.append(it)
-        
-        if not matches:
-            send_text(phone, "⚠️ No items found matching your search. Try again or type *cancel*.")
-            return
-            
-        if len(matches) == 1:
-            item = matches[0]
-            detail = (
-                f"📦 *{item['Item_Name']}*\n\n"
-                f"Item ID: {item['Item_ID']}\n"
-                f"Stock: {item['Current_Stock']}\n"
-                f"Min Stock: {item.get('Min_Stock', 'N/A')}\n"
-            )
-            if role == "manager":
-                detail += f"Purchase Price: ₹{item.get('Purchase_Price', 'N/A')}\n"
-                supplier = get_supplier(str(item.get("Supplier_ID", "")))
-                if supplier:
-                    detail += f"Supplier: {supplier['Name']} ({supplier['Contact_Number']})\n"
-            send_text(phone, detail)
-            reset_session(phone)
-            return
-            
-        # Multiple matches
-        rows = []
-        for item in matches[:10]: # Max 10 rows for list message
-            desc = f"Stock: {item['Current_Stock']}"
-            if role == "manager":
-                desc += f" | Price: ₹{item.get('Purchase_Price', 'N/A')}"
-            rows.append({
-                "id": f"inv_{item['Item_ID']}",
-                "title": str(item["Item_Name"])[:24],
-                "description": desc[:72],
-            })
-        
-        send_list_message(
-            to=phone,
-            header="🔍 Search Results",
-            body="Multiple items found. Tap to view details.",
-            button_text="View Items",
-            sections=[{"title": "Matches", "rows": rows}],
-        )
-        reset_session(phone)
-        return
-
-    # Note: awaiting_item_id is replaced by awaiting_action_search_term and list selections
-
-    # Step 2 — collect quantity
-    if state == "awaiting_quantity":
-        if not text.strip().isdigit() or int(text.strip()) <= 0:
-            send_text(phone, "⚠️ Please enter a valid positive number.")
-            return
-        qty = int(text.strip())
-        item_id = session["item_id"]
-        item_name = session["item_name"]
-        current_stock = session["current_stock"]
-        min_stock = session["min_stock"]
-        supplier_id = session["supplier_id"]
-
-
-
-        # ---- Worker: create approval request ----------------------------------
-        if role == "worker":
-            req_id = create_approval(phone, item_id, action, qty)
-            send_text(
-                phone,
-                f"✅ *Request submitted!*\n\n"
-                f"Request ID: {req_id}\n"
-                f"Item: {item_name}\n"
-                f"Action: {action} {qty} units\n\n"
-                "Waiting for Manager approval.",
-            )
-            # Notify Manager
-            manager_phone = get_manager_phone()
-            if manager_phone:
-                body = (
-                    f"📋 *New Approval Request*\n\n"
-                    f"Request: {req_id}\n"
-                    f"Worker: {phone}\n"
-                    f"Item: {item_name} ({item_id})\n"
-                    f"Action: {action} {qty} units"
-                )
-                send_button_message(
-                    to=manager_phone,
-                    body=body,
-                    buttons=[
-                        {"id": f"approve_{req_id}", "title": "✅ Approve"},
-                        {"id": f"reject_{req_id}", "title": "❌ Reject"},
-                    ],
-                )
-            reset_session(phone)
-            return
-
-        # ---- Manager: direct update ------------------------------------------
-        if role == "manager":
-            if action == "Add":
-                user_sessions[phone]["qty_to_add"] = qty
-                user_sessions[phone]["state"] = "awaiting_add_stock_supplier"
-                
-                ws = _worksheet("Suppliers")
-                records = ws.get_all_records()
-                rows = [{"id": "sel_add_sup_NONE", "title": "Unknown/None", "description": "No specific supplier"}]
-                for sup in records[:9]:
-                    rows.append({
-                        "id": f"sel_add_sup_{sup['Supplier_ID']}",
-                        "title": str(sup["Name"])[:24],
-                        "description": str(sup["Supplier_ID"])[:72]
-                    })
-                
-                send_list_message(
-                    to=phone,
-                    header="➕ Select Supplier",
-                    body=f"You are adding {qty} of {item_name}.\nWho is the supplier for this batch?",
-                    button_text="Select Supplier",
-                    sections=[{"title": "Suppliers", "rows": rows}]
-                )
-                return
-            else:
-                new_stock = current_stock - qty
-                update_inventory_stock(item_id, new_stock)
-                log_history(item_id, item_name, action, qty, phone, current_stock, new_stock)
-                item = get_inventory_item(item_id)
-                price = item.get("Purchase_Price", "N/A") if item else "N/A"
-                supplier_id_val = item.get("Supplier_ID", "") if item else ""
-                supplier = get_supplier(supplier_id_val)
-                supplier_name = supplier["Name"] if supplier else "N/A"
-                
-                # Calculate global average
-                items = get_all_inventory()
-                total_items_with_price = 0
-                sum_purchase_price = 0
-                for it in items:
-                    price_val = it.get("Purchase_Price")
-                    if price_val and str(price_val).isdigit():
-                        sum_purchase_price += int(price_val)
-                        total_items_with_price += 1
-                avg_price = (sum_purchase_price / total_items_with_price) if total_items_with_price > 0 else 0
-
-                send_text(
-                    phone,
-                    f"✅ *Inventory updated!*\n\n"
-                    f"Item: {item_name}\n"
-                    f"Action: {action} {qty}\n"
-                    f"New stock: {new_stock}\n"
-                    f"Item Price: ₹{price}\n"
-                    f"Supplier: {supplier_name}\n"
-                    f"Global Avg Price: ₹{avg_price:.2f}",
-                )
-                # JIT check for deductions
-                _jit_check(phone, item_id, item_name, new_stock, min_stock, supplier_id)
-                reset_session(phone)
-                return
-
-
 # ---------------------------------------------------------------------------
 # Interactive message handler (button & list replies)
 # ---------------------------------------------------------------------------
@@ -804,87 +490,10 @@ def _handle_list_reply(phone: str, list_id: str):
     user = get_user(phone)
     role = str(user.get("Role", "")).strip().lower() if user else "worker"
 
-    # Menu commands
     if list_id == "cmd_more":
         _send_more_menu(phone, role)
-    elif list_id == "cmd_new_item":
-        user_sessions[phone] = {"state": "awaiting_new_item_name", "action": "AddNewItem"}
-        send_text(phone, "➕ *Add New Item*\n\nWhat is the *Name* of the new item?")
-    elif list_id.startswith("sel_sup_") and user_sessions.get(phone, {}).get("state") == "awaiting_new_item_supplier":
-        sup_id = list_id.replace("sel_sup_", "")
-        if sup_id == "NONE":
-            sup_id = ""
-        
-        session = user_sessions[phone]
-        name = session["new_item_name"]
-        price = session["new_item_price"]
-        min_stock = session["new_item_min_stock"]
-        initial_stock = session["new_item_initial_stock"]
-        
-        ws = _worksheet("Inventory")
-        records = ws.get_all_records()
-        max_num = 0
-        for r in records:
-            item_id = str(r.get("Item_ID", ""))
-            if item_id.startswith("ITEM-"):
-                num = item_id.replace("ITEM-", "")
-                if num.isdigit() and int(num) > max_num:
-                    max_num = int(num)
-        new_id = f"ITEM-{max_num + 1}"
-        
-        ws.append_row([new_id, name, initial_stock, min_stock, price, sup_id])
-        log_history(new_id, name, "Create", initial_stock, phone, 0, initial_stock)
-        
-        send_text(phone, f"✅ *Item Created!*\n\nID: {new_id}\nName: {name}\nStock: {initial_stock}\nPrice: ₹{price}\nSupplier: {sup_id}")
-        reset_session(phone)
-    elif list_id.startswith("sel_add_sup_") and user_sessions.get(phone, {}).get("state") == "awaiting_add_stock_supplier":
-        sup_id = list_id.replace("sel_add_sup_", "")
-        if sup_id == "NONE":
-            sup_id = ""
-        
-        session = user_sessions[phone]
-        item_id = session["item_id"]
-        item_name = session["item_name"]
-        current_stock = session["current_stock"]
-        qty = session["qty_to_add"]
-
-        new_stock = current_stock + qty
-        update_inventory_stock(item_id, new_stock)
-        
-        log_history(item_id, item_name, "Add", qty, phone, current_stock, new_stock)
-        
-        item = get_inventory_item(item_id)
-        price = item.get("Purchase_Price", "N/A") if item else "N/A"
-        supplier = get_supplier(sup_id) if sup_id else None
-        supplier_name = supplier["Name"] if supplier else "Unknown/None"
-        
-        # Calculate global average
-        items = get_all_inventory()
-        total_items_with_price = 0
-        sum_purchase_price = 0
-        for it in items:
-            price_val = it.get("Purchase_Price")
-            if price_val and str(price_val).isdigit():
-                sum_purchase_price += int(price_val)
-                total_items_with_price += 1
-        avg_price = (sum_purchase_price / total_items_with_price) if total_items_with_price > 0 else 0
-
-        send_text(
-            phone,
-            f"✅ *Inventory updated!*\n\n"
-            f"Item: {item_name}\n"
-            f"Action: Add {qty}\n"
-            f"New stock: {new_stock}\n"
-            f"Item Price: ₹{price}\n"
-            f"Supplier (this batch): {supplier_name}\n"
-            f"Global Avg Price: ₹{avg_price:.2f}",
-        )
-        reset_session(phone)
     elif list_id == "cmd_view":
         _send_inventory_list(phone, role)
-    elif list_id == "cmd_search":
-        user_sessions[phone] = {"state": "awaiting_search_term", "action": "Search"}
-        send_text(phone, "🔍 *Search Item*\n\nPlease enter the *Item ID* or *Item Name*:")
     elif list_id == "cmd_history" and role == "manager":
         recent = get_recent_history(5)
         if not recent:
@@ -894,125 +503,22 @@ def _handle_list_reply(phone: str, list_id: str):
         for r in recent:
             msg += f"• {r['Timestamp']} - {r['Action']} {r['Quantity']} {r['Item_Name']} by {r['Editor_Phone']}\n"
         send_text(phone, msg)
-    elif list_id == "cmd_order" and role == "manager":
-        user_sessions[phone] = {"state": "awaiting_action_search_term", "action": "Order"}
-        send_text(phone, "🛒 *Order Stock*\n\nPlease enter a search term for the item (or type 'all'):")
-    elif list_id == "cmd_add_dealer" and role == "manager":
-        user_sessions[phone] = {"state": "awaiting_dealer_name", "action": "AddDealer"}
-        send_text(phone, "➕ *Add Dealer*\n\nPlease enter the *Dealer's Name*:")
-    elif list_id == "cmd_add":
-        user_sessions[phone] = {"state": "awaiting_action_search_term", "action": "Add"}
-        send_text(phone, "📝 *Add Stock*\n\nPlease enter a search term for the item (or type 'all'):")
-    elif list_id == "cmd_deduct":
-        user_sessions[phone] = {"state": "awaiting_action_search_term", "action": "Deduct"}
-        send_text(phone, "📝 *Deduct Stock*\n\nPlease enter a search term for the item (or type 'all'):")
-    elif list_id == "cmd_pending":
-        _send_pending_approvals(phone)
-    elif list_id.startswith("inv_"):
-        # Item detail view
-        item_id = list_id.replace("inv_", "")
-        item = get_inventory_item(item_id)
-        if item:
-            detail = (
-                f"📦 *{item['Item_Name']}*\n\n"
-                f"Item ID: {item['Item_ID']}\n"
-                f"Stock: {item['Current_Stock']}\n"
-                f"Min Stock: {item.get('Min_Stock', 'N/A')}\n"
-            )
-            if role == "manager":
-                detail += f"Purchase Price: ₹{item.get('Purchase_Price', 'N/A')}\n"
-                supplier = get_supplier(str(item.get("Supplier_ID", "")))
-                if supplier:
-                    detail += f"Supplier: {supplier['Name']} ({supplier['Contact_Number']})\n"
-            send_text(phone, detail)
-        else:
-            send_text(phone, "⚠️ Item not found.")
-
-    elif list_id.startswith("sel_item_"):
-        item_id = list_id.replace("sel_item_", "")
-        item = get_inventory_item(item_id)
-        if not item:
-            send_text(phone, "⚠️ Item not found.")
-            return
-        
-        action = user_sessions.get(phone, {}).get("action", "")
-        if action in ("Add", "Deduct"):
-            user_sessions[phone]["item_id"] = str(item["Item_ID"])
-            user_sessions[phone]["item_name"] = item["Item_Name"]
-            user_sessions[phone]["current_stock"] = int(item["Current_Stock"])
-            user_sessions[phone]["min_stock"] = int(item.get("Min_Stock", 0))
-            user_sessions[phone]["supplier_id"] = str(item.get("Supplier_ID", ""))
-            user_sessions[phone]["state"] = "awaiting_quantity"
-            send_text(
-                phone,
-                f"Item: *{item['Item_Name']}*  (current stock: {item['Current_Stock']})\n\n"
-                f"Enter the *quantity* to {action.lower()}:"
-            )
-        elif action == "Order":
-            supplier_id_raw = str(item.get("Supplier_ID", ""))
-            if not supplier_id_raw:
-                send_text(phone, f"⚠️ No supplier found for item {item['Item_Name']}. Type *menu* to exit.")
-                reset_session(phone)
-                return
-            
-            # Check for multiple suppliers
-            supplier_ids = [s.strip() for s in supplier_id_raw.split(",") if s.strip()]
-            if len(supplier_ids) > 1:
-                rows = []
-                for s_id in supplier_ids:
-                    sup = get_supplier(s_id)
-                    if sup:
-                        rows.append({
-                            "id": f"sel_sup_{s_id}",
-                            "title": str(sup["Name"])[:24],
-                            "description": str(sup["Contact_Number"])[:72]
-                        })
-                if not rows:
-                    send_text(phone, "⚠️ Error loading suppliers.")
-                    reset_session(phone)
-                    return
-                user_sessions[phone]["item_name"] = item["Item_Name"]
-                user_sessions[phone]["state"] = "awaiting_supplier_selection"
-                send_list_message(
-                    to=phone,
-                    header="🛒 Select Supplier",
-                    body="This item has multiple dealers. Select one:",
-                    button_text="Dealers",
-                    sections=[{"title": "Suppliers", "rows": rows[:10]}]
-                )
+    else:
+        command_map = {
+            "cmd_search": "I want to search for an item.",
+            "cmd_new_item": "I want to create a new item.",
+            "cmd_add": "I want to add stock.",
+            "cmd_deduct": "I want to deduct stock.",
+            "cmd_order": "I want to order stock.",
+            "cmd_add_dealer": "I want to add a new dealer."
+        }
+        if list_id in command_map:
+            if GEMINI_API_KEY:
+                send_text(phone, "🤖 AI is thinking...")
+                ai_resp = process_with_gemini(phone, None, None, command_map[list_id])
+                propose_ai_actions(phone, ai_resp)
             else:
-                supplier = get_supplier(supplier_ids[0])
-                if not supplier:
-                    send_text(phone, f"⚠️ No valid supplier found. Type *menu* to exit.")
-                    reset_session(phone)
-                    return
-                user_sessions[phone]["item_name"] = item["Item_Name"]
-                user_sessions[phone]["supplier_number"] = str(supplier["Contact_Number"]).strip().lstrip("+")
-                user_sessions[phone]["supplier_name"] = supplier["Name"]
-                user_sessions[phone]["state"] = "awaiting_order_prompt"
-                send_text(
-                    phone,
-                    f"🛒 *Order {item['Item_Name']}*\n"
-                    f"Supplier: {supplier['Name']}\n\n"
-                    "Please type the *message/prompt* you want to send to the supplier:"
-                )
-
-    elif list_id.startswith("sel_sup_"):
-        s_id = list_id.replace("sel_sup_", "")
-        supplier = get_supplier(s_id)
-        if not supplier:
-            send_text(phone, "⚠️ Supplier not found.")
-            return
-        user_sessions[phone]["supplier_number"] = str(supplier["Contact_Number"]).strip().lstrip("+")
-        user_sessions[phone]["supplier_name"] = supplier["Name"]
-        user_sessions[phone]["state"] = "awaiting_order_prompt"
-        item_name = user_sessions[phone].get("item_name", "Unknown Item")
-        send_text(
-            phone,
-            f"🛒 *Order {item_name}*\n"
-            f"Supplier: {supplier['Name']}\n\n"
-            "Please type the *message/prompt* you want to send to the supplier:"
-        )
+                send_text(phone, "🤖 AI is disabled. Please add a GEMINI_API_KEY to use this feature.")
 
 
 def _handle_button_reply(phone: str, button_id: str):
@@ -1191,40 +697,63 @@ def _download_whatsapp_media(media_id: str) -> tuple[str, str]:
     return filepath, mime_type
 
 def process_with_gemini(phone: str, file_path: str, mime_type: str, user_text: str = None) -> str:
-    """Send text, image, or audio to Gemini to parse inventory actions."""
+    """Send text, image, or audio to Gemini to converse or parse actions."""
     items = get_all_inventory()
-    items_str = json.dumps([{"id": i["Item_ID"], "name": i["Item_Name"], "stock": i["Current_Stock"]} for i in items])
+    items_str = json.dumps([{"id": i["Item_ID"], "name": i["Item_Name"], "stock": i["Current_Stock"], "min": i.get("Min_Stock", 0), "price": i.get("Purchase_Price", 0), "sup_id": i.get("Supplier_ID", "")} for i in items])
+    try:
+        suppliers = _worksheet("Suppliers").get_all_records()
+        sup_str = json.dumps([{"id": s["Supplier_ID"], "name": s["Name"]} for s in suppliers])
+    except:
+        sup_str = "[]"
     
-    prompt = f"""
-    You are an AI inventory assistant. 
+    prompt_context = f"""
+    You are an AI inventory assistant chatting over WhatsApp. 
     Current inventory: {items_str}
+    Current suppliers: {sup_str}
     
-    Extract the inventory updates the user wants to make from the provided text, voice note, or bill image.
-    If it's an image of a bill, extract the items and assume action is "Add" (receiving new stock).
+    Your goal is to gather information to execute an inventory update (Add stock, Deduct stock, or Create a new item).
+    If the user just says "Add stock", ask them what item and quantity.
+    If they provide an image of a bill, extract the items and assume action is "Add" (receiving new stock), and ask them to confirm.
     
-    Return ONLY a JSON array of actions. Format:
-    [{{"action": "Add" | "Deduct", "item_id": "ITEM-X", "quantity": 10, "supplier_name": "Optional Name"}}]
-    If you cannot identify any updates, return an empty array [].
-    Do not return Markdown formatting, just raw JSON.
+    You MUST ALWAYS respond with a structured JSON object in EXACTLY this format (no markdown code blocks, just raw JSON):
+    {{
+      "reply_to_user": "Your conversational reply asking for clarification or confirming details.",
+      "is_ready_to_execute": false,
+      "actions": []
+    }}
+    
+    When the user has confirmed they want to proceed and you have ALL details (Item, Action, Quantity), set "is_ready_to_execute" to true and populate "actions" with:
+    [{{"action": "Add"|"Deduct"|"Create", "item_id": "ITEM-X", "quantity": 10, "supplier_name": "Supplier Name", "new_item_name": "If Create", "new_item_price": 0, "new_item_min_stock": 0}}]
     """
     
     try:
         model = genai.GenerativeModel('gemini-1.5-flash')
+        
+        if phone not in user_sessions:
+            user_sessions[phone] = {}
+        history = user_sessions[phone].get("history", [])
+        
+        chat = model.start_chat(history=history)
+        current_message = prompt_context + "\n\nUSER MESSAGE:\n" + (user_text or "Please analyze the attached file.")
+        
         if file_path:
             gemini_file = genai.upload_file(path=file_path, mime_type=mime_type)
-            response = model.generate_content([gemini_file, prompt])
+            response = chat.send_message([gemini_file, current_message])
             genai.delete_file(gemini_file.name)
             os.remove(file_path)
-            return response.text
         else:
-            response = model.generate_content([user_text, prompt])
-            return response.text
+            response = chat.send_message(current_message)
+            
+        # Store last 10 turns
+        user_sessions[phone]["history"] = chat.history[-10:]
+        
+        return response.text
     except Exception as e:
         logger.error(f"Gemini API Error: {e}")
-        return "[]"
+        return "{}"
 
 def propose_ai_actions(phone: str, actions_json: str):
-    """Parse Gemini JSON and prompt the user for confirmation."""
+    """Parse Gemini JSON. Send conversational reply and show buttons if ready."""
     try:
         clean_json = actions_json.strip()
         if clean_json.startswith("```json"):
@@ -1232,34 +761,22 @@ def propose_ai_actions(phone: str, actions_json: str):
         elif clean_json.startswith("```"):
             clean_json = clean_json[3:-3]
             
-        actions = json.loads(clean_json.strip())
+        data = json.loads(clean_json.strip())
         
-        if not isinstance(actions, list) or not actions:
-            send_text(phone, "🤖 I couldn't clearly understand any inventory updates. Please try again or type *menu*.")
+        reply = data.get("reply_to_user", "I didn't understand that.")
+        ready = data.get("is_ready_to_execute", False)
+        actions = data.get("actions", [])
+        
+        if not ready or not actions:
+            send_text(phone, "🤖 " + reply)
             return
 
-        summary = "🤖 *AI understood the following:*\n\n"
-        for act in actions:
-            action = act.get("action", "Add").capitalize()
-            item_id = act.get("item_id", "")
-            qty = act.get("quantity", 0)
-            
-            # Auto-capitalize Add/Deduct
-            if action not in ["Add", "Deduct"]:
-                action = "Add"
-                
-            item = get_inventory_item(item_id)
-            if item:
-                summary += f"• {action} {qty} of {item['Item_Name']}\n"
-                act["action"] = action # ensure cleaned
-            else:
-                summary += f"• {action} {qty} of Unknown Item ({item_id})\n"
-                
-        user_sessions[phone] = {"state": "awaiting_ai_confirm", "pending_actions": actions}
+        user_sessions[phone]["state"] = "awaiting_ai_confirm"
+        user_sessions[phone]["pending_actions"] = actions
         
         send_button_message(
             to=phone,
-            body=f"{summary}\nDo you want to apply these changes?",
+            body=f"🤖 {reply}\n\n*Ready to apply changes?*",
             buttons=[
                 {"id": "ai_confirm_yes", "title": "✅ Yes, apply"},
                 {"id": "ai_confirm_no", "title": "❌ Cancel"}
@@ -1267,35 +784,68 @@ def propose_ai_actions(phone: str, actions_json: str):
         )
             
     except Exception as e:
-        logger.error(f"AI Parse Error: {e}")
-        send_text(phone, "🤖 Sorry, I had trouble processing that with AI. Please use the menu.")
+        logger.error(f"AI Parse Error: {e}\nRaw output: {actions_json}")
+        send_text(phone, "🤖 Sorry, I got confused. What did you want to do?")
 
 def execute_ai_actions(phone: str, actions: list):
-    """Actually apply the confirmed actions."""
+    """Apply actions or create worker approvals."""
+    user = get_user(phone)
+    role = str(user.get("Role", "")).strip().lower() if user else "worker"
+    
     try:
         results = []
         for act in actions:
-            action = act.get("action")
-            item_id = act.get("item_id")
-            qty = act.get("quantity")
+            action = act.get("action", "").capitalize()
+            qty = int(act.get("quantity", 0))
             
-            item = get_inventory_item(item_id)
-            if not item:
-                continue
+            if action == "Create":
+                if role != "manager":
+                    results.append("⛔ Only Managers can create new items.")
+                    continue
+                name = act.get("new_item_name", "Unknown Item")
+                price = int(act.get("new_item_price", 0))
+                min_stock = int(act.get("new_item_min_stock", 0))
                 
-            current_stock = int(item["Current_Stock"])
-            new_stock = current_stock + qty if action == "Add" else current_stock - qty
-            
-            update_inventory_stock(item_id, new_stock)
-            log_history(item_id, item["Item_Name"], action, qty, phone, current_stock, new_stock)
-            
-            results.append(f"✅ {action} {qty} {item['Item_Name']} (New stock: {new_stock})")
-            
+                ws = _worksheet("Inventory")
+                records = ws.get_all_records()
+                max_num = max([int(str(r.get("Item_ID", "ITEM-0")).replace("ITEM-", "")) for r in records if str(r.get("Item_ID", "")).startswith("ITEM-")] + [0])
+                new_id = f"ITEM-{max_num + 1}"
+                
+                ws.append_row([new_id, name, qty, min_stock, price, ""])
+                log_history(new_id, name, "Create", qty, phone, 0, qty)
+                results.append(f"✅ Created {name} (ID: {new_id}, Stock: {qty})")
+                continue
+
+            if action in ["Add", "Deduct"]:
+                item_id = act.get("item_id")
+                item = get_inventory_item(item_id)
+                if not item:
+                    results.append(f"⚠️ Could not find item {item_id}")
+                    continue
+                    
+                if role == "worker":
+                    req_id = create_approval(phone, item_id, action, qty)
+                    results.append(f"✅ Requested {action} {qty} for {item['Item_Name']}")
+                    manager_phone = get_manager_phone()
+                    if manager_phone:
+                        body = (f"📋 *New AI Request*\n\nRequest: {req_id}\nWorker: {phone}\n"
+                                f"Item: {item['Item_Name']}\nAction: {action} {qty} units")
+                        send_button_message(
+                            to=manager_phone, body=body,
+                            buttons=[
+                                {"id": f"approve_{req_id}", "title": "✅ Approve"},
+                                {"id": f"reject_{req_id}", "title": "❌ Reject"},
+                            ]
+                        )
+                else:
+                    current_stock = int(item["Current_Stock"])
+                    new_stock = current_stock + qty if action == "Add" else current_stock - qty
+                    update_inventory_stock(item_id, new_stock)
+                    log_history(item_id, item["Item_Name"], action, qty, phone, current_stock, new_stock)
+                    results.append(f"✅ {action} {qty} {item['Item_Name']} (New stock: {new_stock})")
+                    
         if results:
-            send_text(phone, "🤖 *Updates Applied:*\n" + "\n".join(results))
-        else:
-            send_text(phone, "⚠️ No valid items were updated.")
-            
+            send_text(phone, "🤖 *Summary:*\n" + "\n".join(results))
     except Exception as e:
         logger.error(f"AI Execute Error: {e}")
         send_text(phone, "🤖 Error applying updates.")
