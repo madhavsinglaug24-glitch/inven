@@ -753,21 +753,22 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
         models_data = client.models.list().data
         available_models = [m.id for m in models_data]
         
-        text_model = "llama-3.3-70b-versatile"
-        if text_model not in available_models:
-            for m in available_models:
-                if "llama" in m and "vision" not in m:
-                    text_model = m
-                    break
-                    
-        vision_model = "llama-3.2-11b-vision-preview"
-        if vision_model not in available_models:
-            for m in available_models:
-                if "vision" in m:
-                    vision_model = m
-                    break
-
-        target_model = vision_model if file_path else text_model
+        if file_path:
+            # We want to test vision models in priority order
+            test_models = [
+                "llama-3.2-11b-vision-preview",
+                "llama-3.2-90b-vision-preview",
+                "llama-3.2-11b-vision",
+                "llama-3.2-90b-vision"
+            ]
+            test_models.extend([m for m in available_models if "vision" in m and m not in test_models])
+        else:
+            test_models = [
+                "llama-3.3-70b-versatile",
+                "llama-3.1-70b-versatile",
+                "llama-3.1-8b-instant"
+            ]
+            test_models.extend([m for m in available_models if "llama" in m and "vision" not in m and m not in test_models])
         
         if phone not in user_sessions:
             user_sessions[phone] = {}
@@ -808,12 +809,32 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
         else:
             messages = chat_history + [{"role": "user", "content": user_text or ""}]
             
-        response = client.chat.completions.create(
-            model=target_model,
-            messages=messages,
-            response_format={"type": "json_object"},
-            temperature=0.1
-        )
+        response = None
+        last_error = None
+        
+        for target_model in test_models:
+            if target_model not in available_models:
+                continue
+            
+            try:
+                response = client.chat.completions.create(
+                    model=target_model,
+                    messages=messages,
+                    response_format={"type": "json_object"},
+                    temperature=0.1
+                )
+                break
+            except Exception as e:
+                err_str = str(e)
+                if "decommissioned" in err_str.lower() or "not found" in err_str.lower():
+                    logger.warning(f"Groq model {target_model} failed (likely decommissioned), trying next...")
+                    last_error = e
+                    continue
+                else:
+                    raise e
+                    
+        if not response:
+            raise last_error or Exception("No active models available")
         
         ai_resp = response.choices[0].message.content
         
@@ -841,8 +862,8 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
         err_str = str(e)
         if "rate_limit" in err_str.lower():
             user_msg = "⏳ Wow, you guys are fast! I hit my rate limit. Please wait 1 minute and try again."
-        elif "decommissioned" in err_msg.lower() or "not found" in err_msg.lower():
-            user_msg = "🛠️ The AI model I was using was just retired by Groq! Please tell my developer."
+        elif "decommissioned" in err_str.lower() or "not found" in err_str.lower():
+            user_msg = "🛠️ The AI models I was using were just retired by Groq! Please tell my developer."
         else:
             # Elegant display of raw error
             user_msg = f"⚠️ *Groq AI Encountered an Error*\n\n_Type:_ `{type(e).__name__}`\n_Details:_ `{err_str}`"
