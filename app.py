@@ -16,6 +16,7 @@ import os
 import json
 import uuid
 import logging
+import tempfile
 from datetime import datetime, timezone
 
 import gspread
