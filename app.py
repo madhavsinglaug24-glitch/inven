@@ -747,7 +747,28 @@ def process_with_gemini(phone: str, file_path: str, mime_type: str, user_text: s
     try:
         import google.generativeai as genai
         
-        model = genai.GenerativeModel('models/gemini-1.5-flash')
+        available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+        target_model = None
+        
+        # Prefer stable 1.5-flash or 2.0-flash, explicitly avoiding 2.5 and experimental models
+        for m in available_models:
+            if '1.5-flash' in m and 'exp' not in m:
+                target_model = m
+                break
+        if not target_model:
+            for m in available_models:
+                if '2.0-flash' in m and 'exp' not in m:
+                    target_model = m
+                    break
+        if not target_model:
+            for m in available_models:
+                if 'flash' in m and '2.5' not in m:
+                    target_model = m
+                    break
+        if not target_model:
+            target_model = available_models[0]
+
+        model = genai.GenerativeModel(target_model)
         
         if phone not in user_sessions:
             user_sessions[phone] = {}
