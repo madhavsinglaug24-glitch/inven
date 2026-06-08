@@ -770,19 +770,20 @@ def process_with_gemini(phone: str, file_path: str, mime_type: str, user_text: s
         chat = model.start_chat(history=history)
 
         # Build a more useful default prompt based on the media type
-        if user_text:
-            user_part = user_text
-        elif mime_type and "audio" in mime_type:
+        if mime_type and "audio" in mime_type:
             user_part = "The user sent a voice note. Please transcribe it and treat the transcription as their message. Respond accordingly."
+        elif file_path:
+            user_part = "Please carefully analyze the attached image (it is a bill, receipt, or handwritten note). Step 1: Read all the text/elements visible in the image. Step 2: List exactly what you found directly in your reply."
+            if user_text:
+                user_part += f"\n\nThe user also added this caption: '{user_text}'"
         else:
-            user_part = "Please carefully analyze the attached image (it is a bill, receipt, or handwritten note). Step 1: Read all the text/elements visible in the image. Step 2: List exactly what you found (items, quantities, prices) directly in the `reply_to_user` field."
+            user_part = user_text or ""
 
         current_message = prompt_context + "\n\nUSER MESSAGE:\n" + user_part
         
         if file_path:
             gemini_file = genai.upload_file(path=file_path, mime_type=mime_type)
             response = chat.send_message([gemini_file, current_message])
-            genai.delete_file(gemini_file.name)
             os.remove(file_path)
         else:
             response = chat.send_message(current_message)
@@ -793,7 +794,7 @@ def process_with_gemini(phone: str, file_path: str, mime_type: str, user_text: s
         return response.text
     except Exception as e:
         logger.error(f"Gemini API Error: {e}")
-        return "{}"
+        return json.dumps({"reply_to_user": f"Gemini API Error: {str(e)}", "is_ready_to_execute": False, "actions": []})
 
 def propose_ai_actions(phone: str, actions_json: str):
     """Parse Gemini JSON. Send conversational reply and show buttons if ready."""
