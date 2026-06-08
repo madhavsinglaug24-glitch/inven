@@ -525,6 +525,14 @@ def handle_message(phone: str, text: str):
     role = str(user.get("Role", "")).strip().lower()
     name = user.get("Name", "User")
 
+    # Explicit greeting
+    if text_lower in ["hi", "hello", "hey", "start", "menu"]:
+        if role == "manager":
+            send_text(phone, f"👋 Hello {name}! You are logged in as a *Manager*.\nYou can type 'pending' to view approvals, or just ask me anything about the inventory!")
+        else:
+            send_text(phone, f"👋 Hello {name}! You are logged in as a *Worker*.\nYou can send me images of receipts, or tell me what stock you want to update.")
+        return
+
     # Only keep the pending check for managers
     if text_lower == "pending" and role == "manager":
         _send_pending_approvals(phone)
