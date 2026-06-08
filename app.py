@@ -995,18 +995,22 @@ def propose_ai_actions(phone: str, actions_json: str):
                 sections=[{"title": "Matches", "rows": rows}]
             )
             return
-            
         if buttons and not ready:
-            rows = [{"id": f"ai_btn_{str(b).replace(' ', '_')[:10]}", "title": str(b)[:24]} for b in buttons[:10]]
-            if rows:
-                send_list_message(
-                    to=phone,
-                    header="Select Option",
-                    body="🤖 " + reply,
-                    button_text="Options",
-                    sections=[{"title": "Available Choices", "rows": rows}]
-                )
+            if len(buttons) <= 3:
+                wa_buttons = [{"id": f"ai_btn_{str(b).replace(' ', '_')[:10]}", "title": str(b)[:20]} for b in buttons]
+                send_button_message(to=phone, body="🤖 " + reply, buttons=wa_buttons)
                 return
+            else:
+                rows = [{"id": f"ai_btn_{str(b).replace(' ', '_')[:10]}", "title": str(b)[:24]} for b in buttons[:10]]
+                if rows:
+                    send_list_message(
+                        to=phone,
+                        header="Select Option",
+                        body="🤖 " + reply,
+                        button_text="Options",
+                        sections=[{"title": "Available Choices", "rows": rows}]
+                    )
+                    return
             
         if not ready or not actions:
             send_text(phone, "🤖 " + reply)
