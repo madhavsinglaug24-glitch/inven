@@ -67,47 +67,47 @@ DEFAULT_LANG = "en"
 STRINGS = {
     "en": {
         # ── General ──
-        "not_registered":       "🚫 Looks like you're not in the system yet — reach out to your Manager to get set up.",
-        "ai_thinking":          "✨ Working on it…",
-        "ai_disabled":          "🔌 AI features are offline right now. An admin needs to configure the GEMINI_API_KEY.",
-        "ai_processing_media":  "🔍 Analyzing your {media_type} — hang tight…",
-        "ai_download_fail":     "📥 Couldn't grab that file. Mind sending it again?",
-        "ai_expired":           "⏳ That action already expired — send your request again to start fresh.",
-        "ai_cancelled":         "🙅 Got it — changes discarded.",
-        "ai_confused":          "🤔 Hmm, I didn't quite catch that. Could you rephrase what you'd like to do?",
-        "ai_error":             "⚡ Something went wrong on my end. Try again in a sec.",
-        "ai_summary":           "📊 *Here's what happened:*\n",
-        "ai_confirm_prompt":    "*Want me to go ahead and apply these changes?*",
-        "btn_yes":              "✅ Apply",
-        "btn_cancel":           "❌ Cancel",
-        "unsupported_msg":      "(System note: User sent a '{msg_type}' message which isn't supported. Let them know you can handle text, voice notes, and images.)",
+        "not_registered":       "🚫 Not registered. Contact Manager.",
+        "ai_thinking":          "✨ Processing...",
+        "ai_disabled":          "🔌 AI offline (missing GEMINI_API_KEY).",
+        "ai_processing_media":  "🔍 Analyzing {media_type}...",
+        "ai_download_fail":     "📥 Download failed. Resend?",
+        "ai_expired":           "⏳ Action expired. Send again.",
+        "ai_cancelled":         "🙅 Changes discarded.",
+        "ai_confused":          "🤔 Didn't catch that. Rephrase?",
+        "ai_error":             "⚡ System error. Try again.",
+        "ai_summary":           "📊 *Summary:*\n",
+        "ai_confirm_prompt":    "*Apply changes?*",
+        "btn_yes":              "✅ Yes",
+        "btn_cancel":           "❌ No",
+        "unsupported_msg":      "(System note: User sent a '{msg_type}'. Tell them you only support text, voice, and images.)",
 
         # ── Manager / Approvals ──
-        "managers_only":        "🔒 This action is reserved for Managers.",
-        "no_pending":           "🎉 All clear — no pending requests right now.",
-        "request_not_found":    "🔎 Couldn't find request *{request_id}*.",
-        "request_already":      "ℹ️ Request *{request_id}* was already *{status}*.",
-        "request_rejected_mgr": "✖️ Request *{request_id}* — *Rejected*",
-        "request_rejected_wkr": "✖️ Your request *{request_id}* ({action} {qty}× {item_name}) was *declined* by the Manager.",
-        "item_missing":         "🔎 Item *{item_id}* doesn't seem to exist in inventory anymore.",
-        "stock_insufficient":   "📉 Can't deduct {qty} — only *{stock}* left in stock.",
-        "request_approved_mgr": "✅ Request *{request_id}* — *Approved*\n\n📦 {item_name}\n🔄 {action} {qty}\n📊 Updated stock: {new_stock}",
-        "request_approved_wkr": "🎉 Great news! Your request *{request_id}* ({action} {qty}× {item_name}) was *approved*.\n📊 Stock is now: {new_stock}",
-        "pending_header":       "📋 *Request {request_id}*\n👤 Worker: {worker}\n📦 Item: {item_name} ({item_id})\n🔄 {action} — {qty} units",
+        "managers_only":        "🔒 Managers only.",
+        "no_pending":           "🎉 No pending requests.",
+        "request_not_found":    "🔎 Request *{request_id}* not found.",
+        "request_already":      "ℹ️ Request *{request_id}* already *{status}*.",
+        "request_rejected_mgr": "✖️ Req *{request_id}* — *Rejected*",
+        "request_rejected_wkr": "✖️ Req *{request_id}* ({action} {qty}× {item_name}) *declined*.",
+        "item_missing":         "🔎 Item *{item_id}* not found.",
+        "stock_insufficient":   "📉 Can't deduct {qty} — only *{stock}* left.",
+        "request_approved_mgr": "✅ Req *{request_id}* — *Approved*\n📦 {item_name}\n🔄 {action} {qty}\n📊 Stock: {new_stock}",
+        "request_approved_wkr": "✅ Req *{request_id}* ({action} {qty}× {item_name}) *approved*.\n📊 Stock: {new_stock}",
+        "pending_header":       "📋 *Req {request_id}*\n👤 {worker}\n📦 {item_name}\n🔄 {action} {qty}",
         "btn_approve":          "✅ Approve",
         "btn_reject":           "❌ Reject",
-        "new_request_header":   "📬 *Incoming Request*\n\n🆔 {req_id}\n👤 From: {phone}\n📦 {item_name}\n🔄 {action} — {qty} units",
+        "new_request_header":   "📬 *New Req {req_id}*\n👤 {phone}\n📦 {item_name}\n🔄 {action} {qty}",
 
         # ── JIT / Low Stock ──
-        "low_stock_no_supplier":"⚡ *Heads up — low stock!*\n\n📦 {item_name} ({item_id})\n📊 Stock: {stock} (minimum: {min_stock})\n\nNo supplier on file — manual reorder needed.",
-        "low_stock_alert":      "🚨 *Low Stock Alert*\n\n📦 {item_name} ({item_id})\n📊 Current: {stock}\n📉 Minimum: {min_stock}\n\n🏭 Supplier: {supplier_name}\n📲 Tap to reorder:\n{wa_link}",
+        "low_stock_no_supplier":"⚡ *Low Stock!*\n📦 {item_name}\n📊 Stock: {stock} (Min: {min_stock})\n⚠️ No supplier.",
+        "low_stock_alert":      "🚨 *Low Stock!*\n📦 {item_name}\n📊 {stock}/{min_stock}\n🏭 {supplier_name}\n📲 Reorder:\n{wa_link}",
 
         # ── AI Actions ──
-        "create_mgr_only":      "🔒 Only Managers can create new inventory items.",
-        "created_item":         "✅ Created *{name}* — ID: `{item_id}`, Stock: {qty}",
-        "item_not_found":       "🔎 Couldn't find item `{item_id}` in inventory.",
-        "requested_action":     "📩 Submitted: {action} {qty}× *{item_name}* — awaiting approval.",
-        "action_done":          "✅ Done — {action} {qty}× *{item_name}* → Stock: {new_stock}",
+        "create_mgr_only":      "🔒 Managers only.",
+        "created_item":         "✅ Created *{name}* ({item_id}), Stock: {qty}",
+        "item_not_found":       "🔎 Item `{item_id}` not found.",
+        "requested_action":     "📩 Sent: {action} {qty}× *{item_name}*",
+        "action_done":          "✅ {action} {qty}× *{item_name}* → Stock: {new_stock}",
 
         # ── Language ──
         "lang_switched":        "🌐 Language set to *English* 🇬🇧",
@@ -730,7 +730,7 @@ def process_with_gemini(phone: str, file_path: str, mime_type: str, user_text: s
     3. If the user just asks a question (like "what is the history of ITEM-1" or "how much stock do we have"), just answer them in the `reply_to_user` field and leave `actions` empty!
     4. You MUST ALWAYS respond with a structured JSON object in EXACTLY this format (no markdown code blocks, just raw JSON):
     {{
-      "reply_to_user": "Your highly conversational, friendly, and varied reply. Act like a helpful human assistant. Use fun, diverse emojis. NEVER repeat the exact same phrases.",
+      "reply_to_user": "A VERY SHORT, concise, and tight reply. Get straight to the point. Give just the important stuff. Use emojis.",
       "is_ready_to_execute": false,
       "actions": []
     }}
