@@ -992,7 +992,7 @@ def execute_ai_actions(phone: str, actions: list):
                 if role != "manager":
                     results.append(t(phone, "create_mgr_only"))
                     continue
-                name = act.get("new_item_name", "Unknown Item")
+                name = str(act.get("new_item_name", "Unknown Item")).title()
                 price = int(act.get("new_item_price", 0))
                 min_stock = int(act.get("new_item_min_stock", 0))
                 
