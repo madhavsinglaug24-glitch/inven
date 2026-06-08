@@ -33,7 +33,7 @@ load_dotenv()
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.urandom(24)
 
-import google.generativeai as genai
+import groq
 
 WHATSAPP_TOKEN = os.environ["WHATSAPP_TOKEN"]
 WHATSAPP_PHONE_ID = os.environ["WHATSAPP_PHONE_ID"]
@@ -41,9 +41,9 @@ VERIFY_TOKEN = os.environ["VERIFY_TOKEN"]
 GOOGLE_SHEET_ID = os.environ["GOOGLE_SHEET_ID"]
 GOOGLE_CREDENTIALS_FILE = os.environ.get("GOOGLE_CREDENTIALS_FILE", "credentials.json")
 
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+if GROQ_API_KEY:
+
 
 WHATSAPP_API_URL = (
     f"https://graph.facebook.com/v21.0/{WHATSAPP_PHONE_ID}/messages"
@@ -69,7 +69,7 @@ STRINGS = {
         # ── General ──
         "not_registered":       "🚫 Not registered. Contact Manager.",
         "ai_thinking":          "✨ Processing...",
-        "ai_disabled":          "🔌 AI offline (missing GEMINI_API_KEY).",
+        "ai_disabled":          "🔌 AI offline (missing GROQ_API_KEY).",
         "ai_processing_media":  "🔍 Analyzing {media_type}...",
         "ai_download_fail":     "📥 Download failed. Resend?",
         "ai_expired":           "⏳ Action expired. Send again.",
@@ -117,7 +117,7 @@ STRINGS = {
         # ── General ──
         "not_registered":       "🚫 लगता है आप अभी सिस्टम में नहीं हैं — सेटअप के लिए अपने मैनेजर से संपर्क करें।",
         "ai_thinking":          "✨ प्रोसेस हो रहा है…",
-        "ai_disabled":          "🔌 AI अभी ऑफ़लाइन है। एडमिन को GEMINI_API_KEY सेट करना होगा।",
+        "ai_disabled":          "🔌 AI अभी ऑफ़लाइन है। एडमिन को GROQ_API_KEY सेट करना होगा।",
         "ai_processing_media":  "🔍 आपकी {media_type} एनालाइज़ कर रहे हैं — रुकिए…",
         "ai_download_fail":     "📥 फ़ाइल डाउनलोड नहीं हो सकी। दोबारा भेजें?",
         "ai_expired":           "⏳ यह एक्शन एक्सपायर हो गया — नई रिक्वेस्ट भेजें।",
@@ -165,7 +165,7 @@ STRINGS = {
         # ── General ──
         "not_registered":       "🚫 ਲੱਗਦਾ ਤੁਸੀਂ ਅਜੇ ਸਿਸਟਮ ਵਿੱਚ ਨਹੀਂ ਹੋ — ਸੈੱਟਅੱਪ ਲਈ ਆਪਣੇ ਮੈਨੇਜਰ ਨਾਲ ਗੱਲ ਕਰੋ।",
         "ai_thinking":          "✨ ਕੰਮ ਹੋ ਰਿਹਾ ਏ…",
-        "ai_disabled":          "🔌 AI ਹੁਣ ਆਫ਼ਲਾਈਨ ਹੈ। ਐਡਮਿਨ ਨੂੰ GEMINI_API_KEY ਸੈੱਟ ਕਰਨੀ ਪਵੇਗੀ।",
+        "ai_disabled":          "🔌 AI ਹੁਣ ਆਫ਼ਲਾਈਨ ਹੈ। ਐਡਮਿਨ ਨੂੰ GROQ_API_KEY ਸੈੱਟ ਕਰਨੀ ਪਵੇਗੀ।",
         "ai_processing_media":  "🔍 ਤੁਹਾਡੀ {media_type} ਚੈੱਕ ਕਰ ਰਹੇ ਹਾਂ — ਰੁਕੋ…",
         "ai_download_fail":     "📥 ਫ਼ਾਈਲ ਡਾਊਨਲੋਡ ਨਹੀਂ ਹੋ ਸਕੀ। ਦੁਬਾਰਾ ਭੇਜੋ?",
         "ai_expired":           "⏳ ਇਹ ਐਕਸ਼ਨ ਐਕਸਪਾਇਰ ਹੋ ਗਿਆ — ਨਵੀਂ ਰਿਕਵੈਸਟ ਭੇਜੋ।",
@@ -499,9 +499,9 @@ def handle_message(phone: str, text: str):
         return
 
     # Fallback to AI Processing for everything
-    if GEMINI_API_KEY:
+    if GROQ_API_KEY:
         send_text(phone, t(phone, "ai_thinking"))
-        ai_resp = process_with_gemini(phone, None, None, text)
+        ai_resp = process_with_groq(phone, None, None, text)
         propose_ai_actions(phone, ai_resp)
     else:
         send_text(phone, t(phone, "ai_disabled"))
@@ -700,7 +700,7 @@ def _download_whatsapp_media(media_id: str) -> tuple[str, str]:
         
     return filepath, clean_mime
 
-def process_with_gemini(phone: str, file_path: str, mime_type: str, user_text: str = None) -> str:
+def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str = None) -> str:
     """Send text, image, or audio to Gemini to converse or parse actions."""
     user = get_user(phone)
     role = str(user.get("Role", "worker")).strip().lower() if user else "worker"
@@ -745,69 +745,80 @@ def process_with_gemini(phone: str, file_path: str, mime_type: str, user_text: s
     """
     
     try:
-        import google.generativeai as genai
+        import groq
+        import base64
         
-        available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+        client = groq.Groq(api_key=os.environ.get("GROQ_API_KEY"))
+        target_model = "llama-3.2-90b-vision-preview" if file_path else "llama-3.3-70b-versatile"
         
-        # Test models in order of best free quota / performance
-        test_models = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-2.5-flash']
-        models_to_try = []
-        for tm in test_models:
-            for m in available_models:
-                if tm in m and 'exp' not in m and m not in models_to_try:
-                    models_to_try.append(m)
-        if not models_to_try and available_models:
-            models_to_try.append(available_models[0])
-            
         if phone not in user_sessions:
             user_sessions[phone] = {}
-        history = user_sessions[phone].get("history", [])
-
-        # Build a more useful default prompt based on the media type
-        if mime_type and "audio" in mime_type:
-            user_part = "The user sent a voice note. Please transcribe it and treat the transcription as their message. Respond accordingly."
-        elif file_path:
-            user_part = "Please carefully analyze the attached image (it is a bill, receipt, or handwritten note). Step 1: Read all the text/elements visible in the image. Step 2: List exactly what you found directly in your reply."
-            if user_text:
-                user_part += f"\n\nThe user also added this caption: '{user_text}'"
+        # History in OpenAI format
+        chat_history = user_sessions[phone].get("history", [{"role": "system", "content": prompt_context}])
+        # Ensure system prompt is always updated
+        if chat_history and chat_history[0]["role"] == "system":
+            chat_history[0]["content"] = prompt_context
         else:
-            user_part = user_text or ""
+            chat_history.insert(0, {"role": "system", "content": prompt_context})
 
-        current_message = prompt_context + "\n\nUSER MESSAGE:\n" + user_part
-        
-        inline_media = None
-        if file_path:
+        if mime_type and "audio" in mime_type:
+            # Groq supports audio transcription via Whisper!
             with open(file_path, "rb") as f:
-                inline_media = {"mime_type": mime_type, "data": f.read()}
-                
-        response = None
-        last_error = None
+                transcription = client.audio.transcriptions.create(
+                    file=(file_path, f.read()),
+                    model="whisper-large-v3-turbo",
+                )
+            user_part = f"The user sent an audio message. Transcription: '{transcription.text}'. Respond accordingly."
+            messages = chat_history + [{"role": "user", "content": user_part}]
+        elif file_path:
+            with open(file_path, "rb") as f:
+                encoded = base64.b64encode(f.read()).decode('utf-8')
+            img_url = f"data:{mime_type};base64,{encoded}"
+            
+            content = []
+            content.append({
+                "type": "text", 
+                "text": "Please carefully analyze the attached image (it is a bill, receipt, or handwritten note). Step 1: Read all the text/elements visible in the image. Step 2: List exactly what you found directly in your reply."
+            })
+            if user_text:
+                content.append({"type": "text", "text": f"The user also added this caption: '{user_text}'"})
+            content.append({
+                "type": "image_url",
+                "image_url": {"url": img_url}
+            })
+            messages = chat_history + [{"role": "user", "content": content}]
+        else:
+            messages = chat_history + [{"role": "user", "content": user_text or ""}]
+            
+        response = client.chat.completions.create(
+            model=target_model,
+            messages=messages,
+            response_format={"type": "json_object"},
+            temperature=0.1
+        )
         
-        for target_model in models_to_try:
-            try:
-                model = genai.GenerativeModel(target_model)
-                chat = model.start_chat(history=history)
-                if inline_media:
-                    response = chat.send_message([inline_media, current_message])
-                else:
-                    response = chat.send_message(current_message)
-                
-                user_sessions[phone]["history"] = chat.history[-10:]
-                break
-            except Exception as e:
-                last_error = e
-                logger.error(f"Fallback {target_model} failed: {e}")
-                continue
-                
+        ai_resp = response.choices[0].message.content
+        
+        # Save history (append the user message and assistant reply, up to last 10)
+        if file_path and not ("audio" in mime_type):
+            chat_history.append({"role": "user", "content": f"[User sent an image]{' with caption: ' + user_text if user_text else ''}"})
+        else:
+            chat_history.append(messages[-1])
+            
+        chat_history.append({"role": "assistant", "content": ai_resp})
+        
+        # Keep system prompt + last 10 messages
+        user_sessions[phone]["history"] = [chat_history[0]] + chat_history[-10:]
+        
         if file_path:
             os.remove(file_path)
             
-        if not response:
-            raise Exception(f"All models failed. Last error: {last_error}")
-            
-        return response.text
+        return ai_resp
+        
     except Exception as e:
-        logger.error(f"Gemini API Error: {e}")
+        logger.error(f"Groq API Error: {e}")
+        if file_path and os.path.exists(file_path):
+            os.remove(file_path)
         return json.dumps({"reply_to_user": "I'm having a little trouble connecting to my AI brain right now. Please try again in a moment!", "is_ready_to_execute": False, "actions": []})
 
 def propose_ai_actions(phone: str, actions_json: str):
@@ -921,7 +932,7 @@ def index():
 def get_models():
     """Debug route to list available Gemini models."""
     try:
-        import google.generativeai as genai
+        import groq
         models = [m.name for m in genai.list_models()]
         return jsonify({"models": models})
     except Exception as e:
@@ -975,7 +986,7 @@ def process_webhook():
                             handle_interactive(phone, interactive_data)
     
                         elif msg_type in ("image", "audio", "voice"):
-                            if not GEMINI_API_KEY:
+                            if not GROQ_API_KEY:
                                 send_text(phone, t(phone, "ai_disabled"))
                                 continue
                                 
@@ -984,16 +995,16 @@ def process_webhook():
                             caption = msg[msg_type].get("caption", None)
                             file_path, mime_type = _download_whatsapp_media(media_id)
                             if file_path:
-                                ai_resp = process_with_gemini(phone, file_path, mime_type, caption)
+                                ai_resp = process_with_groq(phone, file_path, mime_type, caption)
                                 propose_ai_actions(phone, ai_resp)
                             else:
                                 send_text(phone, t(phone, "ai_download_fail"))
                                 
                         else:
                             # Pass unsupported types to AI to handle naturally
-                            if GEMINI_API_KEY:
+                            if GROQ_API_KEY:
                                 send_text(phone, t(phone, "ai_thinking"))
-                                ai_resp = process_with_gemini(phone, None, None, t(phone, "unsupported_msg", msg_type=msg_type))
+                                ai_resp = process_with_groq(phone, None, None, t(phone, "unsupported_msg", msg_type=msg_type))
                                 propose_ai_actions(phone, ai_resp)
         except Exception:
             logger.exception("Error processing webhook payload")
