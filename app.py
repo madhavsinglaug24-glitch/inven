@@ -525,6 +525,17 @@ def handle_message(phone: str, text: str):
 
     role = str(user.get("Role", "")).strip().lower()
     name = user.get("Name", "User")
+    
+    session = get_session(phone)
+    if session and session.get("state") == "editing_approval":
+        if text_lower == "cancel":
+            reset_session(phone)
+            send_text(phone, "❌ Edit cancelled.")
+            return
+        edit_req_id = session.get("edit_req_id")
+        response_text = process_with_groq(phone, file_path=None, mime_type=None, user_text=text_body, edit_req_id=edit_req_id)
+        propose_ai_actions(phone, response_text)
+        return
 
     # Explicit greeting
     if text_lower in ["hi", "hello", "hey", "start", "menu"]:
@@ -625,6 +636,7 @@ def _send_pending_approvals(phone: str):
             buttons=[
                 {"id": f"approve_{req['Request_ID']}", "title": t(phone, "btn_approve")},
                 {"id": f"reject_{req['Request_ID']}", "title": t(phone, "btn_reject")},
+                {"id": f"edit_{req['Request_ID']}", "title": "✏️ Edit"},
             ],
         )
 
@@ -701,7 +713,8 @@ def _handle_button_reply(phone: str, button_id: str):
         session = get_session(phone)
         if session and session.get("state") == "awaiting_ai_confirm":
             actions = session.get("pending_actions", [])
-            execute_ai_actions(phone, actions)
+            edit_req_id = session.get("edit_req_id")
+            execute_ai_actions(phone, actions, edit_req_id=edit_req_id)
             reset_session(phone)
         else:
             send_text(phone, t(phone, "ai_expired"))
@@ -738,6 +751,22 @@ def _handle_button_reply(phone: str, button_id: str):
     elif button_id.startswith("reject_"):
         request_id = button_id.replace("reject_", "")
         _process_approval(phone, request_id, approved=False)
+
+    elif button_id.startswith("edit_"):
+        request_id = button_id.replace("edit_", "")
+        approval = get_approval(request_id)
+        if not approval:
+            send_text(phone, t(phone, "request_not_found", request_id=request_id))
+            return
+            
+        session = get_session(phone)
+        session["state"] = "editing_approval"
+        session["edit_req_id"] = request_id
+        save_session(phone, session)
+        
+        item = get_inventory_item(str(approval["Item_ID"]).strip())
+        item_name = item["Item_Name"] if item else str(approval["Item_ID"])
+        send_text(phone, f"✏️ You are editing Request *{request_id}* ({approval['Action']} {approval['Quantity']}x {item_name}).\n\nWhat would you like to change? (e.g. 'Change quantity to 20', 'Change supplier to XYZ').\nType *cancel* to abort.")
 
 
 def _process_approval(manager_phone: str, request_id: str, approved: bool):
@@ -859,7 +888,7 @@ def _download_whatsapp_media(media_id: str) -> tuple[str, str]:
         
     return filepath, clean_mime
 
-def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str = None) -> str:
+def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str = None, edit_req_id: str = None) -> str:
     """Send text, image, or audio to Gemini to converse or parse actions."""
     user = get_user(phone)
     role = str(user.get("Role", "worker")).strip().lower() if user else "worker"
@@ -885,6 +914,18 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
     lang_map = {"en": "English", "hi": "Hindi", "pa": "Punjabi"}
     pref_lang = lang_map.get(lang, "English")
     
+    edit_instruction = ""
+    if edit_req_id:
+        approval = get_approval(edit_req_id)
+        if approval:
+            edit_instruction = f"""
+    === MANAGER EDITING MODE ===
+    You are helping a manager edit a pending transaction request from a worker.
+    Original Request: {approval['Action']} {approval['Quantity']}x {approval['Item_ID']}
+    The manager will tell you what to change. You MUST output the FINAL updated JSON action based on their changes as if you were creating it from scratch. Set "is_ready_to_execute" to true if the final details are clear.
+    ============================
+    """
+    
     prompt_context = f"""
     You are an AI Inventory Assistant. You must be EXTREMELY brief, concise, and tight in all your replies. Never use filler words.
     You MUST output your `reply_to_user` entirely in {pref_lang}.
@@ -895,7 +936,7 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
     Recent History (last 20 changes): {hist_str}
     
     Your goal is to gather information to execute an inventory update (Restock, Consume, or Create a new item), OR answer questions about the current stock, suppliers, or history.
-    
+    {edit_instruction}
     CRITICAL RULES:
     1. If the user provides an image of a bill or receipt, you MUST ask them to clarify if this is a "Restock" (adding new stock/purchase) or a "Consume" (removing stock/sale), unless the image explicitly makes it obvious.
     2. If any details are ambiguous (missing item name, missing quantity, unclear action), politely ask the user for clarification in your reply. Do NOT guess.
@@ -1146,11 +1187,17 @@ def propose_ai_actions(phone: str, actions_json: str):
         logger.error(f"AI Parse Error: {e}\nRaw output: {actions_json}")
         send_text(phone, t(phone, "ai_confused"))
 
-def execute_ai_actions(phone: str, actions: list):
+def execute_ai_actions(phone: str, actions: list, edit_req_id: str = None):
     """Apply actions or create worker approvals."""
     user = get_user(phone)
     role = str(user.get("Role", "")).strip().lower() if user else "worker"
     
+    log_phone = phone
+    if edit_req_id:
+        approval = get_approval(edit_req_id)
+        if approval:
+            log_phone = str(approval.get("Worker_Number", phone)).strip()
+            
     try:
         results = []
         for act in actions:
@@ -1174,7 +1221,7 @@ def execute_ai_actions(phone: str, actions: list):
                 new_id = f"ITEM-{max_num + 1}"
                 
                 ws.append_row([new_id, name, qty, min_stock, price, ""])
-                log_history(new_id, name, "Create", qty, phone, 0, qty, c_type, c_name, comment)
+                log_history(new_id, name, "Create", qty, log_phone, 0, qty, c_type, c_name, comment)
                 results.append(t(phone, "created_item", name=name, item_id=new_id, qty=qty))
                 continue
 
@@ -1185,7 +1232,7 @@ def execute_ai_actions(phone: str, actions: list):
                     results.append(t(phone, "item_not_found", item_id=item_id))
                     continue
                     
-                if role == "worker":
+                if role == "worker" and not edit_req_id:
                     req_id = create_approval(phone, item_id, action, qty)
                     results.append(t(phone, "requested_action", action=action, qty=qty, item_name=item['Item_Name']))
                     manager_phone = get_manager_phone()
@@ -1196,14 +1243,17 @@ def execute_ai_actions(phone: str, actions: list):
                             buttons=[
                                 {"id": f"approve_{req_id}", "title": t(manager_phone, "btn_approve")},
                                 {"id": f"reject_{req_id}", "title": t(manager_phone, "btn_reject")},
+                                {"id": f"edit_{req_id}", "title": "✏️ Edit"},
                             ]
                         )
                 else:
                     current_stock = int(item["Current_Stock"])
                     new_stock = current_stock + qty if action in ["Add", "Restock"] else current_stock - qty
                     update_inventory_stock(item_id, new_stock)
-                    log_history(item_id, item["Item_Name"], action, qty, phone, current_stock, new_stock, c_type, c_name, comment)
+                    log_history(item_id, item["Item_Name"], action, qty, log_phone, current_stock, new_stock, c_type, c_name, comment)
                     results.append(t(phone, "action_done", action=action, qty=qty, item_name=item['Item_Name'], new_stock=new_stock))
+                    if edit_req_id:
+                        update_approval_status(edit_req_id, "Approved (Edited)")
                     
             if action == "Reverse":
                 if role != "manager":
