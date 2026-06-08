@@ -636,8 +636,15 @@ def _handle_button_reply(phone: str, button_id: str):
         return
         
     if button_id == "ai_confirm_no":
-        send_text(phone, t(phone, "ai_cancelled"))
-        reset_session(phone)
+        session = get_session(phone)
+        if session:
+            session.pop("state", None)
+            session.pop("pending_actions", None)
+            history = session.get("history", [])
+            history.append({"role": "user", "content": "I cancelled the action. Please ask me what I want to change."})
+            session["history"] = history
+            save_session(phone, session)
+        send_text(phone, "❌ Action cancelled. What details would you like to change?")
         return
 
     user = get_user(phone)
