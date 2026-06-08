@@ -579,7 +579,14 @@ def handle_message(phone: str, text: str):
         return
         
     if "history" in text_lower and role == "manager":
-        _send_history_list(phone)
+        send_button_message(
+            to=phone,
+            body="How would you like to view the History?",
+            buttons=[
+                {"id": "btn_hist_chat", "title": "💬 Chat View"},
+                {"id": "btn_hist_excel", "title": "📊 Excel View"}
+            ]
+        )
         return
         
     if "stock" in text_lower or "inventory" in text_lower:
@@ -632,6 +639,10 @@ def _send_history_list(phone: str):
         msg += f"• {date_str} ({h.get('User_Phone', '')[-4:]})\n  {h.get('Action', '')} {h.get('Quantity', '')}x {h.get('Item_Name', '')}\n\n"
     
     send_text(phone, msg.strip())
+    
+def _send_history_excel(phone: str):
+    sheet_url = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/edit"
+    send_text(phone, f"📊 *Excel / Spreadsheet View*\n\nYou can view the full, unlimited history and usage changes directly in the Google Sheet database here:\n{sheet_url}")
     
 def _send_inventory_list(phone: str):
     user = get_user(phone)
@@ -708,6 +719,13 @@ def _handle_button_reply(phone: str, button_id: str):
     user = get_user(phone)
     if not user or str(user.get("Role", "")).strip().lower() != "manager":
         send_text(phone, t(phone, "managers_only"))
+        return
+
+    if button_id == "btn_hist_chat":
+        _send_history_list(phone)
+        return
+    if button_id == "btn_hist_excel":
+        _send_history_excel(phone)
         return
 
     if button_id.startswith("approve_"):
