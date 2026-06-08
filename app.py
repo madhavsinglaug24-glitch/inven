@@ -224,7 +224,7 @@ def send_text(to: str, body: str):
         "text": {"body": body},
     }
     resp = requests.post(WHATSAPP_API_URL, headers=_wa_headers(), json=payload, timeout=30)
-    logger.info("send_text → %s | status=%s", to, resp.status_code)
+    logger.info("send_text → %s | status=%s | response=%s", to, resp.status_code, resp.text)
     return resp.json()
 
 
