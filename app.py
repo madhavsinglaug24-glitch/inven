@@ -1021,9 +1021,21 @@ def propose_ai_actions(phone: str, actions_json: str):
         session["pending_actions"] = actions
         save_session(phone, session)
         
+        changes_str = "\n*Proposed Changes:*"
+        for act in actions:
+            act_type = str(act.get("action", "")).capitalize()
+            qty = act.get('quantity', 0)
+            if act_type == "Create":
+                changes_str += f"\n• Create: {str(act.get('new_item_name', 'Unknown')).title()} (Qty: {qty})"
+            else:
+                item_id = act.get("item_id", "")
+                item_obj = get_inventory_item(item_id)
+                item_name = item_obj["Item_Name"] if item_obj else item_id
+                changes_str += f"\n• {act_type}: {qty}x {item_name}"
+        
         send_button_message(
             to=phone,
-            body=f"🤖 {reply}\n\n{t(phone, 'ai_confirm_prompt')}",
+            body=f"🤖 {reply}\n{changes_str}\n\n{t(phone, 'ai_confirm_prompt')}",
             buttons=[
                 {"id": "ai_confirm_yes", "title": t(phone, "btn_yes")},
                 {"id": "ai_confirm_no", "title": t(phone, "btn_cancel")}
