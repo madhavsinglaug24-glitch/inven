@@ -455,15 +455,48 @@ def send_button_message(to: str, body: str, buttons: list):
 
 
 # ---------------------------------------------------------------------------
-# Core conversation-state tracker (in-memory, keyed by phone number)
+# Core conversation-state tracker (Persistent, keyed by phone number)
 # ---------------------------------------------------------------------------
-# Tracks multi-step flows like "add 10 of item X".
-# Structure: { phone: { "state": str, ... extra context } }
-user_sessions: dict[str, dict] = {}
+import time
 
+SESSION_DIR = "sessions"
+if not os.path.exists(SESSION_DIR):
+    os.makedirs(SESSION_DIR)
+
+def get_session(phone: str) -> dict:
+    path = os.path.join(SESSION_DIR, f"{phone}.json")
+    if os.path.exists(path):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                session = json.load(f)
+                last_active = session.get("last_active", 0)
+                # 20-minute expiry (1200 seconds)
+                if time.time() - last_active > 1200:
+                    os.remove(path)
+                    return {}
+                return session
+        except Exception:
+            return {}
+    return {}
+
+def save_session(phone: str, session: dict):
+    path = os.path.join(SESSION_DIR, f"{phone}.json")
+    session["last_active"] = time.time()
+    tmp_path = path + ".tmp"
+    try:
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            json.dump(session, f)
+        os.replace(tmp_path, path)
+    except Exception as e:
+        logger.error(f"Failed to save session for {phone}: {e}")
 
 def reset_session(phone: str):
-    user_sessions.pop(phone, None)
+    path = os.path.join(SESSION_DIR, f"{phone}.json")
+    if os.path.exists(path):
+        try:
+            os.remove(path)
+        except Exception:
+            pass
 
 
 # ---------------------------------------------------------------------------
@@ -552,7 +585,7 @@ def handle_interactive(phone: str, interactive_data: dict):
 def _handle_button_reply(phone: str, button_id: str):
     """Process Approve / Reject button clicks and AI confirmation."""
     if button_id == "ai_confirm_yes":
-        session = user_sessions.get(phone)
+        session = get_session(phone)
         if session and session.get("state") == "awaiting_ai_confirm":
             actions = session.get("pending_actions", [])
             execute_ai_actions(phone, actions)
@@ -774,10 +807,9 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
             ]
             test_models.extend([m for m in available_models if "llama" in m and "vision" not in m and m not in test_models])
         
-        if phone not in user_sessions:
-            user_sessions[phone] = {}
+        session = get_session(phone)
         # History in OpenAI format
-        chat_history = user_sessions[phone].get("history", [{"role": "system", "content": prompt_context}])
+        chat_history = session.get("history", [{"role": "system", "content": prompt_context}])
         # Ensure system prompt is always updated
         if chat_history and chat_history[0]["role"] == "system":
             chat_history[0]["content"] = prompt_context
@@ -851,7 +883,8 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
         chat_history.append({"role": "assistant", "content": ai_resp})
         
         # Keep system prompt + last 10 messages
-        user_sessions[phone]["history"] = [chat_history[0]] + chat_history[-10:]
+        session["history"] = [chat_history[0]] + chat_history[-10:]
+        save_session(phone, session)
         
         if file_path:
             os.remove(file_path)
@@ -893,8 +926,10 @@ def propose_ai_actions(phone: str, actions_json: str):
             send_text(phone, "🤖 " + reply)
             return
 
-        user_sessions[phone]["state"] = "awaiting_ai_confirm"
-        user_sessions[phone]["pending_actions"] = actions
+        session = get_session(phone)
+        session["state"] = "awaiting_ai_confirm"
+        session["pending_actions"] = actions
+        save_session(phone, session)
         
         send_button_message(
             to=phone,
