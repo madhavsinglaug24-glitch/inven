@@ -748,7 +748,7 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
         import base64
         
         client = groq.Groq(api_key=os.environ.get("GROQ_API_KEY"))
-        target_model = "llama-3.2-90b-vision-preview" if file_path else "llama-3.3-70b-versatile"
+        target_model = "llama-3.2-11b-vision-preview" if file_path else "llama-3.3-70b-versatile"
         
         if phone not in user_sessions:
             user_sessions[phone] = {}
