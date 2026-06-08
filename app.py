@@ -607,7 +607,10 @@ def handle_interactive(phone: str, interactive_data: dict):
 
     if msg_type == "button_reply":
         button_id = interactive_data["button_reply"]["id"]
-        _handle_button_reply(phone, button_id)
+        if button_id.startswith("ai_btn_"):
+            handle_message(phone, interactive_data["button_reply"]["title"])
+        else:
+            _handle_button_reply(phone, button_id)
     elif msg_type == "list_reply":
         list_id = interactive_data["list_reply"]["id"]
         if list_id.startswith("ai_sel_"):
@@ -801,12 +804,14 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
     1. If the user provides an image of a bill or receipt, you MUST ask them to clarify if this is a "Credit" (adding new stock/purchase) or a "Deduction" (removing stock/sale), unless the image explicitly makes it obvious.
     2. If any details are ambiguous (missing item name, missing quantity, unclear action), politely ask the user for clarification in your reply. Do NOT guess.
     3. If the user just asks a question (like "what is the history of ITEM-1" or "how much stock do we have"), just answer them in the `reply_to_user` field and leave `actions` empty!
-    4. You MUST ALWAYS respond with a structured JSON object in EXACTLY this format (no markdown code blocks, just raw JSON):
+    4. If you are asking the user a multiple choice question (like "Add or Deduct?" or "Yes or No?"), you can provide up to 3 options by adding a "buttons" array: "buttons": ["Add", "Deduct"]
+    5. You MUST ALWAYS respond with a structured JSON object in EXACTLY this format (no markdown code blocks, just raw JSON):
     {{
       "reply_to_user": "A VERY SHORT, concise, and tight reply. Get straight to the point. Give just the important stuff. Use emojis.",
       "is_ready_to_execute": false,
       "actions": [],
-      "options": []
+      "options": [],
+      "buttons": []
     }}
     
     When the user has confirmed they want to proceed with an update and you have ALL details perfectly clear, set "is_ready_to_execute" to true and populate "actions" with:
@@ -973,6 +978,7 @@ def propose_ai_actions(phone: str, actions_json: str):
         ready = data.get("is_ready_to_execute", False)
         actions = data.get("actions", [])
         options = data.get("options", [])
+        buttons = data.get("buttons", [])
         
         if options and not ready:
             rows = [{"id": f"ai_sel_{opt['id']}", "title": opt["title"][:24]} for opt in options[:9]]
@@ -986,6 +992,16 @@ def propose_ai_actions(phone: str, actions_json: str):
                 sections=[{"title": "Matches", "rows": rows}]
             )
             return
+            
+        if buttons and not ready:
+            wa_buttons = [{"id": f"ai_btn_{str(b).replace(' ', '_')[:10]}", "title": str(b)[:20]} for b in buttons[:3]]
+            if wa_buttons:
+                send_button_message(
+                    to=phone,
+                    body="🤖 " + reply,
+                    buttons=wa_buttons
+                )
+                return
             
         if not ready or not actions:
             send_text(phone, "🤖 " + reply)
