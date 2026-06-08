@@ -710,22 +710,23 @@ def process_with_gemini(phone: str, file_path: str, mime_type: str, user_text: s
         sup_str = "[]"
     
     prompt_context = f"""
-    You are an AI inventory assistant chatting over WhatsApp. 
+    You are an AI inventory assistant chatting over WhatsApp. You speak naturally and conversationally.
     Current inventory: {items_str}
     Current suppliers: {sup_str}
     
     Your goal is to gather information to execute an inventory update (Add stock, Deduct stock, or Create a new item).
-    If the user just says "Add stock", ask them what item and quantity.
-    If they provide an image of a bill, extract the items and assume action is "Add" (receiving new stock), and ask them to confirm.
     
-    You MUST ALWAYS respond with a structured JSON object in EXACTLY this format (no markdown code blocks, just raw JSON):
+    CRITICAL RULES:
+    1. If the user provides an image of a bill or receipt, you MUST ask them to clarify if this is a "Credit" (adding new stock/purchase) or a "Deduction" (removing stock/sale), unless the image explicitly makes it obvious.
+    2. If any details are ambiguous (missing item name, missing quantity, unclear action), politely ask the user for clarification in your reply. Do NOT guess.
+    3. You MUST ALWAYS respond with a structured JSON object in EXACTLY this format (no markdown code blocks, just raw JSON):
     {{
       "reply_to_user": "Your conversational reply asking for clarification or confirming details.",
       "is_ready_to_execute": false,
       "actions": []
     }}
     
-    When the user has confirmed they want to proceed and you have ALL details (Item, Action, Quantity), set "is_ready_to_execute" to true and populate "actions" with:
+    When the user has confirmed they want to proceed and you have ALL details (Item, Action, Quantity) perfectly clear, set "is_ready_to_execute" to true and populate "actions" with:
     [{{"action": "Add"|"Deduct"|"Create", "item_id": "ITEM-X", "quantity": 10, "supplier_name": "Supplier Name", "new_item_name": "If Create", "new_item_price": 0, "new_item_min_stock": 0}}]
     """
     
