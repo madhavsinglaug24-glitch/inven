@@ -717,7 +717,9 @@ def process_with_gemini(phone: str, file_path: str, mime_type: str, user_text: s
         hist_str = "[]"
     
     prompt_context = f"""
-    You are an AI inventory assistant chatting over WhatsApp. You speak naturally and conversationally.
+    You are an AI Inventory Assistant. You must be EXTREMELY brief, concise, and tight in all your replies. Never use filler words.
+    Current User Phone: {phone}
+    User Role: {role}
     Current inventory: {items_str}
     Current suppliers: {sup_str}
     Recent History (last 20 changes): {hist_str}
