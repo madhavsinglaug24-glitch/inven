@@ -812,10 +812,10 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
         response = None
         last_error = None
         
+        logger.info(f"Available Groq models: {available_models}")
+        logger.info(f"Testing Groq models: {test_models}")
+        
         for target_model in test_models:
-            if target_model not in available_models:
-                continue
-            
             try:
                 response = client.chat.completions.create(
                     model=target_model,
@@ -826,8 +826,8 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
                 break
             except Exception as e:
                 err_str = str(e)
-                if "decommissioned" in err_str.lower() or "not found" in err_str.lower():
-                    logger.warning(f"Groq model {target_model} failed (likely decommissioned), trying next...")
+                if "decommissioned" in err_str.lower() or "not found" in err_str.lower() or "does not exist" in err_str.lower():
+                    logger.warning(f"Groq model {target_model} failed (decommissioned or not found), trying next...")
                     last_error = e
                     continue
                 else:
