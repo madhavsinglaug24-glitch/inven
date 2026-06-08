@@ -57,7 +57,29 @@ logger = logging.getLogger(__name__)
 # 🌐 Internationalization (i18n)
 # ---------------------------------------------------------------------------
 # Per-user language preference (in-memory, keyed by phone)
-user_lang: dict[str, str] = {}
+USER_PREFS_FILE = "user_prefs.json"
+
+def _load_user_prefs() -> dict:
+    import json
+    import os
+    if os.path.exists(USER_PREFS_FILE):
+        try:
+            with open(USER_PREFS_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    return {}
+
+def _save_user_prefs(prefs: dict):
+    import json
+    import os
+    try:
+        with open(USER_PREFS_FILE, "w", encoding="utf-8") as f:
+            json.dump(prefs, f)
+    except Exception as e:
+        logger.error(f"Failed to save user prefs: {e}")
+
+user_lang: dict[str, str] = _load_user_prefs()
 
 DEFAULT_LANG = "en"
 
@@ -208,10 +230,71 @@ STRINGS = {
     },
 }
 
+TRANSLATION_CACHE_FILE = "translation_cache.json"
+
+def _load_translation_cache() -> dict:
+    import json
+    import os
+    if os.path.exists(TRANSLATION_CACHE_FILE):
+        try:
+            with open(TRANSLATION_CACHE_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    return {}
+
+def _save_translation_cache(cache: dict):
+    import json
+    import os
+    try:
+        with open(TRANSLATION_CACHE_FILE, "w", encoding="utf-8") as f:
+            json.dump(cache, f)
+    except Exception as e:
+        logger.error(f"Failed to save translation cache: {e}")
+
+_translation_cache = _load_translation_cache()
+
 def t(phone: str, key: str, **kwargs) -> str:
     """Get a translated string for the user's preferred language."""
     lang = user_lang.get(phone, DEFAULT_LANG)
-    template = STRINGS.get(lang, STRINGS[DEFAULT_LANG]).get(key, STRINGS[DEFAULT_LANG].get(key, key))
+    
+    # Fast path if natively supported
+    if lang in STRINGS and key in STRINGS[lang]:
+        template = STRINGS[lang][key]
+    else:
+        english_template = STRINGS[DEFAULT_LANG].get(key, key)
+        if lang == DEFAULT_LANG:
+            template = english_template
+        else:
+            cache_key = f"{lang}_{key}"
+            if cache_key in _translation_cache:
+                template = _translation_cache[cache_key]
+            else:
+                # Need to translate
+                try:
+                    import requests
+                    headers = {
+                        "Authorization": f"Bearer {GROQ_API_KEY}",
+                        "Content-Type": "application/json"
+                    }
+                    data = {
+                        "model": "llama3-8b-8192",
+                        "messages": [
+                            {"role": "system", "content": f"Translate the following English text to {lang.capitalize()}. Do not add any quotes, extra text, or explanations. Just output the translation. Keep formatting markers like {{key}} EXACTLY the same."},
+                            {"role": "user", "content": english_template}
+                        ],
+                        "temperature": 0.0,
+                        "max_tokens": 100
+                    }
+                    resp = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=data, timeout=5)
+                    translation = resp.json()["choices"][0]["message"]["content"].strip()
+                    _translation_cache[cache_key] = translation
+                    _save_translation_cache(_translation_cache)
+                    template = translation
+                except Exception as e:
+                    logger.error(f"Translation failed: {e}")
+                    template = english_template
+
     try:
         return template.format(**kwargs)
     except (KeyError, IndexError):
@@ -511,8 +594,9 @@ def handle_message(phone: str, text: str):
     # Language switching (available to everyone, even unregistered)
     if text_lower.startswith("lang"):
         parts = text_lower.split()
-        if len(parts) == 2 and parts[1] in STRINGS:
-            user_lang[phone] = parts[1]
+        if len(parts) == 2:
+            user_lang[phone] = parts[1].lower()
+            _save_user_prefs(user_lang)
             send_text(phone, t(phone, "lang_switched"))
         else:
             send_text(phone, t(phone, "lang_help"))
@@ -926,7 +1010,7 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
     
     lang = user_lang.get(phone, DEFAULT_LANG)
     lang_map = {"en": "English", "hi": "Hindi", "pa": "Punjabi"}
-    pref_lang = lang_map.get(lang, "English")
+    pref_lang = lang_map.get(lang, lang.capitalize())
     
     edit_instruction = ""
     if edit_req_id:
@@ -1125,13 +1209,12 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
 def propose_ai_actions(phone: str, actions_json: str):
     """Parse Gemini JSON. Send conversational reply and show buttons if ready."""
     try:
-        clean_json = actions_json.strip()
-        if clean_json.startswith("```json"):
-            clean_json = clean_json[7:-3]
-        elif clean_json.startswith("```"):
-            clean_json = clean_json[3:-3]
+        import re
+        match = re.search(r'\{.*\}', actions_json, re.DOTALL)
+        if not match:
+            raise ValueError(f"No JSON object found in response: {actions_json}")
             
-        data = json.loads(clean_json.strip())
+        data = json.loads(match.group(0))
         
         reply = data.get("reply_to_user", "I didn't understand that.")
         ready = data.get("is_ready_to_execute", False)
@@ -1265,6 +1348,14 @@ def execute_ai_actions(phone: str, actions: list, edit_req_id: str = None):
                     log_history(item_id, item["Item_Name"], action, qty, log_phone, current_stock, new_stock, c_type, c_name, comment, txn_id=shared_txn_id)
                     results.append(t(phone, "action_done", action=action, qty=qty, item_name=item['Item_Name'], new_stock=new_stock))
                     
+            if action == "Changelanguage":
+                new_lang = str(act.get("new_language", "")).lower()
+                if new_lang:
+                    user_lang[phone] = new_lang
+                    _save_user_prefs(user_lang)
+                    results.append(t(phone, "lang_switched"))
+                continue
+
             if action == "Reverse":
                 if role != "manager":
                     results.append("🔒 Only managers can reverse transactions.")
