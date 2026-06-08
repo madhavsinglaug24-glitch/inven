@@ -528,14 +528,18 @@ def handle_message(phone: str, text: str):
     # Explicit greeting
     if text_lower in ["hi", "hello", "hey", "start", "menu"]:
         if role == "manager":
-            send_button_message(
+            send_list_message(
                 to=phone,
+                header="Manager Menu",
                 body=f"👋 Hello {name}! You are logged in as a *Manager*.\nYou can send me images of receipts, or choose an action below to enter manually:",
-                buttons=[
+                button_text="Menu",
+                sections=[{"title": "Actions", "rows": [
                     {"id": "ai_btn_Restock", "title": "📥 Restock"},
                     {"id": "ai_btn_Consume", "title": "📤 Consume"},
-                    {"id": "ai_btn_Pending", "title": "⏳ Pending"}
-                ]
+                    {"id": "ai_btn_Stock", "title": "📦 Check Stock"},
+                    {"id": "ai_btn_Pending", "title": "⏳ Pending"},
+                    {"id": "ai_btn_History", "title": "📜 History"}
+                ]}]
             )
         else:
             send_button_message(
@@ -573,6 +577,14 @@ def handle_message(phone: str, text: str):
     if "pending" in text_lower and role == "manager":
         _send_pending_approvals(phone)
         return
+        
+    if "history" in text_lower and role == "manager":
+        _send_history_list(phone)
+        return
+        
+    if "stock" in text_lower or "inventory" in text_lower:
+        _send_inventory_list(phone)
+        return
 
     # Fallback to AI Processing for everything
     if GROQ_API_KEY:
@@ -608,10 +620,40 @@ def _send_pending_approvals(phone: str):
             ],
         )
 
+def _send_history_list(phone: str):
+    history = get_recent_history(limit=15)
+    if not history:
+        send_text(phone, "📜 No recent history found.")
+        return
+        
+    msg = "📜 *Recent History*\n\n"
+    for h in history:
+        date_str = str(h.get('Timestamp', ''))[:16]
+        msg += f"• {date_str} ({h.get('User_Phone', '')[-4:]})\n  {h.get('Action', '')} {h.get('Quantity', '')}x {h.get('Item_Name', '')}\n\n"
+    
+    send_text(phone, msg.strip())
+    
+def _send_inventory_list(phone: str):
+    user = get_user(phone)
+    role = str(user.get("Role", "worker")).strip().lower() if user else "worker"
+    
+    items = get_all_inventory()
+    if not items:
+        send_text(phone, "📦 Inventory is empty.")
+        return
+        
+    msg = "📦 *Current Inventory*\n\n"
+    for i in items:
+        stock = i.get('Current_Stock', 0)
+        name = i.get('Item_Name', 'Unknown')
+        if role == "manager":
+            price = i.get('Purchase_Price', 0)
+            msg += f"• *{name}*: {stock} in stock (${price})\n"
+        else:
+            msg += f"• *{name}*: {stock} in stock\n"
+            
+    send_text(phone, msg.strip()[:4000])
 
-# ---------------------------------------------------------------------------
-# Multi-step session handler (Add / Deduct flow)
-# ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
 # Interactive message handler (button & list replies)
