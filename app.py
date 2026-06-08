@@ -729,7 +729,7 @@ def process_with_gemini(phone: str, file_path: str, mime_type: str, user_text: s
     3. If the user just asks a question (like "what is the history of ITEM-1" or "how much stock do we have"), just answer them in the `reply_to_user` field and leave `actions` empty!
     4. You MUST ALWAYS respond with a structured JSON object in EXACTLY this format (no markdown code blocks, just raw JSON):
     {{
-      "reply_to_user": "Your conversational reply answering their question, asking for clarification, or confirming details.",
+      "reply_to_user": "Your highly conversational, friendly, and varied reply. Act like a helpful human assistant. Use fun, diverse emojis. NEVER repeat the exact same phrases.",
       "is_ready_to_execute": false,
       "actions": []
     }}
@@ -774,7 +774,7 @@ def process_with_gemini(phone: str, file_path: str, mime_type: str, user_text: s
         elif mime_type and "audio" in mime_type:
             user_part = "The user sent a voice note. Please transcribe it and treat the transcription as their message. Respond accordingly."
         else:
-            user_part = "Please carefully analyze the attached image (it is a bill, receipt, or handwritten note). Step 1: Read all the text/elements visible in the image. Step 2: List exactly what you found (items, quantities, prices) directly in the `reply_to_user` field so the user knows you read it successfully."
+            user_part = "Please carefully analyze the attached image (it is a bill, receipt, or handwritten note). Step 1: Read all the text/elements visible in the image. Step 2: List exactly what you found (items, quantities, prices) directly in the `reply_to_user` field."
 
         current_message = prompt_context + "\n\nUSER MESSAGE:\n" + user_part
         
@@ -934,54 +934,60 @@ def process_webhook():
     if not data:
         return jsonify({"status": "no data"}), 400
 
-    try:
-        for entry in data.get("entry", []):
-            for change in entry.get("changes", []):
-                value = change.get("value", {})
-
-                # Ignore status updates (message delivery receipts, etc.)
-                if "messages" not in value:
-                    continue
-
-                for msg in value["messages"]:
-                    phone = msg.get("from", "")
-                    msg_type = msg.get("type", "")
-
-                    if msg_type == "text":
-                        text = msg["text"]["body"]
-                        logger.info("Text from %s: %s", phone, text)
-                        handle_message(phone, text)
-
-                    elif msg_type == "interactive":
-                        interactive_data = msg.get("interactive", {})
-                        logger.info("Interactive from %s: %s", phone, json.dumps(interactive_data))
-                        handle_interactive(phone, interactive_data)
-
-                    elif msg_type in ("image", "audio", "voice"):
-                        if not GEMINI_API_KEY:
-                            send_text(phone, t(phone, "ai_disabled"))
-                            continue
-                            
-                        send_text(phone, t(phone, "ai_processing_media", media_type=msg_type))
-                        media_id = msg[msg_type]["id"]
-                        file_path, mime_type = _download_whatsapp_media(media_id)
-                        if file_path:
-                            ai_resp = process_with_gemini(phone, file_path, mime_type)
-                            propose_ai_actions(phone, ai_resp)
+    def background_task(payload):
+        try:
+            for entry in payload.get("entry", []):
+                for change in entry.get("changes", []):
+                    value = change.get("value", {})
+    
+                    # Ignore status updates (message delivery receipts, etc.)
+                    if "messages" not in value:
+                        continue
+    
+                    for msg in value["messages"]:
+                        phone = msg.get("from", "")
+                        msg_type = msg.get("type", "")
+    
+                        if msg_type == "text":
+                            text = msg["text"]["body"]
+                            logger.info("Text from %s: %s", phone, text)
+                            handle_message(phone, text)
+    
+                        elif msg_type == "interactive":
+                            interactive_data = msg.get("interactive", {})
+                            logger.info("Interactive from %s: %s", phone, json.dumps(interactive_data))
+                            handle_interactive(phone, interactive_data)
+    
+                        elif msg_type in ("image", "audio", "voice"):
+                            if not GEMINI_API_KEY:
+                                send_text(phone, t(phone, "ai_disabled"))
+                                continue
+                                
+                            send_text(phone, t(phone, "ai_processing_media", media_type=msg_type))
+                            media_id = msg[msg_type]["id"]
+                            caption = msg[msg_type].get("caption", None)
+                            file_path, mime_type = _download_whatsapp_media(media_id)
+                            if file_path:
+                                ai_resp = process_with_gemini(phone, file_path, mime_type, caption)
+                                propose_ai_actions(phone, ai_resp)
+                            else:
+                                send_text(phone, t(phone, "ai_download_fail"))
+                                
                         else:
-                            send_text(phone, t(phone, "ai_download_fail"))
-                            
-                    else:
-                        # Pass unsupported types to AI to handle naturally
-                        if GEMINI_API_KEY:
-                            send_text(phone, t(phone, "ai_thinking"))
-                            ai_resp = process_with_gemini(phone, None, None, t(phone, "unsupported_msg", msg_type=msg_type))
-                            propose_ai_actions(phone, ai_resp)
+                            # Pass unsupported types to AI to handle naturally
+                            if GEMINI_API_KEY:
+                                send_text(phone, t(phone, "ai_thinking"))
+                                ai_resp = process_with_gemini(phone, None, None, t(phone, "unsupported_msg", msg_type=msg_type))
+                                propose_ai_actions(phone, ai_resp)
+        except Exception:
+            logger.exception("Error processing webhook payload")
 
-    except Exception:
-        logger.exception("Error processing webhook payload")
+    # Run the heavy processing in a background thread to instantly return 200 OK to Meta
+    import threading
+    thread = threading.Thread(target=background_task, args=(data,))
+    thread.start()
 
-    # Always return 200 to Meta to avoid retries
+    # Always return 200 to Meta immediately to avoid retries
     return jsonify({"status": "ok"}), 200
 
 
