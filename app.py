@@ -936,8 +936,16 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
             os.remove(file_path)
             
         err_str = str(e)
-        if "rate_limit" in err_str.lower():
-            user_msg = "⏳ Wow, you guys are fast! I hit my rate limit. Please wait 1 minute and try again."
+        if "rate_limit" in err_str.lower() or "429" in err_str:
+            retry_s = "1 minute"
+            try:
+                if hasattr(e, 'response') and e.response is not None:
+                    retry_val = e.response.headers.get("retry-after")
+                    if retry_val:
+                        retry_s = f"{retry_val} seconds"
+            except Exception:
+                pass
+            user_msg = f"⏳ Wow, you guys are fast! I hit my AI rate limit. Please wait {retry_s} and try again."
         elif "decommissioned" in err_str.lower() or "not found" in err_str.lower():
             user_msg = "🛠️ The AI models I was using were just retired by Groq! Please tell my developer."
         else:
