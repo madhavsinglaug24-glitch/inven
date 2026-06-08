@@ -351,12 +351,13 @@ def update_approval_status(request_id: str, new_status: str):
 
 # ---- History --------------------------------------------------------------
 
-def log_history(item_id: str, item_name: str, action: str, qty: int, editor_phone: str, previous_stock: int, new_stock: int):
+def log_history(item_id: str, item_name: str, action: str, qty: int, editor_phone: str, previous_stock: int, new_stock: int, contact_type: str = "", contact_name: str = "", comment: str = ""):
     """Log an inventory change to the History tab."""
     try:
         ws = _worksheet("History")
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        ws.append_row([timestamp, item_id, item_name, action, qty, editor_phone, previous_stock, new_stock])
+        txn_id = f"TXN-{uuid.uuid4().hex[:6].upper()}"
+        ws.append_row([timestamp, item_id, item_name, action, qty, editor_phone, previous_stock, new_stock, contact_type, contact_name, comment, txn_id])
     except Exception as e:
         logger.error(f"Failed to log history: {e}")
 
@@ -636,7 +637,9 @@ def _send_history_list(phone: str):
     msg = "📜 *Recent History*\n\n"
     for h in history:
         date_str = str(h.get('Timestamp', ''))[:16]
-        msg += f"• {date_str} ({h.get('User_Phone', '')[-4:]})\n  {h.get('Action', '')} {h.get('Quantity', '')}x {h.get('Item_Name', '')}\n\n"
+        comment_str = f"\n  💬 {h.get('Comment')}" if h.get('Comment') else ""
+        contact_str = f"\n  👤 {h.get('Contact_Type', 'Contact')}: {h.get('Contact_Name')}" if h.get('Contact_Name') else ""
+        msg += f"• {date_str} ({h.get('User_Phone', '')[-4:]})\n  {h.get('Action', '')} {h.get('Quantity', '')}x {h.get('Item_Name', '')} [ID: {h.get('Txn_ID', '')}]{contact_str}{comment_str}\n\n"
     
     send_text(phone, msg.strip())
     
@@ -902,7 +905,8 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
     6. HALLUCINATION PREVENTION: You MUST NEVER invent or hallucinate an `item_id`. If the user asks to Restock or Consume an item that does NOT exactly match the provided `Current inventory` list, you must tell them it is not found.
     7. PERMISSION TO CREATE: You MUST NEVER use the "Create" action unless the user explicitly tells you to create a new item or you explicitly ask them "Would you like to create this as a new item?" and they say Yes.
     8. DUPLICATE PREVENTION: You MUST NEVER create an item that has the EXACT same name as an existing item in the inventory. If the user tries to create an item with a very similar name to existing items, or asks for an item that doesn't exist but similar ones do, you MUST tell them about the similar items first and ask if they meant one of those.
-    9. You MUST ALWAYS respond with a structured JSON object in EXACTLY this format (no markdown code blocks, just raw JSON):
+    9. REVERSALS & COMMENTS: If the user asks to reverse a transaction, find the `Txn_ID` in the Recent History and output action "Reverse" with the "transaction_id". Capture any optional comments the user makes into the "comment" field. Map names to "contact_name" and set "contact_type" to "Supplier" for purchases/restocks and "Customer" for sales/consumes.
+    10. You MUST ALWAYS respond with a structured JSON object in EXACTLY this format (no markdown code blocks, just raw JSON):
     {{
       "reply_to_user": "A VERY SHORT, concise, and tight reply. Get straight to the point. Give just the important stuff. Use emojis.",
       "is_ready_to_execute": false,
@@ -912,7 +916,7 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
     }}
     
     When the user has confirmed they want to proceed with an update and you have ALL details perfectly clear, set "is_ready_to_execute" to true and populate "actions" with:
-    [{{"action": "Restock"|"Consume"|"Create", "item_id": "ITEM-X", "quantity": 10, "supplier_name": "Supplier Name", "new_item_name": "If Create", "new_item_price": 0, "new_item_min_stock": 0}}]
+    [{{"action": "Restock"|"Consume"|"Create"|"Reverse", "item_id": "ITEM-X", "quantity": 10, "contact_type": "Supplier"|"Customer", "contact_name": "Name of contact", "comment": "Any extra notes", "transaction_id": "TXN-XXXX (if Reverse)", "new_item_name": "If Create", "new_item_price": 0, "new_item_min_stock": 0}}]
 
     If the user wants to update an item, or asks for data about an item, and the item name is ambiguous or has multiple exact or close matches in the inventory, DO NOT guess which one they mean and DO NOT give back data for a random match. Instead, set "is_ready_to_execute" to false and return up to 9 matching items in "options": [{{"id": "ITEM-X", "title": "Item Name"}}]. To help the user distinguish between exact duplicate names, append the ID to the title in the options array (e.g., "Cement (ITEM-1)").
     """
@@ -1121,6 +1125,8 @@ def propose_ai_actions(phone: str, actions_json: str):
             qty = act.get('quantity', 0)
             if act_type == "Create":
                 changes_str += f"\n• Create: {str(act.get('new_item_name', 'Unknown')).title()} (Qty: {qty})"
+            elif act_type == "Reverse":
+                changes_str += f"\n• Reverse TXN: {act.get('transaction_id', '')}"
             else:
                 item_id = act.get("item_id", "")
                 item_obj = get_inventory_item(item_id)
@@ -1150,6 +1156,9 @@ def execute_ai_actions(phone: str, actions: list):
         for act in actions:
             action = act.get("action", "").capitalize()
             qty = int(act.get("quantity", 0))
+            c_type = act.get("contact_type", "")
+            c_name = act.get("contact_name", "")
+            comment = act.get("comment", "")
             
             if action == "Create":
                 if role != "manager":
@@ -1165,7 +1174,7 @@ def execute_ai_actions(phone: str, actions: list):
                 new_id = f"ITEM-{max_num + 1}"
                 
                 ws.append_row([new_id, name, qty, min_stock, price, ""])
-                log_history(new_id, name, "Create", qty, phone, 0, qty)
+                log_history(new_id, name, "Create", qty, phone, 0, qty, c_type, c_name, comment)
                 results.append(t(phone, "created_item", name=name, item_id=new_id, qty=qty))
                 continue
 
@@ -1193,8 +1202,39 @@ def execute_ai_actions(phone: str, actions: list):
                     current_stock = int(item["Current_Stock"])
                     new_stock = current_stock + qty if action in ["Add", "Restock"] else current_stock - qty
                     update_inventory_stock(item_id, new_stock)
-                    log_history(item_id, item["Item_Name"], action, qty, phone, current_stock, new_stock)
+                    log_history(item_id, item["Item_Name"], action, qty, phone, current_stock, new_stock, c_type, c_name, comment)
                     results.append(t(phone, "action_done", action=action, qty=qty, item_name=item['Item_Name'], new_stock=new_stock))
+                    
+            if action == "Reverse":
+                if role != "manager":
+                    results.append("🔒 Only managers can reverse transactions.")
+                    continue
+                txn_id = act.get("transaction_id", "")
+                history = get_recent_history(limit=50)
+                target_txn = next((h for h in history if str(h.get("Txn_ID", "")) == txn_id), None)
+                if not target_txn:
+                    results.append(f"🔎 Transaction {txn_id} not found in recent history.")
+                    continue
+                    
+                item_id = target_txn["Item_ID"]
+                item = get_inventory_item(item_id)
+                if not item:
+                    results.append(f"🔎 Original item {item_id} no longer exists.")
+                    continue
+                    
+                orig_action = target_txn["Action"].capitalize()
+                orig_qty = int(target_txn["Quantity"])
+                
+                current_stock = int(item["Current_Stock"])
+                # Invert logic: If original was Restock/Add, we deduct. If Consume/Deduct, we add.
+                if orig_action in ["Add", "Restock", "Create"]:
+                    new_stock = current_stock - orig_qty
+                else:
+                    new_stock = current_stock + orig_qty
+                    
+                update_inventory_stock(item_id, new_stock)
+                log_history(item_id, item["Item_Name"], f"Reversed {txn_id}", orig_qty, phone, current_stock, new_stock, c_type, c_name, f"Reversal of {orig_action}. {comment}")
+                results.append(f"✅ Reversed {txn_id} ({orig_action} {orig_qty}x {item['Item_Name']}). New stock: {new_stock}")
                     
         if results:
             send_text(phone, t(phone, "ai_summary") + "\n".join(results))
