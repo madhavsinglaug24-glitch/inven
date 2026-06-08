@@ -33,8 +33,6 @@ load_dotenv()
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.urandom(24)
 
-import groq
-
 WHATSAPP_TOKEN = os.environ["WHATSAPP_TOKEN"]
 WHATSAPP_PHONE_ID = os.environ["WHATSAPP_PHONE_ID"]
 VERIFY_TOKEN = os.environ["VERIFY_TOKEN"]
@@ -535,7 +533,7 @@ def handle_message(phone: str, text: str):
             send_text(phone, "❌ Edit cancelled.")
             return
         edit_req_id = session.get("edit_req_id")
-        response_text = process_with_groq(phone, file_path=None, mime_type=None, user_text=text_body, edit_req_id=edit_req_id)
+        response_text = process_with_groq(phone, file_path=None, mime_type=None, user_text=text, edit_req_id=edit_req_id)
         propose_ai_actions(phone, response_text)
         return
 
@@ -788,54 +786,53 @@ def _handle_button_reply(phone: str, button_id: str):
 
 def _process_approval(manager_phone: str, request_id: str, approved: bool):
     """Approve or reject a pending request and update sheets accordingly."""
-    approval = get_approval(request_id)
-    if approval is None:
+    approvals = get_approvals(request_id)
+    if not approvals:
         send_text(manager_phone, t(manager_phone, "request_not_found", request_id=request_id))
         return
 
-    if str(approval.get("Status", "")).strip().lower() != "pending":
-        send_text(manager_phone, t(manager_phone, "request_already", request_id=request_id, status=approval['Status']))
+    if any(str(a.get("Status", "")).strip().lower() != "pending" for a in approvals):
+        send_text(manager_phone, t(manager_phone, "request_already", request_id=request_id, status=approvals[0]['Status']))
         return
 
-    worker_phone = str(approval["Worker_Number"]).strip()
-    item_id = str(approval["Item_ID"]).strip()
-    action = str(approval["Action"]).strip()
-    qty = int(approval["Quantity"])
-    item = get_inventory_item(item_id)
-    item_name = item["Item_Name"] if item else item_id
+    worker_phone = str(approvals[0]["Worker_Number"]).strip()
 
     if not approved:
         update_approval_status(request_id, "Rejected")
-        send_text(manager_phone, t(manager_phone, "request_rejected_mgr", request_id=request_id))
-        send_text(worker_phone, t(worker_phone, "request_rejected_wkr", request_id=request_id, action=action, qty=qty, item_name=item_name))
+        send_text(manager_phone, f"❌ Request {request_id} has been rejected.")
+        send_text(worker_phone, f"❌ Your request {request_id} was rejected by the manager.")
         return
 
     # Approved — update inventory
-    if item is None:
-        send_text(manager_phone, t(manager_phone, "item_missing", item_id=item_id))
-        return
+    import uuid
+    shared_txn_id = f"TXN-{uuid.uuid4().hex[:6].upper()}"
+    
+    for approval in approvals:
+        item_id = str(approval["Item_ID"]).strip()
+        action = str(approval["Action"]).strip()
+        qty = int(approval["Quantity"])
+        item = get_inventory_item(item_id)
+        if item is None:
+            continue
+            
+        current_stock = int(item["Current_Stock"])
+        if action.lower() in ["add", "restock"]:
+            new_stock = current_stock + qty
+        else:
+            new_stock = current_stock - qty
 
-    current_stock = int(item["Current_Stock"])
-    if action.lower() == "add":
-        new_stock = current_stock + qty
-    else:
-        new_stock = current_stock - qty
-        if new_stock < 0:
-            send_text(manager_phone, t(manager_phone, "stock_insufficient", qty=qty, stock=current_stock))
-            return
+        update_inventory_stock(item_id, new_stock)
+        log_history(item_id, item["Item_Name"], action, qty, worker_phone, current_stock, new_stock, txn_id=shared_txn_id)
 
-    update_inventory_stock(item_id, new_stock)
+        # JIT wholesaler trigger
+        if action.lower() == "deduct" or action.lower() == "consume":
+            min_stock = int(item.get("Min_Stock", 0))
+            supplier_id = str(item.get("Supplier_ID", ""))
+            _jit_check(manager_phone, item_id, item["Item_Name"], new_stock, min_stock, supplier_id)
+
     update_approval_status(request_id, "Approved")
-    log_history(item_id, item["Item_Name"], action, qty, manager_phone, current_stock, new_stock)
-
-    send_text(manager_phone, t(manager_phone, "request_approved_mgr", request_id=request_id, item_name=item_name, action=action, qty=qty, new_stock=new_stock))
-    send_text(worker_phone, t(worker_phone, "request_approved_wkr", request_id=request_id, action=action, qty=qty, item_name=item_name, new_stock=new_stock))
-
-    # JIT wholesaler trigger
-    if action.lower() == "deduct":
-        min_stock = int(item.get("Min_Stock", 0))
-        supplier_id = str(item.get("Supplier_ID", ""))
-        _jit_check(manager_phone, item_id, item["Item_Name"], new_stock, min_stock, supplier_id)
+    send_text(manager_phone, f"✅ Request {request_id} approved. Inventory updated.")
+    send_text(worker_phone, f"✅ Your request {request_id} was approved by the manager!")
 
 
 # ---------------------------------------------------------------------------
@@ -1332,17 +1329,6 @@ def execute_ai_actions(phone: str, actions: list, edit_req_id: str = None):
 def index():
     """Root endpoint for health checks and status."""
     return jsonify({"status": "online", "service": "WhatsApp Inventory Bot"}), 200
-
-
-@app.route("/models", methods=["GET"])
-def get_models():
-    """Debug route to list available Gemini models."""
-    try:
-        import groq
-        models = [m.name for m in genai.list_models()]
-        return jsonify({"models": models})
-    except Exception as e:
-        return jsonify({"error": str(e)})
 
 
 @app.route("/webhook", methods=["GET"])
