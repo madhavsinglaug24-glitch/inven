@@ -786,7 +786,10 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
     role = str(user.get("Role", "worker")).strip().lower() if user else "worker"
     
     items = get_all_inventory()
-    items_str = json.dumps([{"id": i["Item_ID"], "name": i["Item_Name"], "stock": i["Current_Stock"], "min": i.get("Min_Stock", 0), "price": i.get("Purchase_Price", 0), "sup_id": i.get("Supplier_ID", "")} for i in items])
+    if role == "manager":
+        items_str = json.dumps([{"id": i["Item_ID"], "name": i["Item_Name"], "stock": i["Current_Stock"], "min": i.get("Min_Stock", 0), "price": i.get("Purchase_Price", 0), "sup_id": i.get("Supplier_ID", "")} for i in items])
+    else:
+        items_str = json.dumps([{"id": i["Item_ID"], "name": i["Item_Name"], "stock": i["Current_Stock"], "min": i.get("Min_Stock", 0), "sup_id": i.get("Supplier_ID", "")} for i in items])
     try:
         suppliers = _worksheet("Suppliers").get_all_records()
         sup_str = json.dumps([{"id": s["Supplier_ID"], "name": s["Name"]} for s in suppliers])
@@ -807,13 +810,13 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
     Current suppliers: {sup_str}
     Recent History (last 20 changes): {hist_str}
     
-    Your goal is to gather information to execute an inventory update (Add stock, Deduct stock, or Create a new item), OR answer questions about the current stock, suppliers, or history.
+    Your goal is to gather information to execute an inventory update (Restock, Consume, or Create a new item), OR answer questions about the current stock, suppliers, or history.
     
     CRITICAL RULES:
-    1. If the user provides an image of a bill or receipt, you MUST ask them to clarify if this is a "Credit" (adding new stock/purchase) or a "Deduction" (removing stock/sale), unless the image explicitly makes it obvious.
+    1. If the user provides an image of a bill or receipt, you MUST ask them to clarify if this is a "Restock" (adding new stock/purchase) or a "Consume" (removing stock/sale), unless the image explicitly makes it obvious.
     2. If any details are ambiguous (missing item name, missing quantity, unclear action), politely ask the user for clarification in your reply. Do NOT guess.
     3. If the user just asks a question (like "what is the history of ITEM-1" or "how much stock do we have"), just answer them in the `reply_to_user` field and leave `actions` empty!
-    4. If you are asking the user a multiple choice question (like "Add or Deduct?" or "Yes or No?"), you can provide up to 10 options by adding a "buttons" array: "buttons": ["Add", "Deduct"]
+    4. If you are asking the user a multiple choice question (like "Restock or Consume?" or "Yes or No?"), you can provide up to 10 options by adding a "buttons" array: "buttons": ["Restock", "Consume"]
     5. When setting "is_ready_to_execute" to true, your `reply_to_user` MUST NOT say that the action is already completed or edited. Instead, say "I am ready to make this update."
     6. You MUST ALWAYS respond with a structured JSON object in EXACTLY this format (no markdown code blocks, just raw JSON):
     {{
@@ -825,7 +828,7 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
     }}
     
     When the user has confirmed they want to proceed with an update and you have ALL details perfectly clear, set "is_ready_to_execute" to true and populate "actions" with:
-    [{{"action": "Add"|"Deduct"|"Create", "item_id": "ITEM-X", "quantity": 10, "supplier_name": "Supplier Name", "new_item_name": "If Create", "new_item_price": 0, "new_item_min_stock": 0}}]
+    [{{"action": "Restock"|"Consume"|"Create", "item_id": "ITEM-X", "quantity": 10, "supplier_name": "Supplier Name", "new_item_name": "If Create", "new_item_price": 0, "new_item_min_stock": 0}}]
 
     If the user wants to update an item but the item name is ambiguous or has multiple close matches in the inventory, DO NOT ask them manually in text. Instead, set "is_ready_to_execute" to false and return up to 9 closest matching items in "options": [{{"id": "ITEM-X", "title": "Item Name"}}]. The user will receive a dropdown menu to select the correct item.
     """
@@ -1082,7 +1085,7 @@ def execute_ai_actions(phone: str, actions: list):
                 results.append(t(phone, "created_item", name=name, item_id=new_id, qty=qty))
                 continue
 
-            if action in ["Add", "Deduct"]:
+            if action in ["Add", "Deduct", "Restock", "Consume"]:
                 item_id = act.get("item_id")
                 item = get_inventory_item(item_id)
                 if not item:
@@ -1104,7 +1107,7 @@ def execute_ai_actions(phone: str, actions: list):
                         )
                 else:
                     current_stock = int(item["Current_Stock"])
-                    new_stock = current_stock + qty if action == "Add" else current_stock - qty
+                    new_stock = current_stock + qty if action in ["Add", "Restock"] else current_stock - qty
                     update_inventory_stock(item_id, new_stock)
                     log_history(item_id, item["Item_Name"], action, qty, phone, current_stock, new_stock)
                     results.append(t(phone, "action_done", action=action, qty=qty, item_name=item['Item_Name'], new_stock=new_stock))
