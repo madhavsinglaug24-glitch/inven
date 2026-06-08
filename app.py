@@ -792,8 +792,6 @@ def process_with_gemini(phone: str, file_path: str, mime_type: str, user_text: s
                 else:
                     response = chat.send_message(current_message)
                 
-                # If success, save history and break
-                logger.info(f"✨ Successfully generated response using free-tier model: {target_model}")
                 user_sessions[phone]["history"] = chat.history[-10:]
                 break
             except Exception as e:
