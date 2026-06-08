@@ -870,7 +870,7 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
                     file=(file_path, f.read()),
                     model="whisper-large-v3-turbo",
                 )
-            user_part = f"The user sent an audio message. Transcription: '{transcription.text}'. Respond accordingly."
+            user_part = f"The user sent a voice note. Voice Transcription: '{transcription.text}'. Treat this transcription EXACTLY as if the user explicitly typed this command or question to you."
             messages = chat_history + [{"role": "user", "content": user_part}]
         elif file_path:
             with open(file_path, "rb") as f:
