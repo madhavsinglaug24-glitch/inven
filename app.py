@@ -321,21 +321,23 @@ def get_supplier(supplier_id: str) -> dict | None:
 
 # ---- Approvals ------------------------------------------------------------
 
-def create_approval(worker_phone: str, item_id: str, action: str, qty: int) -> str:
+def create_approval(worker_phone: str, item_id: str, action: str, qty: int, request_id: str = None) -> str:
     """Insert a new row in the Approvals sheet and return the Request_ID."""
     ws = _worksheet("Approvals")
-    request_id = f"REQ-{uuid.uuid4().hex[:8].upper()}"
+    if not request_id:
+        request_id = f"REQ-{uuid.uuid4().hex[:8].upper()}"
     ws.append_row([request_id, worker_phone, item_id, action, qty, "Pending"])
     return request_id
 
 
-def get_approval(request_id: str) -> dict | None:
-    """Return an Approvals row by Request_ID."""
+def get_approvals(request_id: str) -> list[dict]:
+    """Return all Approvals rows by Request_ID."""
     ws = _worksheet("Approvals")
+    matches = []
     for row in ws.get_all_records():
         if str(row.get("Request_ID", "")).strip() == request_id.strip():
-            return row
-    return None
+            matches.append(row)
+    return matches
 
 
 def update_approval_status(request_id: str, new_status: str):
@@ -347,16 +349,16 @@ def update_approval_status(request_id: str, new_status: str):
     for idx, row in enumerate(records, start=2):
         if str(row.get("Request_ID", "")).strip() == request_id.strip():
             ws.update_cell(idx, col, new_status)
-            return
 
 # ---- History --------------------------------------------------------------
 
-def log_history(item_id: str, item_name: str, action: str, qty: int, editor_phone: str, previous_stock: int, new_stock: int, contact_type: str = "", contact_name: str = "", comment: str = ""):
+def log_history(item_id: str, item_name: str, action: str, qty: int, editor_phone: str, previous_stock: int, new_stock: int, contact_type: str = "", contact_name: str = "", comment: str = "", txn_id: str = None):
     """Log an inventory change to the History tab."""
     try:
         ws = _worksheet("History")
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        txn_id = f"TXN-{uuid.uuid4().hex[:6].upper()}"
+        if not txn_id:
+            txn_id = f"TXN-{uuid.uuid4().hex[:6].upper()}"
         ws.append_row([timestamp, item_id, item_name, action, qty, editor_phone, previous_stock, new_stock, contact_type, contact_name, comment, txn_id])
     except Exception as e:
         logger.error(f"Failed to log history: {e}")
@@ -623,20 +625,31 @@ def _send_pending_approvals(phone: str):
         send_text(phone, t(phone, "no_pending"))
         return
 
-    for req in pending:
-        item = get_inventory_item(req["Item_ID"])
-        item_name = item["Item_Name"] if item else req["Item_ID"]
-        body = t(phone, "pending_header",
-                 request_id=req['Request_ID'], worker=req['Worker_Number'],
-                 item_name=item_name, item_id=req['Item_ID'],
-                 action=req['Action'], qty=req['Quantity'])
+    grouped = {}
+    for r in pending:
+        req_id = r["Request_ID"]
+        if req_id not in grouped:
+            grouped[req_id] = []
+        grouped[req_id].append(r)
+
+    for req_id, items in grouped.items():
+        worker = items[0]["Worker_Number"]
+        
+        items_str = ""
+        for r in items:
+            item = get_inventory_item(r["Item_ID"])
+            item_name = item["Item_Name"] if item else r["Item_ID"]
+            items_str += f"\n• {r['Action']} {r['Quantity']}x {item_name}"
+            
+        body = f"⏳ *Pending Request*: {req_id}\n👤 *Worker*: {worker}\n{items_str}\n\nPlease review."
+        
         send_button_message(
             to=phone,
             body=body,
             buttons=[
-                {"id": f"approve_{req['Request_ID']}", "title": t(phone, "btn_approve")},
-                {"id": f"reject_{req['Request_ID']}", "title": t(phone, "btn_reject")},
-                {"id": f"edit_{req['Request_ID']}", "title": "✏️ Edit"},
+                {"id": f"approve_{req_id}", "title": t(phone, "btn_approve")},
+                {"id": f"reject_{req_id}", "title": t(phone, "btn_reject")},
+                {"id": f"edit_{req_id}", "title": "✏️ Edit"},
             ],
         )
 
@@ -754,8 +767,8 @@ def _handle_button_reply(phone: str, button_id: str):
 
     elif button_id.startswith("edit_"):
         request_id = button_id.replace("edit_", "")
-        approval = get_approval(request_id)
-        if not approval:
+        approvals = get_approvals(request_id)
+        if not approvals:
             send_text(phone, t(phone, "request_not_found", request_id=request_id))
             return
             
@@ -764,9 +777,13 @@ def _handle_button_reply(phone: str, button_id: str):
         session["edit_req_id"] = request_id
         save_session(phone, session)
         
-        item = get_inventory_item(str(approval["Item_ID"]).strip())
-        item_name = item["Item_Name"] if item else str(approval["Item_ID"])
-        send_text(phone, f"✏️ You are editing Request *{request_id}* ({approval['Action']} {approval['Quantity']}x {item_name}).\n\nWhat would you like to change? (e.g. 'Change quantity to 20', 'Change supplier to XYZ').\nType *cancel* to abort.")
+        items_str = ""
+        for approval in approvals:
+            item = get_inventory_item(str(approval["Item_ID"]).strip())
+            item_name = item["Item_Name"] if item else str(approval["Item_ID"])
+            items_str += f"\n• {approval['Action']} {approval['Quantity']}x {item_name}"
+            
+        send_text(phone, f"✏️ You are editing Request *{request_id}*:{items_str}\n\nWhat would you like to change? (e.g. 'Change quantity to 20', 'Change supplier to XYZ').\nType *cancel* to abort.")
 
 
 def _process_approval(manager_phone: str, request_id: str, approved: bool):
@@ -916,12 +933,15 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
     
     edit_instruction = ""
     if edit_req_id:
-        approval = get_approval(edit_req_id)
-        if approval:
+        approvals = get_approvals(edit_req_id)
+        if approvals:
+            items_str = "\n".join([f"- {a['Action']} {a['Quantity']}x {a['Item_ID']}" for a in approvals])
             edit_instruction = f"""
     === MANAGER EDITING MODE ===
     You are helping a manager edit a pending transaction request from a worker.
-    Original Request: {approval['Action']} {approval['Quantity']}x {approval['Item_ID']}
+    Original Request Items:
+    {items_str}
+    
     The manager will tell you what to change. You MUST output the FINAL updated JSON action based on their changes as if you were creating it from scratch. Set "is_ready_to_execute" to true if the final details are clear.
     ============================
     """
@@ -1194,12 +1214,17 @@ def execute_ai_actions(phone: str, actions: list, edit_req_id: str = None):
     
     log_phone = phone
     if edit_req_id:
-        approval = get_approval(edit_req_id)
-        if approval:
-            log_phone = str(approval.get("Worker_Number", phone)).strip()
+        approvals = get_approvals(edit_req_id)
+        if approvals:
+            log_phone = str(approvals[0].get("Worker_Number", phone)).strip()
             
     try:
         results = []
+        import uuid
+        shared_txn_id = f"TXN-{uuid.uuid4().hex[:6].upper()}"
+        shared_req_id = f"REQ-{uuid.uuid4().hex[:8].upper()}"
+        worker_req_items = []
+        
         for act in actions:
             action = act.get("action", "").capitalize()
             qty = int(act.get("quantity", 0))
@@ -1221,7 +1246,7 @@ def execute_ai_actions(phone: str, actions: list, edit_req_id: str = None):
                 new_id = f"ITEM-{max_num + 1}"
                 
                 ws.append_row([new_id, name, qty, min_stock, price, ""])
-                log_history(new_id, name, "Create", qty, log_phone, 0, qty, c_type, c_name, comment)
+                log_history(new_id, name, "Create", qty, log_phone, 0, qty, c_type, c_name, comment, txn_id=shared_txn_id)
                 results.append(t(phone, "created_item", name=name, item_id=new_id, qty=qty))
                 continue
 
@@ -1233,58 +1258,65 @@ def execute_ai_actions(phone: str, actions: list, edit_req_id: str = None):
                     continue
                     
                 if role == "worker" and not edit_req_id:
-                    req_id = create_approval(phone, item_id, action, qty)
+                    create_approval(phone, item_id, action, qty, request_id=shared_req_id)
                     results.append(t(phone, "requested_action", action=action, qty=qty, item_name=item['Item_Name']))
-                    manager_phone = get_manager_phone()
-                    if manager_phone:
-                        body = t(manager_phone, "new_request_header", req_id=req_id, phone=phone, item_name=item['Item_Name'], action=action, qty=qty)
-                        send_button_message(
-                            to=manager_phone, body=body,
-                            buttons=[
-                                {"id": f"approve_{req_id}", "title": t(manager_phone, "btn_approve")},
-                                {"id": f"reject_{req_id}", "title": t(manager_phone, "btn_reject")},
-                                {"id": f"edit_{req_id}", "title": "✏️ Edit"},
-                            ]
-                        )
+                    worker_req_items.append(f"• {action} {qty}x {item['Item_Name']}")
                 else:
                     current_stock = int(item["Current_Stock"])
                     new_stock = current_stock + qty if action in ["Add", "Restock"] else current_stock - qty
                     update_inventory_stock(item_id, new_stock)
-                    log_history(item_id, item["Item_Name"], action, qty, log_phone, current_stock, new_stock, c_type, c_name, comment)
+                    log_history(item_id, item["Item_Name"], action, qty, log_phone, current_stock, new_stock, c_type, c_name, comment, txn_id=shared_txn_id)
                     results.append(t(phone, "action_done", action=action, qty=qty, item_name=item['Item_Name'], new_stock=new_stock))
-                    if edit_req_id:
-                        update_approval_status(edit_req_id, "Approved (Edited)")
                     
             if action == "Reverse":
                 if role != "manager":
                     results.append("🔒 Only managers can reverse transactions.")
                     continue
                 txn_id = act.get("transaction_id", "")
-                history = get_recent_history(limit=50)
-                target_txn = next((h for h in history if str(h.get("Txn_ID", "")) == txn_id), None)
-                if not target_txn:
+                history = get_recent_history(limit=100)
+                target_txns = [h for h in history if str(h.get("Txn_ID", "")) == txn_id]
+                if not target_txns:
                     results.append(f"🔎 Transaction {txn_id} not found in recent history.")
                     continue
-                    
-                item_id = target_txn["Item_ID"]
-                item = get_inventory_item(item_id)
-                if not item:
-                    results.append(f"🔎 Original item {item_id} no longer exists.")
-                    continue
-                    
-                orig_action = target_txn["Action"].capitalize()
-                orig_qty = int(target_txn["Quantity"])
                 
-                current_stock = int(item["Current_Stock"])
-                # Invert logic: If original was Restock/Add, we deduct. If Consume/Deduct, we add.
-                if orig_action in ["Add", "Restock", "Create"]:
-                    new_stock = current_stock - orig_qty
-                else:
-                    new_stock = current_stock + orig_qty
+                for target_txn in target_txns:
+                    item_id = target_txn["Item_ID"]
+                    item = get_inventory_item(item_id)
+                    if not item:
+                        results.append(f"🔎 Original item {item_id} no longer exists.")
+                        continue
+                        
+                    orig_action = target_txn["Action"].capitalize()
+                    orig_qty = int(target_txn["Quantity"])
                     
-                update_inventory_stock(item_id, new_stock)
-                log_history(item_id, item["Item_Name"], f"Reversed {txn_id}", orig_qty, phone, current_stock, new_stock, c_type, c_name, f"Reversal of {orig_action}. {comment}")
-                results.append(f"✅ Reversed {txn_id} ({orig_action} {orig_qty}x {item['Item_Name']}). New stock: {new_stock}")
+                    current_stock = int(item["Current_Stock"])
+                    if orig_action in ["Add", "Restock", "Create"]:
+                        new_stock = current_stock - orig_qty
+                    else:
+                        new_stock = current_stock + orig_qty
+                        
+                    update_inventory_stock(item_id, new_stock)
+                    log_history(item_id, item["Item_Name"], f"Reversed {txn_id}", orig_qty, phone, current_stock, new_stock, c_type, c_name, f"Reversal of {orig_action}. {comment}", txn_id=shared_txn_id)
+                    results.append(f"✅ Reversed {txn_id} ({orig_action} {orig_qty}x {item['Item_Name']}). New stock: {new_stock}")
+
+        # Post-loop logic for worker requests
+        if worker_req_items:
+            manager_phone = get_manager_phone()
+            if manager_phone:
+                items_str = "\n".join(worker_req_items)
+                body = f"⏳ *Pending Multi-Item Request*: {shared_req_id}\n👤 *Worker*: {phone}\n{items_str}\n\nPlease review."
+                send_button_message(
+                    to=manager_phone, body=body,
+                    buttons=[
+                        {"id": f"approve_{shared_req_id}", "title": t(manager_phone, "btn_approve")},
+                        {"id": f"reject_{shared_req_id}", "title": t(manager_phone, "btn_reject")},
+                        {"id": f"edit_{shared_req_id}", "title": "✏️ Edit"},
+                    ]
+                )
+        
+        # Post-loop logic for edits
+        if edit_req_id:
+            update_approval_status(edit_req_id, "Approved (Edited)")
                     
         if results:
             send_text(phone, t(phone, "ai_summary") + "\n".join(results))
