@@ -860,8 +860,13 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
     except:
         hist_str = "[]"
     
+    lang = user_lang.get(phone, DEFAULT_LANG)
+    lang_map = {"en": "English", "hi": "Hindi", "pa": "Punjabi"}
+    pref_lang = lang_map.get(lang, "English")
+    
     prompt_context = f"""
     You are an AI Inventory Assistant. You must be EXTREMELY brief, concise, and tight in all your replies. Never use filler words.
+    You MUST output your `reply_to_user` entirely in {pref_lang}.
     Current User Phone: {phone}
     User Role: {role}
     Current inventory: {items_str}
