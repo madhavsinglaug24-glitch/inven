@@ -528,9 +528,25 @@ def handle_message(phone: str, text: str):
     # Explicit greeting
     if text_lower in ["hi", "hello", "hey", "start", "menu"]:
         if role == "manager":
-            send_text(phone, f"👋 Hello {name}! You are logged in as a *Manager*.\nYou can type 'pending' to view approvals, or just ask me anything about the inventory!")
+            send_button_message(
+                to=phone,
+                body=f"👋 Hello {name}! You are logged in as a *Manager*.\nYou can send me images of receipts, or choose an action below to enter manually:",
+                buttons=[
+                    {"id": "ai_btn_Restock", "title": "📥 Restock"},
+                    {"id": "ai_btn_Consume", "title": "📤 Consume"},
+                    {"id": "ai_btn_Pending", "title": "⏳ Pending"}
+                ]
+            )
         else:
-            send_text(phone, f"👋 Hello {name}! You are logged in as a *Worker*.\nYou can send me images of receipts, or tell me what stock you want to update.")
+            send_button_message(
+                to=phone,
+                body=f"👋 Hello {name}! You are logged in as a *Worker*.\nYou can send me images of receipts, or choose an action below to enter manually:",
+                buttons=[
+                    {"id": "ai_btn_Restock", "title": "📥 Restock"},
+                    {"id": "ai_btn_Consume", "title": "📤 Consume"},
+                    {"id": "ai_btn_Stock", "title": "📦 Check Stock"}
+                ]
+            )
         return
 
     # Admin tool to mass-capitalize
@@ -554,7 +570,7 @@ def handle_message(phone: str, text: str):
         return
 
     # Only keep the pending check for managers
-    if text_lower == "pending" and role == "manager":
+    if "pending" in text_lower and role == "manager":
         _send_pending_approvals(phone)
         return
 
