@@ -533,6 +533,26 @@ def handle_message(phone: str, text: str):
             send_text(phone, f"👋 Hello {name}! You are logged in as a *Worker*.\nYou can send me images of receipts, or tell me what stock you want to update.")
         return
 
+    # Admin tool to mass-capitalize
+    if text_lower == "admin fix names" and role == "manager":
+        send_text(phone, "⏳ Capitalizing all existing inventory names...")
+        try:
+            ws = _worksheet("Inventory")
+            records = ws.get_all_records()
+            updated = 0
+            for idx, row in enumerate(records):
+                current_name = str(row.get("Item_Name", ""))
+                if current_name:
+                    new_name = current_name.title()
+                    if new_name != current_name:
+                        # idx=0 is row 2 in sheets (header is row 1)
+                        ws.update_cell(idx + 2, 2, new_name)
+                        updated += 1
+            send_text(phone, f"✅ Fixed {updated} items in the database!")
+        except Exception as e:
+            send_text(phone, f"❌ Error fixing names: {e}")
+        return
+
     # Only keep the pending check for managers
     if text_lower == "pending" and role == "manager":
         _send_pending_approvals(phone)
