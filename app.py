@@ -805,7 +805,8 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
     2. If any details are ambiguous (missing item name, missing quantity, unclear action), politely ask the user for clarification in your reply. Do NOT guess.
     3. If the user just asks a question (like "what is the history of ITEM-1" or "how much stock do we have"), just answer them in the `reply_to_user` field and leave `actions` empty!
     4. If you are asking the user a multiple choice question (like "Add or Deduct?" or "Yes or No?"), you can provide up to 3 options by adding a "buttons" array: "buttons": ["Add", "Deduct"]
-    5. You MUST ALWAYS respond with a structured JSON object in EXACTLY this format (no markdown code blocks, just raw JSON):
+    5. When setting "is_ready_to_execute" to true, your `reply_to_user` MUST NOT say that the action is already completed or edited. Instead, say "I am ready to make this update."
+    6. You MUST ALWAYS respond with a structured JSON object in EXACTLY this format (no markdown code blocks, just raw JSON):
     {{
       "reply_to_user": "A VERY SHORT, concise, and tight reply. Get straight to the point. Give just the important stuff. Use emojis.",
       "is_ready_to_execute": false,
