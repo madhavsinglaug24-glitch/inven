@@ -56,6 +56,171 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
+# 🌐 Internationalization (i18n)
+# ---------------------------------------------------------------------------
+# Per-user language preference (in-memory, keyed by phone)
+user_lang: dict[str, str] = {}
+
+DEFAULT_LANG = "en"
+
+STRINGS = {
+    "en": {
+        # ── General ──
+        "not_registered":       "🚫 Looks like you're not in the system yet — reach out to your Manager to get set up.",
+        "ai_thinking":          "✨ Working on it…",
+        "ai_disabled":          "🔌 AI features are offline right now. An admin needs to configure the GEMINI_API_KEY.",
+        "ai_processing_media":  "🔍 Analyzing your {media_type} — hang tight…",
+        "ai_download_fail":     "📥 Couldn't grab that file. Mind sending it again?",
+        "ai_expired":           "⏳ That action already expired — send your request again to start fresh.",
+        "ai_cancelled":         "🙅 Got it — changes discarded.",
+        "ai_confused":          "🤔 Hmm, I didn't quite catch that. Could you rephrase what you'd like to do?",
+        "ai_error":             "⚡ Something went wrong on my end. Try again in a sec.",
+        "ai_summary":           "📊 *Here's what happened:*\n",
+        "ai_confirm_prompt":    "*Want me to go ahead and apply these changes?*",
+        "btn_yes":              "✅ Apply",
+        "btn_cancel":           "❌ Cancel",
+        "unsupported_msg":      "(System note: User sent a '{msg_type}' message which isn't supported. Let them know you can handle text, voice notes, and images.)",
+
+        # ── Manager / Approvals ──
+        "managers_only":        "🔒 This action is reserved for Managers.",
+        "no_pending":           "🎉 All clear — no pending requests right now.",
+        "request_not_found":    "🔎 Couldn't find request *{request_id}*.",
+        "request_already":      "ℹ️ Request *{request_id}* was already *{status}*.",
+        "request_rejected_mgr": "✖️ Request *{request_id}* — *Rejected*",
+        "request_rejected_wkr": "✖️ Your request *{request_id}* ({action} {qty}× {item_name}) was *declined* by the Manager.",
+        "item_missing":         "🔎 Item *{item_id}* doesn't seem to exist in inventory anymore.",
+        "stock_insufficient":   "📉 Can't deduct {qty} — only *{stock}* left in stock.",
+        "request_approved_mgr": "✅ Request *{request_id}* — *Approved*\n\n📦 {item_name}\n🔄 {action} {qty}\n📊 Updated stock: {new_stock}",
+        "request_approved_wkr": "🎉 Great news! Your request *{request_id}* ({action} {qty}× {item_name}) was *approved*.\n📊 Stock is now: {new_stock}",
+        "pending_header":       "📋 *Request {request_id}*\n👤 Worker: {worker}\n📦 Item: {item_name} ({item_id})\n🔄 {action} — {qty} units",
+        "btn_approve":          "✅ Approve",
+        "btn_reject":           "❌ Reject",
+        "new_request_header":   "📬 *Incoming Request*\n\n🆔 {req_id}\n👤 From: {phone}\n📦 {item_name}\n🔄 {action} — {qty} units",
+
+        # ── JIT / Low Stock ──
+        "low_stock_no_supplier":"⚡ *Heads up — low stock!*\n\n📦 {item_name} ({item_id})\n📊 Stock: {stock} (minimum: {min_stock})\n\nNo supplier on file — manual reorder needed.",
+        "low_stock_alert":      "🚨 *Low Stock Alert*\n\n📦 {item_name} ({item_id})\n📊 Current: {stock}\n📉 Minimum: {min_stock}\n\n🏭 Supplier: {supplier_name}\n📲 Tap to reorder:\n{wa_link}",
+
+        # ── AI Actions ──
+        "create_mgr_only":      "🔒 Only Managers can create new inventory items.",
+        "created_item":         "✅ Created *{name}* — ID: `{item_id}`, Stock: {qty}",
+        "item_not_found":       "🔎 Couldn't find item `{item_id}` in inventory.",
+        "requested_action":     "📩 Submitted: {action} {qty}× *{item_name}* — awaiting approval.",
+        "action_done":          "✅ Done — {action} {qty}× *{item_name}* → Stock: {new_stock}",
+
+        # ── Language ──
+        "lang_switched":        "🌐 Language set to *English* 🇬🇧",
+        "lang_help":            "🌐 *Switch language:*\nType one of:\n• `lang en` — English 🇬🇧\n• `lang hi` — हिन्दी 🇮🇳\n• `lang pa` — ਪੰਜਾਬੀ 🇮🇳",
+    },
+    "hi": {
+        # ── General ──
+        "not_registered":       "🚫 लगता है आप अभी सिस्टम में नहीं हैं — सेटअप के लिए अपने मैनेजर से संपर्क करें।",
+        "ai_thinking":          "✨ प्रोसेस हो रहा है…",
+        "ai_disabled":          "🔌 AI अभी ऑफ़लाइन है। एडमिन को GEMINI_API_KEY सेट करना होगा।",
+        "ai_processing_media":  "🔍 आपकी {media_type} एनालाइज़ कर रहे हैं — रुकिए…",
+        "ai_download_fail":     "📥 फ़ाइल डाउनलोड नहीं हो सकी। दोबारा भेजें?",
+        "ai_expired":           "⏳ यह एक्शन एक्सपायर हो गया — नई रिक्वेस्ट भेजें।",
+        "ai_cancelled":         "🙅 ठीक है — बदलाव रद्द कर दिए।",
+        "ai_confused":          "🤔 समझ नहीं आया। क्या करना चाहते हैं, दोबारा बताएं?",
+        "ai_error":             "⚡ कुछ गड़बड़ हो गई। थोड़ी देर में फिर कोशिश करें।",
+        "ai_summary":           "📊 *यह रहा सारांश:*\n",
+        "ai_confirm_prompt":    "*क्या ये बदलाव लागू करूं?*",
+        "btn_yes":              "✅ हां करो",
+        "btn_cancel":           "❌ रद्द करो",
+        "unsupported_msg":      "(System note: User sent a '{msg_type}' message which isn't supported. Reply in Hindi. Let them know you can handle text, voice notes, and images.)",
+
+        # ── Manager / Approvals ──
+        "managers_only":        "🔒 यह एक्शन सिर्फ़ मैनेजर के लिए है।",
+        "no_pending":           "🎉 कोई पेंडिंग रिक्वेस्ट नहीं है।",
+        "request_not_found":    "🔎 रिक्वेस्ट *{request_id}* नहीं मिली।",
+        "request_already":      "ℹ️ रिक्वेस्ट *{request_id}* पहले ही *{status}* हो चुकी है।",
+        "request_rejected_mgr": "✖️ रिक्वेस्ट *{request_id}* — *अस्वीकृत*",
+        "request_rejected_wkr": "✖️ आपकी रिक्वेस्ट *{request_id}* ({action} {qty}× {item_name}) मैनेजर ने *अस्वीकृत* कर दी।",
+        "item_missing":         "🔎 आइटम *{item_id}* इन्वेंटरी में नहीं मिला।",
+        "stock_insufficient":   "📉 {qty} नहीं घटा सकते — स्टॉक में सिर्फ़ *{stock}* बचे हैं।",
+        "request_approved_mgr": "✅ रिक्वेस्ट *{request_id}* — *स्वीकृत*\n\n📦 {item_name}\n🔄 {action} {qty}\n📊 नया स्टॉक: {new_stock}",
+        "request_approved_wkr": "🎉 बधाई! आपकी रिक्वेस्ट *{request_id}* ({action} {qty}× {item_name}) *स्वीकृत* हो गई।\n📊 स्टॉक अब: {new_stock}",
+        "pending_header":       "📋 *रिक्वेस्ट {request_id}*\n👤 वर्कर: {worker}\n📦 आइटम: {item_name} ({item_id})\n🔄 {action} — {qty} यूनिट",
+        "btn_approve":          "✅ मंज़ूर",
+        "btn_reject":           "❌ अस्वीकार",
+        "new_request_header":   "📬 *नई रिक्वेस्ट*\n\n🆔 {req_id}\n👤 वर्कर: {phone}\n📦 {item_name}\n🔄 {action} — {qty} यूनिट",
+
+        # ── JIT / Low Stock ──
+        "low_stock_no_supplier":"⚡ *ध्यान दें — स्टॉक कम है!*\n\n📦 {item_name} ({item_id})\n📊 स्टॉक: {stock} (न्यूनतम: {min_stock})\n\nसप्लायर नहीं मिला — मैन्युअल ऑर्डर करें।",
+        "low_stock_alert":      "🚨 *स्टॉक कम है!*\n\n📦 {item_name} ({item_id})\n📊 मौजूदा: {stock}\n📉 न्यूनतम: {min_stock}\n\n🏭 सप्लायर: {supplier_name}\n📲 ऑर्डर करने के लिए टैप करें:\n{wa_link}",
+
+        # ── AI Actions ──
+        "create_mgr_only":      "🔒 नए आइटम सिर्फ़ मैनेजर बना सकते हैं।",
+        "created_item":         "✅ *{name}* बनाया — ID: `{item_id}`, स्टॉक: {qty}",
+        "item_not_found":       "🔎 आइटम `{item_id}` नहीं मिला।",
+        "requested_action":     "📩 भेजा गया: {action} {qty}× *{item_name}* — मंज़ूरी का इंतज़ार।",
+        "action_done":          "✅ हो गया — {action} {qty}× *{item_name}* → स्टॉक: {new_stock}",
+
+        # ── Language ──
+        "lang_switched":        "🌐 भाषा *हिन्दी* में सेट की गई 🇮🇳",
+        "lang_help":            "🌐 *भाषा बदलें:*\nटाइप करें:\n• `lang en` — English 🇬🇧\n• `lang hi` — हिन्दी 🇮🇳\n• `lang pa` — ਪੰਜਾਬੀ 🇮🇳",
+    },
+    "pa": {
+        # ── General ──
+        "not_registered":       "🚫 ਲੱਗਦਾ ਤੁਸੀਂ ਅਜੇ ਸਿਸਟਮ ਵਿੱਚ ਨਹੀਂ ਹੋ — ਸੈੱਟਅੱਪ ਲਈ ਆਪਣੇ ਮੈਨੇਜਰ ਨਾਲ ਗੱਲ ਕਰੋ।",
+        "ai_thinking":          "✨ ਕੰਮ ਹੋ ਰਿਹਾ ਏ…",
+        "ai_disabled":          "🔌 AI ਹੁਣ ਆਫ਼ਲਾਈਨ ਹੈ। ਐਡਮਿਨ ਨੂੰ GEMINI_API_KEY ਸੈੱਟ ਕਰਨੀ ਪਵੇਗੀ।",
+        "ai_processing_media":  "🔍 ਤੁਹਾਡੀ {media_type} ਚੈੱਕ ਕਰ ਰਹੇ ਹਾਂ — ਰੁਕੋ…",
+        "ai_download_fail":     "📥 ਫ਼ਾਈਲ ਡਾਊਨਲੋਡ ਨਹੀਂ ਹੋ ਸਕੀ। ਦੁਬਾਰਾ ਭੇਜੋ?",
+        "ai_expired":           "⏳ ਇਹ ਐਕਸ਼ਨ ਐਕਸਪਾਇਰ ਹੋ ਗਿਆ — ਨਵੀਂ ਰਿਕਵੈਸਟ ਭੇਜੋ।",
+        "ai_cancelled":         "🙅 ਠੀਕ ਹੈ — ਬਦਲਾਅ ਰੱਦ ਕਰ ਦਿੱਤੇ।",
+        "ai_confused":          "🤔 ਸਮਝ ਨਹੀਂ ਆਇਆ। ਕੀ ਕਰਨਾ ਚਾਹੁੰਦੇ ਹੋ, ਦੁਬਾਰਾ ਦੱਸੋ?",
+        "ai_error":             "⚡ ਕੁਝ ਗੜਬੜ ਹੋ ਗਈ। ਥੋੜੀ ਦੇਰ ਬਾਅਦ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
+        "ai_summary":           "📊 *ਇਹ ਰਿਹਾ ਸਾਰ:*\n",
+        "ai_confirm_prompt":    "*ਕੀ ਇਹ ਬਦਲਾਅ ਲਾਗੂ ਕਰਾਂ?*",
+        "btn_yes":              "✅ ਹਾਂ ਕਰੋ",
+        "btn_cancel":           "❌ ਰੱਦ ਕਰੋ",
+        "unsupported_msg":      "(System note: User sent a '{msg_type}' message which isn't supported. Reply in Punjabi. Let them know you can handle text, voice notes, and images.)",
+
+        # ── Manager / Approvals ──
+        "managers_only":        "🔒 ਇਹ ਐਕਸ਼ਨ ਸਿਰਫ਼ ਮੈਨੇਜਰ ਲਈ ਹੈ।",
+        "no_pending":           "🎉 ਕੋਈ ਪੈਂਡਿੰਗ ਰਿਕਵੈਸਟ ਨਹੀਂ।",
+        "request_not_found":    "🔎 ਰਿਕਵੈਸਟ *{request_id}* ਨਹੀਂ ਮਿਲੀ।",
+        "request_already":      "ℹ️ ਰਿਕਵੈਸਟ *{request_id}* ਪਹਿਲਾਂ ਹੀ *{status}* ਹੋ ਚੁੱਕੀ ਹੈ।",
+        "request_rejected_mgr": "✖️ ਰਿਕਵੈਸਟ *{request_id}* — *ਰੱਦ*",
+        "request_rejected_wkr": "✖️ ਤੁਹਾਡੀ ਰਿਕਵੈਸਟ *{request_id}* ({action} {qty}× {item_name}) ਮੈਨੇਜਰ ਨੇ *ਰੱਦ* ਕਰ ਦਿੱਤੀ।",
+        "item_missing":         "🔎 ਆਈਟਮ *{item_id}* ਇਨਵੈਂਟਰੀ ਵਿੱਚ ਨਹੀਂ ਮਿਲੀ।",
+        "stock_insufficient":   "📉 {qty} ਨਹੀਂ ਘਟਾ ਸਕਦੇ — ਸਟਾਕ ਵਿੱਚ ਸਿਰਫ਼ *{stock}* ਹਨ।",
+        "request_approved_mgr": "✅ ਰਿਕਵੈਸਟ *{request_id}* — *ਮਨਜ਼ੂਰ*\n\n📦 {item_name}\n🔄 {action} {qty}\n📊 ਨਵਾਂ ਸਟਾਕ: {new_stock}",
+        "request_approved_wkr": "🎉 ਵਧਾਈਆਂ! ਤੁਹਾਡੀ ਰਿਕਵੈਸਟ *{request_id}* ({action} {qty}× {item_name}) *ਮਨਜ਼ੂਰ* ਹੋ ਗਈ।\n📊 ਸਟਾਕ ਹੁਣ: {new_stock}",
+        "pending_header":       "📋 *ਰਿਕਵੈਸਟ {request_id}*\n👤 ਵਰਕਰ: {worker}\n📦 ਆਈਟਮ: {item_name} ({item_id})\n🔄 {action} — {qty} ਯੂਨਿਟ",
+        "btn_approve":          "✅ ਮਨਜ਼ੂਰ",
+        "btn_reject":           "❌ ਰੱਦ",
+        "new_request_header":   "📬 *ਨਵੀਂ ਰਿਕਵੈਸਟ*\n\n🆔 {req_id}\n👤 ਵਰਕਰ: {phone}\n📦 {item_name}\n🔄 {action} — {qty} ਯੂਨਿਟ",
+
+        # ── JIT / Low Stock ──
+        "low_stock_no_supplier":"⚡ *ਧਿਆਨ ਦਿਓ — ਸਟਾਕ ਘੱਟ ਹੈ!*\n\n📦 {item_name} ({item_id})\n📊 ਸਟਾਕ: {stock} (ਘੱਟੋ-ਘੱਟ: {min_stock})\n\nਸਪਲਾਇਰ ਨਹੀਂ ਮਿਲਿਆ — ਮੈਨੂਅਲ ਆਰਡਰ ਕਰੋ।",
+        "low_stock_alert":      "🚨 *ਸਟਾਕ ਘੱਟ ਹੈ!*\n\n📦 {item_name} ({item_id})\n📊 ਮੌਜੂਦਾ: {stock}\n📉 ਘੱਟੋ-ਘੱਟ: {min_stock}\n\n🏭 ਸਪਲਾਇਰ: {supplier_name}\n📲 ਆਰਡਰ ਕਰਨ ਲਈ ਟੈਪ ਕਰੋ:\n{wa_link}",
+
+        # ── AI Actions ──
+        "create_mgr_only":      "🔒 ਨਵੇਂ ਆਈਟਮ ਸਿਰਫ਼ ਮੈਨੇਜਰ ਬਣਾ ਸਕਦੇ ਹਨ।",
+        "created_item":         "✅ *{name}* ਬਣਾਇਆ — ID: `{item_id}`, ਸਟਾਕ: {qty}",
+        "item_not_found":       "🔎 ਆਈਟਮ `{item_id}` ਨਹੀਂ ਮਿਲੀ।",
+        "requested_action":     "📩 ਭੇਜਿਆ: {action} {qty}× *{item_name}* — ਮਨਜ਼ੂਰੀ ਦੀ ਉਡੀਕ।",
+        "action_done":          "✅ ਹੋ ਗਿਆ — {action} {qty}× *{item_name}* → ਸਟਾਕ: {new_stock}",
+
+        # ── Language ──
+        "lang_switched":        "🌐 ਭਾਸ਼ਾ *ਪੰਜਾਬੀ* ਵਿੱਚ ਸੈੱਟ ਕੀਤੀ 🇮🇳",
+        "lang_help":            "🌐 *ਭਾਸ਼ਾ ਬਦਲੋ:*\nਟਾਈਪ ਕਰੋ:\n• `lang en` — English 🇬🇧\n• `lang hi` — हिन्दी 🇮🇳\n• `lang pa` — ਪੰਜਾਬੀ 🇮🇳",
+    },
+}
+
+def t(phone: str, key: str, **kwargs) -> str:
+    """Get a translated string for the user's preferred language."""
+    lang = user_lang.get(phone, DEFAULT_LANG)
+    template = STRINGS.get(lang, STRINGS[DEFAULT_LANG]).get(key, STRINGS[DEFAULT_LANG].get(key, key))
+    try:
+        return template.format(**kwargs)
+    except (KeyError, IndexError):
+        return template
+
+
+# ---------------------------------------------------------------------------
 # Google Sheets helpers
 # ---------------------------------------------------------------------------
 SCOPES = [
@@ -307,14 +472,25 @@ def reset_session(phone: str):
 
 def handle_message(phone: str, text: str):
     """Route a plain-text message based on the sender's role."""
+    text_lower = text.strip().lower()
+
+    # Language switching (available to everyone, even unregistered)
+    if text_lower.startswith("lang"):
+        parts = text_lower.split()
+        if len(parts) == 2 and parts[1] in STRINGS:
+            user_lang[phone] = parts[1]
+            send_text(phone, t(phone, "lang_switched"))
+        else:
+            send_text(phone, t(phone, "lang_help"))
+        return
+
     user = get_user(phone)
     if user is None:
-        send_text(phone, "⛔ You are not registered in the system. Please contact the Manager.")
+        send_text(phone, t(phone, "not_registered"))
         return
 
     role = str(user.get("Role", "")).strip().lower()
     name = user.get("Name", "User")
-    text_lower = text.strip().lower()
 
     # Only keep the pending check for managers
     if text_lower == "pending" and role == "manager":
@@ -323,15 +499,11 @@ def handle_message(phone: str, text: str):
 
     # Fallback to AI Processing for everything
     if GEMINI_API_KEY:
-        send_text(phone, "🤖 AI is thinking...")
+        send_text(phone, t(phone, "ai_thinking"))
         ai_resp = process_with_gemini(phone, None, None, text)
         propose_ai_actions(phone, ai_resp)
     else:
-        send_text(
-            phone,
-            "🤖 I didn't understand that.\n\n"
-            "Please provide a GEMINI_API_KEY.",
-        )
+        send_text(phone, t(phone, "ai_disabled"))
 
 def _send_pending_approvals(phone: str):
     """Show all Pending approval requests to the Manager."""
@@ -340,24 +512,22 @@ def _send_pending_approvals(phone: str):
     pending = [r for r in records if str(r.get("Status", "")).strip().lower() == "pending"]
 
     if not pending:
-        send_text(phone, "✅ No pending approval requests.")
+        send_text(phone, t(phone, "no_pending"))
         return
 
     for req in pending:
         item = get_inventory_item(req["Item_ID"])
         item_name = item["Item_Name"] if item else req["Item_ID"]
-        body = (
-            f"📋 *Request {req['Request_ID']}*\n"
-            f"Worker: {req['Worker_Number']}\n"
-            f"Item: {item_name} ({req['Item_ID']})\n"
-            f"Action: {req['Action']} {req['Quantity']} units"
-        )
+        body = t(phone, "pending_header",
+                 request_id=req['Request_ID'], worker=req['Worker_Number'],
+                 item_name=item_name, item_id=req['Item_ID'],
+                 action=req['Action'], qty=req['Quantity'])
         send_button_message(
             to=phone,
             body=body,
             buttons=[
-                {"id": f"approve_{req['Request_ID']}", "title": "✅ Approve"},
-                {"id": f"reject_{req['Request_ID']}", "title": "❌ Reject"},
+                {"id": f"approve_{req['Request_ID']}", "title": t(phone, "btn_approve")},
+                {"id": f"reject_{req['Request_ID']}", "title": t(phone, "btn_reject")},
             ],
         )
 
@@ -388,17 +558,17 @@ def _handle_button_reply(phone: str, button_id: str):
             execute_ai_actions(phone, actions)
             reset_session(phone)
         else:
-            send_text(phone, "🤖 This action has expired.")
+            send_text(phone, t(phone, "ai_expired"))
         return
         
     if button_id == "ai_confirm_no":
-        send_text(phone, "❌ AI updates cancelled.")
+        send_text(phone, t(phone, "ai_cancelled"))
         reset_session(phone)
         return
 
     user = get_user(phone)
     if not user or str(user.get("Role", "")).strip().lower() != "manager":
-        send_text(phone, "⛔ Only Managers can approve or reject requests.")
+        send_text(phone, t(phone, "managers_only"))
         return
 
     if button_id.startswith("approve_"):
@@ -414,14 +584,11 @@ def _process_approval(manager_phone: str, request_id: str, approved: bool):
     """Approve or reject a pending request and update sheets accordingly."""
     approval = get_approval(request_id)
     if approval is None:
-        send_text(manager_phone, f"⚠️ Request *{request_id}* not found.")
+        send_text(manager_phone, t(manager_phone, "request_not_found", request_id=request_id))
         return
 
     if str(approval.get("Status", "")).strip().lower() != "pending":
-        send_text(
-            manager_phone,
-            f"ℹ️ Request *{request_id}* has already been *{approval['Status']}*.",
-        )
+        send_text(manager_phone, t(manager_phone, "request_already", request_id=request_id, status=approval['Status']))
         return
 
     worker_phone = str(approval["Worker_Number"]).strip()
@@ -429,20 +596,17 @@ def _process_approval(manager_phone: str, request_id: str, approved: bool):
     action = str(approval["Action"]).strip()
     qty = int(approval["Quantity"])
     item = get_inventory_item(item_id)
+    item_name = item["Item_Name"] if item else item_id
 
     if not approved:
         update_approval_status(request_id, "Rejected")
-        send_text(manager_phone, f"❌ Request *{request_id}* has been *Rejected*.")
-        send_text(
-            worker_phone,
-            f"❌ Your request *{request_id}* ({action} {qty} of {item['Item_Name'] if item else item_id}) "
-            "was *Rejected* by the Manager.",
-        )
+        send_text(manager_phone, t(manager_phone, "request_rejected_mgr", request_id=request_id))
+        send_text(worker_phone, t(worker_phone, "request_rejected_wkr", request_id=request_id, action=action, qty=qty, item_name=item_name))
         return
 
     # Approved — update inventory
     if item is None:
-        send_text(manager_phone, f"⚠️ Item *{item_id}* no longer exists in inventory.")
+        send_text(manager_phone, t(manager_phone, "item_missing", item_id=item_id))
         return
 
     current_stock = int(item["Current_Stock"])
@@ -451,29 +615,15 @@ def _process_approval(manager_phone: str, request_id: str, approved: bool):
     else:
         new_stock = current_stock - qty
         if new_stock < 0:
-            send_text(
-                manager_phone,
-                f"⚠️ Cannot deduct {qty} — only {current_stock} in stock. Request not processed.",
-            )
+            send_text(manager_phone, t(manager_phone, "stock_insufficient", qty=qty, stock=current_stock))
             return
 
     update_inventory_stock(item_id, new_stock)
     update_approval_status(request_id, "Approved")
     log_history(item_id, item["Item_Name"], action, qty, manager_phone, current_stock, new_stock)
 
-    send_text(
-        manager_phone,
-        f"✅ Request *{request_id}* — *Approved*\n\n"
-        f"Item: {item['Item_Name']}\n"
-        f"Action: {action} {qty}\n"
-        f"New stock: {new_stock}",
-    )
-    send_text(
-        worker_phone,
-        f"✅ Your request *{request_id}* ({action} {qty} of {item['Item_Name']}) "
-        "has been *Approved*!\n"
-        f"Updated stock: {new_stock}",
-    )
+    send_text(manager_phone, t(manager_phone, "request_approved_mgr", request_id=request_id, item_name=item_name, action=action, qty=qty, new_stock=new_stock))
+    send_text(worker_phone, t(worker_phone, "request_approved_wkr", request_id=request_id, action=action, qty=qty, item_name=item_name, new_stock=new_stock))
 
     # JIT wholesaler trigger
     if action.lower() == "deduct":
@@ -494,13 +644,7 @@ def _jit_check(manager_phone: str, item_id: str, item_name: str, new_stock: int,
 
     supplier_ids = [s.strip() for s in supplier_id.split(",") if s.strip()]
     if not supplier_ids:
-        send_text(
-            manager_phone,
-            f"⚠️ *Low-stock alert!*\n\n"
-            f"Item: {item_name} ({item_id})\n"
-            f"Stock: {new_stock} (min: {min_stock})\n\n"
-            "No supplier found on file — please reorder manually.",
-        )
+        send_text(manager_phone, t(manager_phone, "low_stock_no_supplier", item_name=item_name, item_id=item_id, stock=new_stock, min_stock=min_stock))
         return
 
     # For JIT, just use the first supplier
@@ -513,15 +657,7 @@ def _jit_check(manager_phone: str, item_id: str, item_name: str, new_stock: int,
     reorder_text = f"Hi {supplier_name}, I'd like to reorder *{item_name}* (ID: {item_id}). Current stock is {new_stock}."
     wa_link = f"https://wa.me/{supplier_number}?text={requests.utils.quote(reorder_text)}"
 
-    send_text(
-        manager_phone,
-        f"🚨 *LOW STOCK ALERT*\n\n"
-        f"Item: {item_name} ({item_id})\n"
-        f"Current Stock: {new_stock}\n"
-        f"Minimum Required: {min_stock}\n\n"
-        f"Supplier: {supplier_name}\n"
-        f"📲 Tap to reorder:\n{wa_link}",
-    )
+    send_text(manager_phone, t(manager_phone, "low_stock_alert", item_name=item_name, item_id=item_id, stock=new_stock, min_stock=min_stock, supplier_name=supplier_name, wa_link=wa_link))
 
 
 # ---------------------------------------------------------------------------
@@ -673,16 +809,16 @@ def propose_ai_actions(phone: str, actions_json: str):
         
         send_button_message(
             to=phone,
-            body=f"🤖 {reply}\n\n*Ready to apply changes?*",
+            body=f"🤖 {reply}\n\n{t(phone, 'ai_confirm_prompt')}",
             buttons=[
-                {"id": "ai_confirm_yes", "title": "✅ Yes, apply"},
-                {"id": "ai_confirm_no", "title": "❌ Cancel"}
+                {"id": "ai_confirm_yes", "title": t(phone, "btn_yes")},
+                {"id": "ai_confirm_no", "title": t(phone, "btn_cancel")}
             ]
         )
             
     except Exception as e:
         logger.error(f"AI Parse Error: {e}\nRaw output: {actions_json}")
-        send_text(phone, "🤖 Sorry, I got confused. What did you want to do?")
+        send_text(phone, t(phone, "ai_confused"))
 
 def execute_ai_actions(phone: str, actions: list):
     """Apply actions or create worker approvals."""
@@ -697,7 +833,7 @@ def execute_ai_actions(phone: str, actions: list):
             
             if action == "Create":
                 if role != "manager":
-                    results.append("⛔ Only Managers can create new items.")
+                    results.append(t(phone, "create_mgr_only"))
                     continue
                 name = act.get("new_item_name", "Unknown Item")
                 price = int(act.get("new_item_price", 0))
@@ -710,28 +846,27 @@ def execute_ai_actions(phone: str, actions: list):
                 
                 ws.append_row([new_id, name, qty, min_stock, price, ""])
                 log_history(new_id, name, "Create", qty, phone, 0, qty)
-                results.append(f"✅ Created {name} (ID: {new_id}, Stock: {qty})")
+                results.append(t(phone, "created_item", name=name, item_id=new_id, qty=qty))
                 continue
 
             if action in ["Add", "Deduct"]:
                 item_id = act.get("item_id")
                 item = get_inventory_item(item_id)
                 if not item:
-                    results.append(f"⚠️ Could not find item {item_id}")
+                    results.append(t(phone, "item_not_found", item_id=item_id))
                     continue
                     
                 if role == "worker":
                     req_id = create_approval(phone, item_id, action, qty)
-                    results.append(f"✅ Requested {action} {qty} for {item['Item_Name']}")
+                    results.append(t(phone, "requested_action", action=action, qty=qty, item_name=item['Item_Name']))
                     manager_phone = get_manager_phone()
                     if manager_phone:
-                        body = (f"📋 *New AI Request*\n\nRequest: {req_id}\nWorker: {phone}\n"
-                                f"Item: {item['Item_Name']}\nAction: {action} {qty} units")
+                        body = t(manager_phone, "new_request_header", req_id=req_id, phone=phone, item_name=item['Item_Name'], action=action, qty=qty)
                         send_button_message(
                             to=manager_phone, body=body,
                             buttons=[
-                                {"id": f"approve_{req_id}", "title": "✅ Approve"},
-                                {"id": f"reject_{req_id}", "title": "❌ Reject"},
+                                {"id": f"approve_{req_id}", "title": t(manager_phone, "btn_approve")},
+                                {"id": f"reject_{req_id}", "title": t(manager_phone, "btn_reject")},
                             ]
                         )
                 else:
@@ -739,13 +874,13 @@ def execute_ai_actions(phone: str, actions: list):
                     new_stock = current_stock + qty if action == "Add" else current_stock - qty
                     update_inventory_stock(item_id, new_stock)
                     log_history(item_id, item["Item_Name"], action, qty, phone, current_stock, new_stock)
-                    results.append(f"✅ {action} {qty} {item['Item_Name']} (New stock: {new_stock})")
+                    results.append(t(phone, "action_done", action=action, qty=qty, item_name=item['Item_Name'], new_stock=new_stock))
                     
         if results:
-            send_text(phone, "🤖 *Summary:*\n" + "\n".join(results))
+            send_text(phone, t(phone, "ai_summary") + "\n".join(results))
     except Exception as e:
         logger.error(f"AI Execute Error: {e}")
-        send_text(phone, "🤖 Error applying updates.")
+        send_text(phone, t(phone, "ai_error"))
 
 # ---------------------------------------------------------------------------
 # Flask routes
@@ -808,23 +943,23 @@ def process_webhook():
 
                     elif msg_type in ("image", "audio", "voice"):
                         if not GEMINI_API_KEY:
-                            send_text(phone, "🤖 AI is currently disabled. Please provide a GEMINI_API_KEY.")
+                            send_text(phone, t(phone, "ai_disabled"))
                             continue
                             
-                        send_text(phone, f"🤖 AI is processing your {msg_type}...")
+                        send_text(phone, t(phone, "ai_processing_media", media_type=msg_type))
                         media_id = msg[msg_type]["id"]
                         file_path, mime_type = _download_whatsapp_media(media_id)
                         if file_path:
                             ai_resp = process_with_gemini(phone, file_path, mime_type)
                             propose_ai_actions(phone, ai_resp)
                         else:
-                            send_text(phone, "🤖 Failed to download media.")
+                            send_text(phone, t(phone, "ai_download_fail"))
                             
                     else:
                         # Pass unsupported types to AI to handle naturally
                         if GEMINI_API_KEY:
-                            send_text(phone, "🤖 AI is thinking...")
-                            ai_resp = process_with_gemini(phone, None, None, f"(System note: User sent a '{msg_type}' message which is unsupported. Tell them you only accept text, voice notes, and images.)")
+                            send_text(phone, t(phone, "ai_thinking"))
+                            ai_resp = process_with_gemini(phone, None, None, t(phone, "unsupported_msg", msg_type=msg_type))
                             propose_ai_actions(phone, ai_resp)
 
     except Exception:
