@@ -883,7 +883,8 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
     5. When setting "is_ready_to_execute" to true, your `reply_to_user` MUST NOT say that the action is already completed or edited. Instead, say "I am ready to make this update."
     6. HALLUCINATION PREVENTION: You MUST NEVER invent or hallucinate an `item_id`. If the user asks to Restock or Consume an item that does NOT exactly match the provided `Current inventory` list, you must tell them it is not found.
     7. PERMISSION TO CREATE: You MUST NEVER use the "Create" action unless the user explicitly tells you to create a new item or you explicitly ask them "Would you like to create this as a new item?" and they say Yes.
-    8. You MUST ALWAYS respond with a structured JSON object in EXACTLY this format (no markdown code blocks, just raw JSON):
+    8. DUPLICATE PREVENTION: You MUST NEVER create an item that has the EXACT same name as an existing item in the inventory. If the user tries to create an item with a very similar name to existing items, or asks for an item that doesn't exist but similar ones do, you MUST tell them about the similar items first and ask if they meant one of those.
+    9. You MUST ALWAYS respond with a structured JSON object in EXACTLY this format (no markdown code blocks, just raw JSON):
     {{
       "reply_to_user": "A VERY SHORT, concise, and tight reply. Get straight to the point. Give just the important stuff. Use emojis.",
       "is_ready_to_execute": false,
