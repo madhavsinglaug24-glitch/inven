@@ -748,7 +748,26 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
         import base64
         
         client = groq.Groq(api_key=os.environ.get("GROQ_API_KEY"))
-        target_model = "llama-3.2-11b-vision-preview" if file_path else "llama-3.3-70b-versatile"
+        
+        # Dynamically verify available models to avoid decommissioned ones
+        models_data = client.models.list().data
+        available_models = [m.id for m in models_data]
+        
+        text_model = "llama-3.3-70b-versatile"
+        if text_model not in available_models:
+            for m in available_models:
+                if "llama" in m and "vision" not in m:
+                    text_model = m
+                    break
+                    
+        vision_model = "llama-3.2-11b-vision-preview"
+        if vision_model not in available_models:
+            for m in available_models:
+                if "vision" in m:
+                    vision_model = m
+                    break
+
+        target_model = vision_model if file_path else text_model
         
         if phone not in user_sessions:
             user_sessions[phone] = {}
@@ -818,7 +837,17 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
         logger.error(f"Groq API Error: {e}")
         if file_path and os.path.exists(file_path):
             os.remove(file_path)
-        return json.dumps({"reply_to_user": "I'm having a little trouble connecting to my AI brain right now. Please try again in a moment!", "is_ready_to_execute": False, "actions": []})
+            
+        err_str = str(e)
+        if "rate_limit" in err_str.lower():
+            user_msg = "⏳ Wow, you guys are fast! I hit my rate limit. Please wait 1 minute and try again."
+        elif "decommissioned" in err_msg.lower() or "not found" in err_msg.lower():
+            user_msg = "🛠️ The AI model I was using was just retired by Groq! Please tell my developer."
+        else:
+            # Elegant display of raw error
+            user_msg = f"⚠️ *Groq AI Encountered an Error*\n\n_Type:_ `{type(e).__name__}`\n_Details:_ `{err_str}`"
+            
+        return json.dumps({"reply_to_user": user_msg, "is_ready_to_execute": False, "actions": []})
 
 def propose_ai_actions(phone: str, actions_json: str):
     """Parse Gemini JSON. Send conversational reply and show buttons if ready."""
