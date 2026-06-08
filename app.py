@@ -782,8 +782,13 @@ def process_with_gemini(phone: str, file_path: str, mime_type: str, user_text: s
         current_message = prompt_context + "\n\nUSER MESSAGE:\n" + user_part
         
         if file_path:
-            gemini_file = genai.upload_file(path=file_path, mime_type=mime_type)
-            response = chat.send_message([gemini_file, current_message])
+            with open(file_path, "rb") as f:
+                media_data = f.read()
+            inline_media = {
+                "mime_type": mime_type,
+                "data": media_data
+            }
+            response = chat.send_message([inline_media, current_message])
             os.remove(file_path)
         else:
             response = chat.send_message(current_message)
