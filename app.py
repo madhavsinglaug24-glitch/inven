@@ -747,26 +747,7 @@ def process_with_gemini(phone: str, file_path: str, mime_type: str, user_text: s
     try:
         import google.generativeai as genai
         
-        # Dynamically find the best available model
-        available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-        target_model = None
-        
-        # Try to find a 1.5 flash or pro model first
-        for m in available_models:
-            if '1.5-flash' in m:
-                target_model = m
-                break
-        
-        if not target_model:
-            for m in available_models:
-                if 'gemini' in m and 'vision' not in m:
-                    target_model = m
-                    break
-                    
-        if not target_model and available_models:
-            target_model = available_models[0]
-
-        model = genai.GenerativeModel(target_model or 'gemini-1.5-flash')
+        model = genai.GenerativeModel('models/gemini-1.5-flash')
         
         if phone not in user_sessions:
             user_sessions[phone] = {}
