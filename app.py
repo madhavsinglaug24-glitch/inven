@@ -708,25 +708,33 @@ def process_with_gemini(phone: str, file_path: str, mime_type: str, user_text: s
         sup_str = json.dumps([{"id": s["Supplier_ID"], "name": s["Name"]} for s in suppliers])
     except:
         sup_str = "[]"
+        
+    try:
+        history = get_recent_history(limit=20)
+        hist_str = json.dumps(history)
+    except:
+        hist_str = "[]"
     
     prompt_context = f"""
     You are an AI inventory assistant chatting over WhatsApp. You speak naturally and conversationally.
     Current inventory: {items_str}
     Current suppliers: {sup_str}
+    Recent History (last 20 changes): {hist_str}
     
-    Your goal is to gather information to execute an inventory update (Add stock, Deduct stock, or Create a new item).
+    Your goal is to gather information to execute an inventory update (Add stock, Deduct stock, or Create a new item), OR answer questions about the current stock, suppliers, or history.
     
     CRITICAL RULES:
     1. If the user provides an image of a bill or receipt, you MUST ask them to clarify if this is a "Credit" (adding new stock/purchase) or a "Deduction" (removing stock/sale), unless the image explicitly makes it obvious.
     2. If any details are ambiguous (missing item name, missing quantity, unclear action), politely ask the user for clarification in your reply. Do NOT guess.
-    3. You MUST ALWAYS respond with a structured JSON object in EXACTLY this format (no markdown code blocks, just raw JSON):
+    3. If the user just asks a question (like "what is the history of ITEM-1" or "how much stock do we have"), just answer them in the `reply_to_user` field and leave `actions` empty!
+    4. You MUST ALWAYS respond with a structured JSON object in EXACTLY this format (no markdown code blocks, just raw JSON):
     {{
-      "reply_to_user": "Your conversational reply asking for clarification or confirming details.",
+      "reply_to_user": "Your conversational reply answering their question, asking for clarification, or confirming details.",
       "is_ready_to_execute": false,
       "actions": []
     }}
     
-    When the user has confirmed they want to proceed and you have ALL details (Item, Action, Quantity) perfectly clear, set "is_ready_to_execute" to true and populate "actions" with:
+    When the user has confirmed they want to proceed with an update and you have ALL details perfectly clear, set "is_ready_to_execute" to true and populate "actions" with:
     [{{"action": "Add"|"Deduct"|"Create", "item_id": "ITEM-X", "quantity": 10, "supplier_name": "Supplier Name", "new_item_name": "If Create", "new_item_price": 0, "new_item_min_stock": 0}}]
     """
     
@@ -766,7 +774,7 @@ def process_with_gemini(phone: str, file_path: str, mime_type: str, user_text: s
         elif mime_type and "audio" in mime_type:
             user_part = "The user sent a voice note. Please transcribe it and treat the transcription as their message. Respond accordingly."
         else:
-            user_part = "Please analyze the attached file (likely a bill or receipt). Extract the items and quantities."
+            user_part = "Please carefully analyze the attached image (it is a bill, receipt, or handwritten note). Step 1: Read all the text/elements visible in the image. Step 2: List exactly what you found (items, quantities, prices) directly in the `reply_to_user` field so the user knows you read it successfully."
 
         current_message = prompt_context + "\n\nUSER MESSAGE:\n" + user_part
         
