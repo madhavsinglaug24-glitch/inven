@@ -42,7 +42,6 @@ GOOGLE_SHEET_ID = os.environ["GOOGLE_SHEET_ID"]
 GOOGLE_CREDENTIALS_FILE = os.environ.get("GOOGLE_CREDENTIALS_FILE", "credentials.json")
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
-if GROQ_API_KEY:
 
 
 WHATSAPP_API_URL = (
