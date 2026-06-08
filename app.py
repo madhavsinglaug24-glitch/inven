@@ -874,7 +874,7 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
     1. If the user provides an image of a bill or receipt, you MUST ask them to clarify if this is a "Restock" (adding new stock/purchase) or a "Consume" (removing stock/sale), unless the image explicitly makes it obvious.
     2. If any details are ambiguous (missing item name, missing quantity, unclear action), politely ask the user for clarification in your reply. Do NOT guess.
     3. If the user just asks a question (like "what is the history of ITEM-1" or "how much stock do we have"), just answer them in the `reply_to_user` field and leave `actions` empty!
-    4. If you are asking the user a multiple choice question (like "Restock or Consume?" or "Yes or No?"), you can provide up to 10 options by adding a "buttons" array: "buttons": ["Restock", "Consume"]
+    4. If you are asking the user a multiple choice question (like "Restock or Consume?" or "Yes or No?"), you can provide up to 10 options by adding a "buttons" array: "buttons": ["Restock", "Consume"]. DO NOT add a "buttons" array for open-ended questions where the user needs to type a name, number, or detail.
     5. When setting "is_ready_to_execute" to true, your `reply_to_user` MUST NOT say that the action is already completed or edited. Instead, say "I am ready to make this update."
     6. You MUST ALWAYS respond with a structured JSON object in EXACTLY this format (no markdown code blocks, just raw JSON):
     {{
