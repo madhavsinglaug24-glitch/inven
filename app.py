@@ -799,7 +799,7 @@ def process_with_gemini(phone: str, file_path: str, mime_type: str, user_text: s
         return response.text
     except Exception as e:
         logger.error(f"Gemini API Error: {e}")
-        return json.dumps({"reply_to_user": f"Gemini API Error: {str(e)}", "is_ready_to_execute": False, "actions": []})
+        return json.dumps({"reply_to_user": "I'm having a little trouble connecting to my AI brain right now. Please try again in a moment!", "is_ready_to_execute": False, "actions": []})
 
 def propose_ai_actions(phone: str, actions_json: str):
     """Parse Gemini JSON. Send conversational reply and show buttons if ready."""
