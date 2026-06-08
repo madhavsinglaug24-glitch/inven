@@ -840,9 +840,9 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
             test_models.extend([m for m in available_models if ("vision" in m.lower() or "scout" in m.lower()) and m not in test_models])
         else:
             test_models = [
+                "llama-3.1-8b-instant",
                 "llama-3.3-70b-versatile",
-                "llama-3.1-70b-versatile",
-                "llama-3.1-8b-instant"
+                "llama-3.1-70b-versatile"
             ]
             test_models.extend([m for m in available_models if "llama" in m and "vision" not in m and m not in test_models])
         
@@ -903,6 +903,10 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
                 err_str = str(e)
                 if "decommissioned" in err_str.lower() or "not found" in err_str.lower() or "does not exist" in err_str.lower():
                     logger.warning(f"Groq model {target_model} failed (decommissioned or not found), trying next...")
+                    last_error = e
+                    continue
+                elif "rate_limit" in err_str.lower() or "429" in err_str:
+                    logger.warning(f"Groq model {target_model} hit rate limit, trying next...")
                     last_error = e
                     continue
                 else:
