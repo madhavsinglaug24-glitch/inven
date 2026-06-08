@@ -588,6 +588,14 @@ def handle_interactive(phone: str, interactive_data: dict):
     if msg_type == "button_reply":
         button_id = interactive_data["button_reply"]["id"]
         _handle_button_reply(phone, button_id)
+    elif msg_type == "list_reply":
+        list_id = interactive_data["list_reply"]["id"]
+        if list_id.startswith("ai_sel_"):
+            item_id = list_id[7:]
+            if item_id == "CREATE_NEW":
+                handle_message(phone, "I want to create a new item instead.")
+            else:
+                handle_message(phone, f"I am referring to item ID: {item_id}")
 
 
 def _handle_button_reply(phone: str, button_id: str):
@@ -777,11 +785,14 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
     {{
       "reply_to_user": "A VERY SHORT, concise, and tight reply. Get straight to the point. Give just the important stuff. Use emojis.",
       "is_ready_to_execute": false,
-      "actions": []
+      "actions": [],
+      "options": []
     }}
     
     When the user has confirmed they want to proceed with an update and you have ALL details perfectly clear, set "is_ready_to_execute" to true and populate "actions" with:
     [{{"action": "Add"|"Deduct"|"Create", "item_id": "ITEM-X", "quantity": 10, "supplier_name": "Supplier Name", "new_item_name": "If Create", "new_item_price": 0, "new_item_min_stock": 0}}]
+
+    If the user wants to update an item but the item name is ambiguous or has multiple close matches in the inventory, DO NOT ask them manually in text. Instead, set "is_ready_to_execute" to false and return up to 9 closest matching items in "options": [{{"id": "ITEM-X", "title": "Item Name"}}]. The user will receive a dropdown menu to select the correct item.
     """
     
     try:
@@ -929,7 +940,21 @@ def propose_ai_actions(phone: str, actions_json: str):
         reply = data.get("reply_to_user", "I didn't understand that.")
         ready = data.get("is_ready_to_execute", False)
         actions = data.get("actions", [])
+        options = data.get("options", [])
         
+        if options and not ready:
+            rows = [{"id": f"ai_sel_{opt['id']}", "title": opt["title"][:24]} for opt in options[:9]]
+            rows.append({"id": "ai_sel_CREATE_NEW", "title": "➕ Create New Item"})
+            
+            send_list_message(
+                to=phone,
+                header="Select Item",
+                body="🤖 " + reply,
+                button_text="Options",
+                sections=[{"title": "Matches", "rows": rows}]
+            )
+            return
+            
         if not ready or not actions:
             send_text(phone, "🤖 " + reply)
             return
