@@ -756,12 +756,16 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
         if file_path:
             # We want to test vision models in priority order
             test_models = [
+                "meta-llama/llama-4-scout-17b-16e-instruct",
+                "llama-4-scout-17b-16e-instruct",
+                "llama-3.2-11b-vision-instruct",
+                "llama-3.2-90b-vision-instruct",
                 "llama-3.2-11b-vision-preview",
                 "llama-3.2-90b-vision-preview",
                 "llama-3.2-11b-vision",
                 "llama-3.2-90b-vision"
             ]
-            test_models.extend([m for m in available_models if "vision" in m and m not in test_models])
+            test_models.extend([m for m in available_models if ("vision" in m.lower() or "scout" in m.lower()) and m not in test_models])
         else:
             test_models = [
                 "llama-3.3-70b-versatile",
