@@ -547,12 +547,21 @@ def _download_whatsapp_media(media_id: str) -> tuple[str, str]:
         logger.error(f"Failed to download media file: {file_resp.text}")
         return None, None
 
-    ext = ".jpg" if "image" in mime_type else ".ogg"
+    # Map MIME to a sensible extension
+    ext_map = {
+        "image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp",
+        "audio/ogg": ".ogg", "audio/mpeg": ".mp3", "audio/mp4": ".m4a",
+        "audio/amr": ".amr", "audio/aac": ".aac",
+    }
+    # Strip codec parameters (e.g. "audio/ogg; codecs=opus" → "audio/ogg")
+    clean_mime = mime_type.split(";")[0].strip() if mime_type else "application/octet-stream"
+    ext = ext_map.get(clean_mime, ".bin")
+
     fd, filepath = tempfile.mkstemp(suffix=ext)
     with os.fdopen(fd, 'wb') as f:
         f.write(file_resp.content)
         
-    return filepath, mime_type
+    return filepath, clean_mime
 
 def process_with_gemini(phone: str, file_path: str, mime_type: str, user_text: str = None) -> str:
     """Send text, image, or audio to Gemini to converse or parse actions."""
@@ -613,7 +622,16 @@ def process_with_gemini(phone: str, file_path: str, mime_type: str, user_text: s
         history = user_sessions[phone].get("history", [])
         
         chat = model.start_chat(history=history)
-        current_message = prompt_context + "\n\nUSER MESSAGE:\n" + (user_text or "Please analyze the attached file.")
+
+        # Build a more useful default prompt based on the media type
+        if user_text:
+            user_part = user_text
+        elif mime_type and "audio" in mime_type:
+            user_part = "The user sent a voice note. Please transcribe it and treat the transcription as their message. Respond accordingly."
+        else:
+            user_part = "Please analyze the attached file (likely a bill or receipt). Extract the items and quantities."
+
+        current_message = prompt_context + "\n\nUSER MESSAGE:\n" + user_part
         
         if file_path:
             gemini_file = genai.upload_file(path=file_path, mime_type=mime_type)
