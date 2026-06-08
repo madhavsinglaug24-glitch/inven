@@ -619,6 +619,8 @@ def handle_interactive(phone: str, interactive_data: dict):
                 handle_message(phone, "I want to create a new item instead.")
             else:
                 handle_message(phone, f"I am referring to item ID: {item_id}")
+        elif list_id.startswith("ai_btn_"):
+            handle_message(phone, interactive_data["list_reply"]["title"])
 
 
 def _handle_button_reply(phone: str, button_id: str):
@@ -804,7 +806,7 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
     1. If the user provides an image of a bill or receipt, you MUST ask them to clarify if this is a "Credit" (adding new stock/purchase) or a "Deduction" (removing stock/sale), unless the image explicitly makes it obvious.
     2. If any details are ambiguous (missing item name, missing quantity, unclear action), politely ask the user for clarification in your reply. Do NOT guess.
     3. If the user just asks a question (like "what is the history of ITEM-1" or "how much stock do we have"), just answer them in the `reply_to_user` field and leave `actions` empty!
-    4. If you are asking the user a multiple choice question (like "Add or Deduct?" or "Yes or No?"), you can provide up to 3 options by adding a "buttons" array: "buttons": ["Add", "Deduct"]
+    4. If you are asking the user a multiple choice question (like "Add or Deduct?" or "Yes or No?"), you can provide up to 10 options by adding a "buttons" array: "buttons": ["Add", "Deduct"]
     5. When setting "is_ready_to_execute" to true, your `reply_to_user` MUST NOT say that the action is already completed or edited. Instead, say "I am ready to make this update."
     6. You MUST ALWAYS respond with a structured JSON object in EXACTLY this format (no markdown code blocks, just raw JSON):
     {{
@@ -995,12 +997,14 @@ def propose_ai_actions(phone: str, actions_json: str):
             return
             
         if buttons and not ready:
-            wa_buttons = [{"id": f"ai_btn_{str(b).replace(' ', '_')[:10]}", "title": str(b)[:20]} for b in buttons[:3]]
-            if wa_buttons:
-                send_button_message(
+            rows = [{"id": f"ai_btn_{str(b).replace(' ', '_')[:10]}", "title": str(b)[:24]} for b in buttons[:10]]
+            if rows:
+                send_list_message(
                     to=phone,
+                    header="Select Option",
                     body="🤖 " + reply,
-                    buttons=wa_buttons
+                    button_text="Options",
+                    sections=[{"title": "Available Choices", "rows": rows}]
                 )
                 return
             
