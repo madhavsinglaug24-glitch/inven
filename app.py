@@ -886,6 +886,12 @@ def execute_ai_actions(phone: str, actions: list):
 # Flask routes
 # ---------------------------------------------------------------------------
 
+@app.route("/", methods=["GET"])
+def index():
+    """Root endpoint for health checks and status."""
+    return jsonify({"status": "online", "service": "WhatsApp Inventory Bot"}), 200
+
+
 @app.route("/models", methods=["GET"])
 def get_models():
     """Debug route to list available Gemini models."""
@@ -895,6 +901,7 @@ def get_models():
         return jsonify({"models": models})
     except Exception as e:
         return jsonify({"error": str(e)})
+
 
 @app.route("/webhook", methods=["GET"])
 def verify_webhook():
