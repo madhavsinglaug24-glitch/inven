@@ -888,7 +888,7 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
     When the user has confirmed they want to proceed with an update and you have ALL details perfectly clear, set "is_ready_to_execute" to true and populate "actions" with:
     [{{"action": "Restock"|"Consume"|"Create", "item_id": "ITEM-X", "quantity": 10, "supplier_name": "Supplier Name", "new_item_name": "If Create", "new_item_price": 0, "new_item_min_stock": 0}}]
 
-    If the user wants to update an item but the item name is ambiguous or has multiple close matches in the inventory, DO NOT ask them manually in text. Instead, set "is_ready_to_execute" to false and return up to 9 closest matching items in "options": [{{"id": "ITEM-X", "title": "Item Name"}}]. The user will receive a dropdown menu to select the correct item.
+    If the user wants to update an item, or asks for data about an item, and the item name is ambiguous or has multiple exact or close matches in the inventory, DO NOT guess which one they mean and DO NOT give back data for a random match. Instead, set "is_ready_to_execute" to false and return up to 9 matching items in "options": [{{"id": "ITEM-X", "title": "Item Name"}}]. To help the user distinguish between exact duplicate names, append the ID to the title in the options array (e.g., "Cement (ITEM-1)").
     """
     
     try:
