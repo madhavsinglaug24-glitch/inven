@@ -702,6 +702,9 @@ def _download_whatsapp_media(media_id: str) -> tuple[str, str]:
 
 def process_with_gemini(phone: str, file_path: str, mime_type: str, user_text: str = None) -> str:
     """Send text, image, or audio to Gemini to converse or parse actions."""
+    user = get_user(phone)
+    role = str(user.get("Role", "worker")).strip().lower() if user else "worker"
+    
     items = get_all_inventory()
     items_str = json.dumps([{"id": i["Item_ID"], "name": i["Item_Name"], "stock": i["Current_Stock"], "min": i.get("Min_Stock", 0), "price": i.get("Purchase_Price", 0), "sup_id": i.get("Supplier_ID", "")} for i in items])
     try:
