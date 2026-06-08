@@ -748,33 +748,20 @@ def process_with_gemini(phone: str, file_path: str, mime_type: str, user_text: s
         import google.generativeai as genai
         
         available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-        target_model = None
         
-        # Prefer stable 1.5-flash or 2.0-flash, explicitly avoiding 2.5 and experimental models
-        for m in available_models:
-            if '1.5-flash' in m and 'exp' not in m:
-                target_model = m
-                break
-        if not target_model:
+        # Test models in order of best free quota / performance
+        test_models = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-2.5-flash']
+        models_to_try = []
+        for tm in test_models:
             for m in available_models:
-                if '2.0-flash' in m and 'exp' not in m:
-                    target_model = m
-                    break
-        if not target_model:
-            for m in available_models:
-                if 'flash' in m and '2.5' not in m:
-                    target_model = m
-                    break
-        if not target_model:
-            target_model = available_models[0]
-
-        model = genai.GenerativeModel(target_model)
-        
+                if tm in m and 'exp' not in m and m not in models_to_try:
+                    models_to_try.append(m)
+        if not models_to_try and available_models:
+            models_to_try.append(available_models[0])
+            
         if phone not in user_sessions:
             user_sessions[phone] = {}
         history = user_sessions[phone].get("history", [])
-        
-        chat = model.start_chat(history=history)
 
         # Build a more useful default prompt based on the media type
         if mime_type and "audio" in mime_type:
@@ -788,21 +775,37 @@ def process_with_gemini(phone: str, file_path: str, mime_type: str, user_text: s
 
         current_message = prompt_context + "\n\nUSER MESSAGE:\n" + user_part
         
+        inline_media = None
         if file_path:
             with open(file_path, "rb") as f:
-                media_data = f.read()
-            inline_media = {
-                "mime_type": mime_type,
-                "data": media_data
-            }
-            response = chat.send_message([inline_media, current_message])
-            os.remove(file_path)
-        else:
-            response = chat.send_message(current_message)
-            
-        # Store last 10 turns
-        user_sessions[phone]["history"] = chat.history[-10:]
+                inline_media = {"mime_type": mime_type, "data": f.read()}
+                
+        response = None
+        last_error = None
         
+        for target_model in models_to_try:
+            try:
+                model = genai.GenerativeModel(target_model)
+                chat = model.start_chat(history=history)
+                if inline_media:
+                    response = chat.send_message([inline_media, current_message])
+                else:
+                    response = chat.send_message(current_message)
+                
+                # If success, save history and break
+                user_sessions[phone]["history"] = chat.history[-10:]
+                break
+            except Exception as e:
+                last_error = e
+                logger.error(f"Fallback {target_model} failed: {e}")
+                continue
+                
+        if file_path:
+            os.remove(file_path)
+            
+        if not response:
+            raise Exception(f"All models failed. Last error: {last_error}")
+            
         return response.text
     except Exception as e:
         logger.error(f"Gemini API Error: {e}")
