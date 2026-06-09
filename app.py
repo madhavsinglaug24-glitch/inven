@@ -1121,22 +1121,34 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
     user = get_user(phone)
     role = str(user.get("Role", "worker")).strip().lower() if user else "worker"
     
-    items = get_all_inventory()
-    if role == "manager":
-        items_str = json.dumps([{"id": i["Item_ID"], "name": i["Item_Name"], "stock": i["Current_Stock"], "min": i.get("Min_Stock", 0), "price": i.get("Purchase_Price", 0), "sup_id": i.get("Supplier_ID", "")} for i in items])
-    else:
-        items_str = json.dumps([{"id": i["Item_ID"], "name": i["Item_Name"], "stock": i["Current_Stock"], "min": i.get("Min_Stock", 0), "sup_id": i.get("Supplier_ID", "")} for i in items])
-    try:
-        suppliers = _worksheet("Suppliers").get_all_records()
-        sup_str = json.dumps([{"id": s["Supplier_ID"], "name": s["Name"]} for s in suppliers])
-    except:
+    session = get_session(phone)
+    module = session.get("module", "inventory")
+    
+    if module == "ledger":
+        items_str = "[]"
         sup_str = "[]"
-        
-    try:
-        history = get_recent_history(limit=20)
-        hist_str = json.dumps(history)
-    except:
-        hist_str = "[]"
+        try:
+            history = get_recent_ledger(limit=20)
+            hist_str = json.dumps(history)
+        except:
+            hist_str = "[]"
+    else:
+        items = get_all_inventory()
+        if role == "manager":
+            items_str = json.dumps([{"id": i["Item_ID"], "name": i["Item_Name"], "stock": i["Current_Stock"], "min": i.get("Min_Stock", 0), "price": i.get("Purchase_Price", 0), "sup_id": i.get("Supplier_ID", "")} for i in items])
+        else:
+            items_str = json.dumps([{"id": i["Item_ID"], "name": i["Item_Name"], "stock": i["Current_Stock"], "min": i.get("Min_Stock", 0), "sup_id": i.get("Supplier_ID", "")} for i in items])
+        try:
+            suppliers = _worksheet("Suppliers").get_all_records()
+            sup_str = json.dumps([{"id": s["Supplier_ID"], "name": s["Name"]} for s in suppliers])
+        except:
+            sup_str = "[]"
+            
+        try:
+            history = get_recent_history(limit=20)
+            hist_str = json.dumps(history)
+        except:
+            hist_str = "[]"
         
     try:
         ledger_ws = _worksheet("Ledger")
@@ -1175,11 +1187,10 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
     1. If the user provides an image of a bill or receipt, ask them if it's Cash in Hand, Credit, or Debit, and the amount/name.
     2. For every ledger entry, you need the Ledger Type (Cash in Hand, Credit, Debit), the Amount, and the Name of the person/company. A comment is optional.
     3. If any details are ambiguous (missing name, missing amount), politely ask the user for clarification in your reply. Do NOT guess.
-    4. When setting "is_ready_to_execute" to true, populate "actions" with: [{{"action": "Ledger_Entry", "ledger_type": "Cash in Hand", "amount": 100, "name": "John Doe", "comment": "Optional comment"}}]
+    4. Output actions for Ledger format: [{{"action": "Ledger_Entry", "ledger_type": "Cash in Hand"|"Credit"|"Debit", "amount": 100, "name": "Person Name", "comment": "Optional comment"}}]
     5. Do NOT try to modify inventory stock while in Ledger mode.
     6. STRICT LEDGER CONTACTS: The Existing Ledger Contacts are: {ledger_contacts_str}. If the user mentions a name that closely resembles an existing Ledger Contact, ask them to confirm if they meant that existing person. If they mention a completely new name, you MUST ask them to explicitly confirm if they want to log a transaction for a brand new person. If the name matches exactly, proceed to log it.
         """
-        action_format_rule = "4. Output actions for Ledger format: [{\"action\": \"Ledger_Entry\", \"ledger_type\": \"Cash in Hand\"|\"Credit\"|\"Debit\", \"amount\": 100, \"name\": \"Person Name\", \"comment\": \"Optional comment\"}]"
     else:
         persona = "You are an AI Inventory Assistant."
         module_goal = "Your goal is to gather information to execute an inventory update (Restock, Consume, or Create a new item), OR answer questions about the current stock, suppliers, or history."
