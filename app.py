@@ -1184,12 +1184,13 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
         persona = "You are an AI Ledger and Accounting Assistant."
         module_goal = "Your goal is to record financial transactions into the Ledger (Cash in Hand, Credit, or Debit)."
         module_rules = f"""
-    1. If the user provides an image of a bill or receipt, ask them if it's Cash in Hand, Credit, or Debit, and the amount/name.
+    1. If the user provides an image of a bill or receipt, or says "Log Transaction", ask them if it's Cash in Hand, Credit, or Debit, and the amount/name.
     2. For every ledger entry, you need the Ledger Type (Cash in Hand, Credit, Debit), the Amount, and the Name of the person/company. A comment is optional.
     3. If any details are ambiguous (missing name, missing amount), politely ask the user for clarification in your reply. Do NOT guess.
     4. Output actions for Ledger format: [{{"action": "Ledger_Entry", "ledger_type": "Cash in Hand"|"Credit"|"Debit", "amount": 100, "name": "Person Name", "comment": "Optional comment"}}]
     5. Do NOT try to modify inventory stock while in Ledger mode.
     6. STRICT LEDGER CONTACTS: The Existing Ledger Contacts are: {ledger_contacts_str}. If the user mentions a name that closely resembles an existing Ledger Contact, ask them to confirm if they meant that existing person. If they mention a completely new name, you MUST ask them to explicitly confirm if they want to log a transaction for a brand new person. If the name matches exactly, proceed to log it.
+    7. SINGLE CONFIRMATION: NEVER ask the user "Are you sure?" or to confirm their action inside the chat. Once you have all the required details, immediately set "is_ready_to_execute" to true. The system will automatically handle the final confirmation with buttons.
         """
     else:
         persona = "You are an AI Inventory Assistant."
@@ -1205,6 +1206,7 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
     8. DUPLICATE PREVENTION: You MUST NEVER create an item that has the EXACT same name as an existing item in the inventory. If the user tries to create an item with a very similar name to existing items, or asks for an item that doesn't exist but similar ones do, you MUST tell them about the similar items first and ask if they meant one of those.
     9. REVERSALS & COMMENTS: If the user asks to reverse a transaction, find the `Txn_ID` in the Recent History and output action "Reverse" with the "transaction_id". Capture any optional comments the user makes into the "comment" field. Map names to "contact_name" and set "contact_type" to "Supplier" for purchases/restocks and "Customer" for sales/consumes.
     10. Output actions in format: [{{"action": "Restock"|"Consume"|"Create"|"Reverse", "item_id": "ITEM-X", "quantity": 10, "contact_type": "Supplier"|"Customer", "contact_name": "Name of contact", "comment": "Any extra notes", "transaction_id": "TXN-XXXX (if Reverse)", "new_item_name": "If Create", "new_item_price": 0, "new_item_min_stock": 0}}]
+    11. SINGLE CONFIRMATION: NEVER ask the user "Are you sure?" or to confirm their action inside the chat. Once you have all the required details, immediately set "is_ready_to_execute" to true. The system will automatically handle the final confirmation with buttons.
     
     If the user wants to update an item, or asks for data about an item, and the item name is ambiguous or has multiple exact or close matches in the inventory, DO NOT guess which one they mean and DO NOT give back data for a random match. Instead, set "is_ready_to_execute" to false and return up to 9 matching items in "options": [{{"id": "ITEM-X", "title": "Item Name"}}]. To help the user distinguish between exact duplicate names, append the ID to the title in the options array (e.g., "Cement (ITEM-1)").
         """
