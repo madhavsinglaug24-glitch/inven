@@ -1190,7 +1190,8 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
     4. Output actions for Ledger format: [{{"action": "Ledger_Entry", "ledger_type": "Cash in Hand", "amount": 100, "name": "Person Name", "comment": "Optional comment"}}] (ledger_type must be Cash in Hand, Credit, or Debit)
     5. Do NOT try to modify inventory stock while in Ledger mode.
     6. STRICT LEDGER CONTACTS: The Existing Ledger Contacts are: {ledger_contacts_str}. If the user mentions a name that closely resembles an existing Ledger Contact, ask them to confirm if they meant that existing person. If they mention a completely new name, you MUST ask them to explicitly confirm if they want to log a transaction for a brand new person. If the name matches exactly, proceed to log it.
-    7. SINGLE CONFIRMATION: NEVER ask the user "Are you sure?" or to confirm their action inside the chat. Once you have all the required details, immediately set "is_ready_to_execute" to true. The system will automatically handle the final confirmation with buttons.
+    7. If you are asking the user a multiple choice question (like "Cash, Credit, or Debit?"), you can provide up to 3 options by adding a "buttons" array: "buttons": ["Cash in Hand", "Credit", "Debit"].
+    8. SINGLE CONFIRMATION: NEVER ask the user "Are you sure?" or to confirm their action inside the chat. Once you have all the required details, immediately set "is_ready_to_execute" to true. The system will automatically handle the final confirmation with buttons.
         """
     else:
         persona = "You are an AI Inventory Assistant."
@@ -1396,17 +1397,26 @@ def propose_ai_actions(phone: str, actions_json: str):
         buttons = data.get("buttons", [])
         
         if options and not ready:
-            rows = [{"id": f"ai_sel_{opt['id']}", "title": opt["title"][:24]} for opt in options[:9]]
-            rows.append({"id": "ai_sel_CREATE_NEW", "title": "➕ Create New Item"})
+            valid_rows = []
+            for opt in options:
+                if isinstance(opt, dict) and "id" in opt and "title" in opt:
+                    valid_rows.append({"id": f"ai_sel_{opt['id']}", "title": str(opt["title"])[:24]})
+                elif isinstance(opt, str):
+                    buttons.append(opt)
             
-            send_list_message(
-                to=phone,
-                header="Select Item",
-                body="🤖 " + reply,
-                button_text="Options",
-                sections=[{"title": "Matches", "rows": rows}]
-            )
-            return
+            if valid_rows:
+                valid_rows = valid_rows[:9]
+                valid_rows.append({"id": "ai_sel_CREATE_NEW", "title": "➕ Create New Item"})
+                
+                send_list_message(
+                    to=phone,
+                    header="Select Item",
+                    body="🤖 " + reply,
+                    button_text="Options",
+                    sections=[{"title": "Matches", "rows": valid_rows}]
+                )
+                return
+                
         if buttons and not ready:
             if len(buttons) <= 3:
                 wa_buttons = [{"id": f"ai_btn_{str(b).replace(' ', '_')[:10]}", "title": str(b)[:20]} for b in buttons]
