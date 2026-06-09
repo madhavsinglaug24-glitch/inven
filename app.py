@@ -704,11 +704,11 @@ def handle_message(phone: str, text: str):
         save_session(phone, session)
         send_button_message(
             to=phone,
-            body=f"📓 *Ledger Mode*\nRecord new transactions:",
+            body=f"📓 *Ledger Mode*\nWhat would you like to do?",
             buttons=[
-                {"id": "ai_btn_Cash_in_Hand", "title": "💵 Cash in Hand"},
-                {"id": "ai_btn_Credit", "title": "📈 Credit"},
-                {"id": "ai_btn_Debit", "title": "📉 Debit"}
+                {"id": "ai_btn_Log_Transaction", "title": "📝 Log Transaction"},
+                {"id": "ai_btn_Monthly_Summary", "title": "📊 Monthly Summary"},
+                {"id": "ai_btn_Ledger_History", "title": "📜 Ledger History"}
             ]
         )
         return
@@ -738,7 +738,18 @@ def handle_message(phone: str, text: str):
         _send_pending_approvals(phone)
         return
         
+    if "ledger history" in text_lower:
+        _send_ledger_history(phone)
+        return
+
+    if "monthly summary" in text_lower:
+        _send_monthly_summary(phone)
+        return
+
     if "history" in text_lower and role == "manager":
+        if session.get("module") == "ledger":
+            _send_ledger_history(phone)
+            return
         send_button_message(
             to=phone,
             body="How would you like to view the History?",
@@ -838,6 +849,59 @@ def _send_inventory_list(phone: str):
             msg += f"• *{name}*: {stock} in stock\n"
             
     send_text(phone, msg.strip()[:4000])
+
+def _send_monthly_summary(phone: str):
+    from datetime import datetime
+    now = datetime.now()
+    current_month_str = now.strftime("%Y-%m")
+    
+    try:
+        ws = _worksheet("Ledger")
+        records = ws.get_all_records()
+    except Exception as e:
+        send_text(phone, f"❌ Failed to read Ledger: {e}")
+        return
+        
+    total_credit = 0.0
+    total_debit = 0.0
+    total_cash = 0.0
+    
+    for r in records:
+        date_str = str(r.get("Date", ""))
+        if date_str.startswith(current_month_str):
+            l_type = str(r.get("Type", "")).lower()
+            try:
+                amt = float(str(r.get("Amount", 0)).replace(',', ''))
+            except:
+                amt = 0.0
+                
+            if "credit" in l_type:
+                total_credit += amt
+            elif "debit" in l_type:
+                total_debit += amt
+            elif "cash" in l_type:
+                total_cash += amt
+                
+    msg = f"📊 *Monthly Ledger Summary ({now.strftime('%B %Y')})*\n\n"
+    msg += f"💵 Cash in Hand: ${total_cash:,.2f}\n"
+    msg += f"📈 Total Credit: ${total_credit:,.2f}\n"
+    msg += f"📉 Total Debit: ${total_debit:,.2f}\n"
+    
+    send_text(phone, msg)
+
+def _send_ledger_history(phone: str):
+    history = get_recent_ledger(limit=10)
+    if not history:
+        send_text(phone, "📜 No recent ledger history found.")
+        return
+        
+    msg = "📜 *Recent Ledger History*\n\n"
+    for h in history:
+        date_str = str(h.get('Date', ''))[:16]
+        comment_str = f"\n  💬 {h.get('Comment')}" if h.get('Comment') else ""
+        msg += f"• {date_str} ({str(h.get('Logged_By', ''))[-4:]})\n  {h.get('Type', '')}: ${h.get('Amount', '')} for {h.get('Name', '')} [ID: {h.get('Txn_ID', '')}]{comment_str}\n\n"
+    
+    send_text(phone, msg.strip())
 
 
 # ---------------------------------------------------------------------------
