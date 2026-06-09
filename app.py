@@ -1463,7 +1463,8 @@ def propose_ai_actions(phone: str, actions_json: str):
             
     except Exception as e:
         logger.error(f"AI Parse Error: {e}\nRaw output: {actions_json}")
-        send_text(phone, t(phone, "ai_confused"))
+        err_msg = f"🛠️ Debug Error: {type(e).__name__} - {e}\nRaw: {str(actions_json)[:100]}"
+        send_text(phone, err_msg)
 
 def execute_ai_actions(phone: str, actions: list, edit_req_id: str = None):
     """Apply actions or create worker approvals."""
