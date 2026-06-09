@@ -844,7 +844,7 @@ def _send_inventory_list(phone: str):
         name = i.get('Item_Name', 'Unknown')
         if role == "manager":
             price = i.get('Purchase_Price', 0)
-            msg += f"• *{name}*: {stock} in stock (${price})\n"
+            msg += f"• *{name}*: {stock} in stock (₹{price})\n"
         else:
             msg += f"• *{name}*: {stock} in stock\n"
             
@@ -883,9 +883,9 @@ def _send_monthly_summary(phone: str):
                 total_cash += amt
                 
     msg = f"📊 *Monthly Ledger Summary ({now.strftime('%B %Y')})*\n\n"
-    msg += f"💵 Cash in Hand: ${total_cash:,.2f}\n"
-    msg += f"📈 Total Credit: ${total_credit:,.2f}\n"
-    msg += f"📉 Total Debit: ${total_debit:,.2f}\n"
+    msg += f"💵 Cash in Hand: ₹{total_cash:,.2f}\n"
+    msg += f"📈 Total Credit: ₹{total_credit:,.2f}\n"
+    msg += f"📉 Total Debit: ₹{total_debit:,.2f}\n"
     
     send_text(phone, msg)
 
@@ -899,7 +899,7 @@ def _send_ledger_history(phone: str):
     for h in history:
         date_str = str(h.get('Date', ''))[:16]
         comment_str = f"\n  💬 {h.get('Comment')}" if h.get('Comment') else ""
-        msg += f"• {date_str} ({str(h.get('Logged_By', ''))[-4:]})\n  {h.get('Type', '')}: ${h.get('Amount', '')} for {h.get('Name', '')} [ID: {h.get('Txn_ID', '')}]{comment_str}\n\n"
+        msg += f"• {date_str} ({str(h.get('Logged_By', ''))[-4:]})\n  {h.get('Type', '')}: ₹{h.get('Amount', '')} for {h.get('Name', '')} [ID: {h.get('Txn_ID', '')}]{comment_str}\n\n"
     
     send_text(phone, msg.strip())
 
@@ -1137,6 +1137,14 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
         hist_str = json.dumps(history)
     except:
         hist_str = "[]"
+        
+    try:
+        ledger_ws = _worksheet("Ledger")
+        ledger_records = ledger_ws.get_all_records()
+        ledger_contacts = list(set([str(r.get("Name", "")).strip() for r in ledger_records if str(r.get("Name", "")).strip()]))
+        ledger_contacts_str = json.dumps(ledger_contacts)
+    except:
+        ledger_contacts_str = "[]"
     
     lang = user_lang.get(phone, DEFAULT_LANG)
     lang_map = {"en": "English", "hi": "Hindi", "pa": "Punjabi"}
@@ -1169,6 +1177,7 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
     3. If any details are ambiguous (missing name, missing amount), politely ask the user for clarification in your reply. Do NOT guess.
     4. When setting "is_ready_to_execute" to true, populate "actions" with: [{{"action": "Ledger_Entry", "ledger_type": "Cash in Hand", "amount": 100, "name": "John Doe", "comment": "Optional comment"}}]
     5. Do NOT try to modify inventory stock while in Ledger mode.
+    6. STRICT LEDGER CONTACTS: The Existing Ledger Contacts are: {ledger_contacts_str}. If the user mentions a name that closely resembles an existing Ledger Contact, ask them to confirm if they meant that existing person. If they mention a completely new name, you MUST ask them to explicitly confirm if they want to log a transaction for a brand new person. If the name matches exactly, proceed to log it.
         """
         action_format_rule = "4. Output actions for Ledger format: [{\"action\": \"Ledger_Entry\", \"ledger_type\": \"Cash in Hand\"|\"Credit\"|\"Debit\", \"amount\": 100, \"name\": \"Person Name\", \"comment\": \"Optional comment\"}]"
     else:
@@ -1423,7 +1432,7 @@ def propose_ai_actions(phone: str, actions_json: str):
                 l_type = act.get("ledger_type", "Entry")
                 amt = act.get("amount", 0)
                 name = act.get("name", act.get("contact_name", "Unknown"))
-                changes_str += f"\n• {l_type}: ${amt} for {name}"
+                changes_str += f"\n• {l_type}: ₹{amt} for {name}"
             else:
                 item_id = act.get("item_id", "")
                 item_obj = get_inventory_item(item_id)
@@ -1473,7 +1482,7 @@ def execute_ai_actions(phone: str, actions: list, edit_req_id: str = None):
                 amount = float(act.get("amount", 0))
                 name = str(act.get("name", act.get("contact_name", "Unknown"))).title()
                 log_ledger(ledger_type, amount, name, comment, log_phone, txn_id=shared_txn_id)
-                results.append(f"✅ Logged {ledger_type} of ${amount} for {name}.")
+                results.append(f"✅ Logged {ledger_type} of ₹{amount} for {name}.")
                 continue
 
             if action == "Create":
