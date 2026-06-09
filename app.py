@@ -1161,6 +1161,7 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
     module = session.get("module", "inventory")
     
     if module == "ledger":
+        persona = "You are an AI Ledger and Accounting Assistant."
         module_goal = "Your goal is to record financial transactions into the Ledger (Cash in Hand, Credit, or Debit)."
         module_rules = f"""
     1. If the user provides an image of a bill or receipt, ask them if it's Cash in Hand, Credit, or Debit, and the amount/name.
@@ -1171,6 +1172,7 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
         """
         action_format_rule = "4. Output actions for Ledger format: [{\"action\": \"Ledger_Entry\", \"ledger_type\": \"Cash in Hand\"|\"Credit\"|\"Debit\", \"amount\": 100, \"name\": \"Person Name\", \"comment\": \"Optional comment\"}]"
     else:
+        persona = "You are an AI Inventory Assistant."
         module_goal = "Your goal is to gather information to execute an inventory update (Restock, Consume, or Create a new item), OR answer questions about the current stock, suppliers, or history."
         module_rules = f"""
     1. If the user provides an image of a bill or receipt, you MUST ask them to clarify if this is a "Restock" (adding new stock/purchase) or a "Consume" (removing stock/sale), unless the image explicitly makes it obvious.
@@ -1188,7 +1190,7 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
         """
 
     prompt_context = f"""
-    You are an AI Assistant. You must be EXTREMELY brief, concise, and tight in all your replies. Never use filler words.
+    {persona} You must be EXTREMELY brief, concise, and tight in all your replies. Never use filler words.
     You MUST output your `reply_to_user` entirely in {pref_lang}.
     Current User Phone: {phone}
     User Role: {role}
