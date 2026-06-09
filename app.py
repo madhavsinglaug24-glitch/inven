@@ -766,7 +766,7 @@ def handle_message(phone: str, text: str):
 
     # Fallback to AI Processing for everything
     if GROQ_API_KEY:
-        send_text(phone, t(phone, "ai_thinking"))
+        # send_text(phone, t(phone, "ai_thinking"))
         ai_resp = process_with_groq(phone, None, None, text)
         propose_ai_actions(phone, ai_resp)
     else:
@@ -1191,7 +1191,8 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
     5. Do NOT try to modify inventory stock while in Ledger mode.
     6. STRICT LEDGER CONTACTS: The Existing Ledger Contacts are: {ledger_contacts_str}. If the user mentions a name that closely resembles an existing Ledger Contact, ask them to confirm if they meant that existing person. If they mention a completely new name, you MUST ask them to explicitly confirm if they want to log a transaction for a brand new person. If the name matches exactly, proceed to log it.
     7. If you are asking the user a multiple choice question (like "Cash, Credit, or Debit?"), you can provide up to 3 options by adding a "buttons" array: "buttons": ["Cash in Hand", "Credit", "Debit"].
-    8. SINGLE CONFIRMATION: NEVER ask the user "Are you sure?" or to confirm their action inside the chat. Once you have all the required details, immediately set "is_ready_to_execute" to true. The system will automatically handle the final confirmation with buttons.
+    8. You MUST NOT set "is_ready_to_execute" to true UNTIL you have successfully gathered EVERY REQUIRED DETAIL (Ledger Type, Amount, and Name). If ANY detail is missing, set "is_ready_to_execute" to false and ask for it.
+    9. SINGLE CONFIRMATION: NEVER ask the user "Are you sure?" or to confirm their action inside the chat. Once you have all the required details, immediately set "is_ready_to_execute" to true. The system will automatically handle the final confirmation with buttons.
         """
     else:
         persona = "You are an AI Inventory Assistant."
@@ -1207,7 +1208,8 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
     8. DUPLICATE PREVENTION: You MUST NEVER create an item that has the EXACT same name as an existing item in the inventory. If the user tries to create an item with a very similar name to existing items, or asks for an item that doesn't exist but similar ones do, you MUST tell them about the similar items first and ask if they meant one of those.
     9. REVERSALS & COMMENTS: If the user asks to reverse a transaction, find the `Txn_ID` in the Recent History and output action "Reverse" with the "transaction_id". Capture any optional comments the user makes into the "comment" field. Map names to "contact_name" and set "contact_type" to "Supplier" for purchases/restocks and "Customer" for sales/consumes.
     10. Output actions in format: [{{"action": "Restock", "item_id": "ITEM-X", "quantity": 10, "contact_type": "Supplier", "contact_name": "Name of contact", "comment": "Any extra notes", "transaction_id": "TXN-XXXX", "new_item_name": "New Item", "new_item_price": 0, "new_item_min_stock": 0}}] (action must be Restock, Consume, Create, or Reverse)
-    11. SINGLE CONFIRMATION: NEVER ask the user "Are you sure?" or to confirm their action inside the chat. Once you have all the required details, immediately set "is_ready_to_execute" to true. The system will automatically handle the final confirmation with buttons.
+    11. You MUST NOT set "is_ready_to_execute" to true UNTIL you have successfully gathered EVERY REQUIRED DETAIL (Action type, Item ID, and Quantity). If ANY detail is missing, set "is_ready_to_execute" to false and ask for it.
+    12. SINGLE CONFIRMATION: NEVER ask the user "Are you sure?" or to confirm their action inside the chat. Once you have all the required details, immediately set "is_ready_to_execute" to true. The system will automatically handle the final confirmation with buttons.
     
     If the user wants to update an item, or asks for data about an item, and the item name is ambiguous or has multiple exact or close matches in the inventory, DO NOT guess which one they mean and DO NOT give back data for a random match. Instead, set "is_ready_to_execute" to false and return up to 9 matching items in "options": [{{"id": "ITEM-X", "title": "Item Name"}}]. To help the user distinguish between exact duplicate names, append the ID to the title in the options array (e.g., "Cement (ITEM-1)").
         """
@@ -1683,7 +1685,7 @@ def process_webhook():
                         else:
                             # Pass unsupported types to AI to handle naturally
                             if GROQ_API_KEY:
-                                send_text(phone, t(phone, "ai_thinking"))
+                                # send_text(phone, t(phone, "ai_thinking"))
                                 ai_resp = process_with_groq(phone, None, None, t(phone, "unsupported_msg", msg_type=msg_type))
                                 propose_ai_actions(phone, ai_resp)
         except Exception:
