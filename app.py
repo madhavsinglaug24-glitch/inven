@@ -453,6 +453,26 @@ def get_recent_history(limit=5) -> list[dict]:
     except Exception:
         return []
 
+def log_ledger(ledger_type: str, amount: float, name: str, comment: str, user_phone: str, txn_id: str = None):
+    """Log a ledger transaction to the Ledger tab."""
+    try:
+        ws = _worksheet("Ledger")
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        if not txn_id:
+            txn_id = f"TXN-{uuid.uuid4().hex[:6].upper()}"
+        ws.append_row([timestamp, ledger_type, amount, name, comment, user_phone, txn_id])
+    except Exception as e:
+        logger.error(f"Failed to log ledger: {e}")
+
+def get_recent_ledger(limit=5) -> list[dict]:
+    """Get the most recent ledger records."""
+    try:
+        ws = _worksheet("Ledger")
+        records = ws.get_all_records()
+        return list(reversed(records))[:limit]
+    except Exception:
+        return []
+
 # ---------------------------------------------------------------------------
 # WhatsApp message-sending helpers
 # ---------------------------------------------------------------------------
@@ -624,10 +644,39 @@ def handle_message(phone: str, text: str):
     # Explicit greeting
     if text_lower in ["hi", "hello", "hey", "start", "menu"]:
         if role == "manager":
+            send_button_message(
+                to=phone,
+                body=f"👋 Hello {name}!\nWhich module would you like to use today?",
+                buttons=[
+                    {"id": "main_btn_inv", "title": "📦 Inventory"},
+                    {"id": "main_btn_ledger", "title": "📓 Ledger"}
+                ]
+            )
+        else:
+            session = get_session(phone)
+            session["module"] = "inventory"
+            save_session(phone, session)
+            send_button_message(
+                to=phone,
+                body=f"👋 Hello {name}! You are logged in as a *Worker*.\nYou can send me images of receipts, or choose an action below to enter manually:",
+                buttons=[
+                    {"id": "ai_btn_Restock", "title": "📥 Restock"},
+                    {"id": "ai_btn_Consume", "title": "📤 Consume"},
+                    {"id": "ai_btn_Stock", "title": "📦 Check Stock"}
+                ]
+            )
+        return
+
+    # Handle Top-level modules
+    if text_lower == "main_btn_inv":
+        session = get_session(phone)
+        session["module"] = "inventory"
+        save_session(phone, session)
+        if role == "manager":
             send_list_message(
                 to=phone,
                 header="Manager Menu",
-                body=f"👋 Hello {name}! You are logged in as a *Manager*.\nYou can send me images of receipts, or choose an action below to enter manually:",
+                body=f"📦 *Inventory Mode*\nYou can send me images of receipts, or choose an action below to enter manually:",
                 button_text="Menu",
                 sections=[{"title": "Actions", "rows": [
                     {"id": "ai_btn_Restock", "title": "📥 Restock"},
@@ -640,13 +689,28 @@ def handle_message(phone: str, text: str):
         else:
             send_button_message(
                 to=phone,
-                body=f"👋 Hello {name}! You are logged in as a *Worker*.\nYou can send me images of receipts, or choose an action below to enter manually:",
+                body=f"📦 *Inventory Mode*\nYou can send me images of receipts, or choose an action below to enter manually:",
                 buttons=[
                     {"id": "ai_btn_Restock", "title": "📥 Restock"},
                     {"id": "ai_btn_Consume", "title": "📤 Consume"},
                     {"id": "ai_btn_Stock", "title": "📦 Check Stock"}
                 ]
             )
+        return
+
+    if text_lower == "main_btn_ledger":
+        session = get_session(phone)
+        session["module"] = "ledger"
+        save_session(phone, session)
+        send_button_message(
+            to=phone,
+            body=f"📓 *Ledger Mode*\nRecord new transactions:",
+            buttons=[
+                {"id": "ai_btn_Cash_in_Hand", "title": "💵 Cash in Hand"},
+                {"id": "ai_btn_Credit", "title": "📈 Credit"},
+                {"id": "ai_btn_Debit", "title": "📉 Debit"}
+            ]
+        )
         return
 
     # Admin tool to mass-capitalize
@@ -788,6 +852,8 @@ def handle_interactive(phone: str, interactive_data: dict):
         button_id = interactive_data["button_reply"]["id"]
         if button_id.startswith("ai_btn_"):
             handle_message(phone, interactive_data["button_reply"]["title"])
+        elif button_id.startswith("main_btn_"):
+            handle_message(phone, button_id)
         else:
             _handle_button_reply(phone, button_id)
     elif msg_type == "list_reply":
@@ -1027,18 +1093,22 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
     ============================
     """
     
-    prompt_context = f"""
-    You are an AI Inventory Assistant. You must be EXTREMELY brief, concise, and tight in all your replies. Never use filler words.
-    You MUST output your `reply_to_user` entirely in {pref_lang}.
-    Current User Phone: {phone}
-    User Role: {role}
-    Current inventory: {items_str}
-    Current suppliers: {sup_str}
-    Recent History (last 20 changes): {hist_str}
+    session = get_session(phone)
+    module = session.get("module", "inventory")
     
-    Your goal is to gather information to execute an inventory update (Restock, Consume, or Create a new item), OR answer questions about the current stock, suppliers, or history.
-    {edit_instruction}
-    CRITICAL RULES:
+    if module == "ledger":
+        module_goal = "Your goal is to record financial transactions into the Ledger (Cash in Hand, Credit, or Debit)."
+        module_rules = f"""
+    1. If the user provides an image of a bill or receipt, ask them if it's Cash in Hand, Credit, or Debit, and the amount/name.
+    2. For every ledger entry, you need the Ledger Type (Cash in Hand, Credit, Debit), the Amount, and the Name of the person/company. A comment is optional.
+    3. If any details are ambiguous (missing name, missing amount), politely ask the user for clarification in your reply. Do NOT guess.
+    4. When setting "is_ready_to_execute" to true, populate "actions" with: [{{"action": "Ledger_Entry", "ledger_type": "Cash in Hand", "amount": 100, "name": "John Doe", "comment": "Optional comment"}}]
+    5. Do NOT try to modify inventory stock while in Ledger mode.
+        """
+        action_format_rule = "4. Output actions for Ledger format: [{\"action\": \"Ledger_Entry\", \"ledger_type\": \"Cash in Hand\"|\"Credit\"|\"Debit\", \"amount\": 100, \"name\": \"Person Name\", \"comment\": \"Optional comment\"}]"
+    else:
+        module_goal = "Your goal is to gather information to execute an inventory update (Restock, Consume, or Create a new item), OR answer questions about the current stock, suppliers, or history."
+        module_rules = f"""
     1. If the user provides an image of a bill or receipt, you MUST ask them to clarify if this is a "Restock" (adding new stock/purchase) or a "Consume" (removing stock/sale), unless the image explicitly makes it obvious.
     2. If any details are ambiguous (missing item name, missing quantity, unclear action), politely ask the user for clarification in your reply. Do NOT guess.
     3. If the user just asks a question (like "what is the history of ITEM-1" or "how much stock do we have"), just answer them in the `reply_to_user` field and leave `actions` empty!
@@ -1048,7 +1118,27 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
     7. PERMISSION TO CREATE: You MUST NEVER use the "Create" action unless the user explicitly tells you to create a new item or you explicitly ask them "Would you like to create this as a new item?" and they say Yes.
     8. DUPLICATE PREVENTION: You MUST NEVER create an item that has the EXACT same name as an existing item in the inventory. If the user tries to create an item with a very similar name to existing items, or asks for an item that doesn't exist but similar ones do, you MUST tell them about the similar items first and ask if they meant one of those.
     9. REVERSALS & COMMENTS: If the user asks to reverse a transaction, find the `Txn_ID` in the Recent History and output action "Reverse" with the "transaction_id". Capture any optional comments the user makes into the "comment" field. Map names to "contact_name" and set "contact_type" to "Supplier" for purchases/restocks and "Customer" for sales/consumes.
-    10. You MUST ALWAYS respond with a structured JSON object in EXACTLY this format (no markdown code blocks, just raw JSON):
+    10. Output actions in format: [{{"action": "Restock"|"Consume"|"Create"|"Reverse", "item_id": "ITEM-X", "quantity": 10, "contact_type": "Supplier"|"Customer", "contact_name": "Name of contact", "comment": "Any extra notes", "transaction_id": "TXN-XXXX (if Reverse)", "new_item_name": "If Create", "new_item_price": 0, "new_item_min_stock": 0}}]
+    
+    If the user wants to update an item, or asks for data about an item, and the item name is ambiguous or has multiple exact or close matches in the inventory, DO NOT guess which one they mean and DO NOT give back data for a random match. Instead, set "is_ready_to_execute" to false and return up to 9 matching items in "options": [{{"id": "ITEM-X", "title": "Item Name"}}]. To help the user distinguish between exact duplicate names, append the ID to the title in the options array (e.g., "Cement (ITEM-1)").
+        """
+
+    prompt_context = f"""
+    You are an AI Assistant. You must be EXTREMELY brief, concise, and tight in all your replies. Never use filler words.
+    You MUST output your `reply_to_user` entirely in {pref_lang}.
+    Current User Phone: {phone}
+    User Role: {role}
+    Active Module: {module}
+    Current inventory: {items_str}
+    Current suppliers: {sup_str}
+    Recent History (last 20 changes): {hist_str}
+    
+    {module_goal}
+    {edit_instruction}
+    CRITICAL RULES:
+    {module_rules}
+    
+    You MUST ALWAYS respond with a structured JSON object in EXACTLY this format (no markdown code blocks, just raw JSON):
     {{
       "reply_to_user": "A VERY SHORT, concise, and tight reply. Get straight to the point. Give just the important stuff. Use emojis.",
       "is_ready_to_execute": false,
@@ -1056,11 +1146,6 @@ def process_with_groq(phone: str, file_path: str, mime_type: str, user_text: str
       "options": [],
       "buttons": []
     }}
-    
-    When the user has confirmed they want to proceed with an update and you have ALL details perfectly clear, set "is_ready_to_execute" to true and populate "actions" with:
-    [{{"action": "Restock"|"Consume"|"Create"|"Reverse", "item_id": "ITEM-X", "quantity": 10, "contact_type": "Supplier"|"Customer", "contact_name": "Name of contact", "comment": "Any extra notes", "transaction_id": "TXN-XXXX (if Reverse)", "new_item_name": "If Create", "new_item_price": 0, "new_item_min_stock": 0}}]
-
-    If the user wants to update an item, or asks for data about an item, and the item name is ambiguous or has multiple exact or close matches in the inventory, DO NOT guess which one they mean and DO NOT give back data for a random match. Instead, set "is_ready_to_execute" to false and return up to 9 matching items in "options": [{{"id": "ITEM-X", "title": "Item Name"}}]. To help the user distinguish between exact duplicate names, append the ID to the title in the options array (e.g., "Cement (ITEM-1)").
     """
     
     try:
@@ -1268,6 +1353,11 @@ def propose_ai_actions(phone: str, actions_json: str):
                 changes_str += f"\n• Create: {str(act.get('new_item_name', 'Unknown')).title()} (Qty: {qty})"
             elif act_type == "Reverse":
                 changes_str += f"\n• Reverse TXN: {act.get('transaction_id', '')}"
+            elif act_type.lower() == "ledger_entry":
+                l_type = act.get("ledger_type", "Entry")
+                amt = act.get("amount", 0)
+                name = act.get("name", act.get("contact_name", "Unknown"))
+                changes_str += f"\n• {l_type}: ${amt} for {name}"
             else:
                 item_id = act.get("item_id", "")
                 item_obj = get_inventory_item(item_id)
@@ -1312,6 +1402,14 @@ def execute_ai_actions(phone: str, actions: list, edit_req_id: str = None):
             c_name = act.get("contact_name", "")
             comment = act.get("comment", "")
             
+            if action.lower() == "ledger_entry":
+                ledger_type = str(act.get("ledger_type", "Unknown")).title()
+                amount = float(act.get("amount", 0))
+                name = str(act.get("name", act.get("contact_name", "Unknown"))).title()
+                log_ledger(ledger_type, amount, name, comment, log_phone, txn_id=shared_txn_id)
+                results.append(f"✅ Logged {ledger_type} of ${amount} for {name}.")
+                continue
+
             if action == "Create":
                 if role != "manager":
                     results.append(t(phone, "create_mgr_only"))
