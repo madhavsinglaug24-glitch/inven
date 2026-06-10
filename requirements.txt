@@ -1,7 +1,4 @@
 Flask
 requests
-gspread
-oauth2client
 python-dotenv
 gunicorn
-groq>=0.9.0
