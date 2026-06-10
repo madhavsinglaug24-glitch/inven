@@ -19,11 +19,9 @@ import logging
 import tempfile
 from datetime import datetime, timezone
 
-import gspread
 import requests
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
-from oauth2client.service_account import ServiceAccountCredentials
 from dotenv import load_dotenv
 
 # ---------------------------------------------------------------------------
