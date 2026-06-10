@@ -27,4 +27,4 @@ jobs:
             npm install
             npm run build
             cd ..
-            sudo systemctl restart sde_backend
+            pkill -HUP -f gunicorn || true
