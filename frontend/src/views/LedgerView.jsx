@@ -16,7 +16,7 @@ export const LedgerView = ({ token }) => {
     const [customEnd, setCustomEnd] = useState('');
 
     const loadTxs = async () => {
-        const res = await fetch(`${API_BASE}/api/transactions`, { headers: { 'Authorization': `Bearer ${token}` } });
+        const res = await fetch(`${API_BASE}/transactions`, { headers: { 'Authorization': `Bearer ${token}` } });
         if (res.status === 401) {
             localStorage.removeItem('apiToken');
             return window.location.reload();

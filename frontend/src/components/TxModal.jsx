@@ -24,7 +24,7 @@ export const TxModal = ({ isOpen, onClose, onRefresh, type, token, existingMerch
         if (!amount || !merchant) return alert("Amount and Merchant are mandatory!");
         setLoading(true);
         try {
-            const res = await fetch(`${API_BASE}/api/transactions`, {
+            const res = await fetch(`${API_BASE}/transactions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ amount: Number(amount), merchant, description, type })

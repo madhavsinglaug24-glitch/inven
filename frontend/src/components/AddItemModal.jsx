@@ -18,7 +18,7 @@ export const AddItemModal = ({ isOpen, onClose, onRefresh, token, initialId }) =
         if (!itemId || !name) return alert("ID and Name are mandatory!");
         setLoading(true);
         try {
-            const res = await fetch(`${API_BASE}/api/inventory/add`, {
+            const res = await fetch(`${API_BASE}/inventory/add`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ id: itemId, name, min_stock: Number(minStock), cost_price: Number(price) })

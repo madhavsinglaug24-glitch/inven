@@ -9,14 +9,14 @@ export const OverviewTab = ({ token, onNavigate }) => {
     
     useEffect(() => {
         const fetchStats = async () => {
-            const statsRes = await fetch(`${API_BASE}/api/stats`, { headers: { 'Authorization': `Bearer ${token}` } });
+            const statsRes = await fetch(`${API_BASE}/stats`, { headers: { 'Authorization': `Bearer ${token}` } });
             if (statsRes.status === 401) {
                 localStorage.removeItem('apiToken');
                 return window.location.reload();
             }
             if (statsRes.ok) setStats(await statsRes.json());
             
-            const summaryRes = await fetch(`${API_BASE}/api/summary`, { headers: { 'Authorization': `Bearer ${token}` } });
+            const summaryRes = await fetch(`${API_BASE}/summary`, { headers: { 'Authorization': `Bearer ${token}` } });
             if (summaryRes.ok) setSummary(await summaryRes.json());
         };
         fetchStats();
@@ -34,7 +34,7 @@ export const OverviewTab = ({ token, onNavigate }) => {
         <div className="fade-in">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                 <h1 className="page-title">Overview</h1>
-                <button className="btn-action" onClick={() => window.open(`${API_BASE}/api/backup?token=${token}`, '_blank')}>
+                <button className="btn-action" onClick={() => window.open(`${API_BASE}/backup?token=${token}`, '_blank')}>
                     <Database size={20} style={{marginRight: 8}}/> Download SQL Backup
                 </button>
             </div>

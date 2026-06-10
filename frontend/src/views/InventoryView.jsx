@@ -22,7 +22,7 @@ export const InventoryView = ({ token }) => {
     const [customEnd, setCustomEnd] = useState('');
 
     const loadItems = async () => {
-        const res = await fetch(`${API_BASE}/api/inventory`, { headers: { 'Authorization': `Bearer ${token}` } });
+        const res = await fetch(`${API_BASE}/inventory`, { headers: { 'Authorization': `Bearer ${token}` } });
         if (res.status === 401) {
             localStorage.removeItem('apiToken');
             return window.location.reload();
@@ -31,7 +31,7 @@ export const InventoryView = ({ token }) => {
     };
 
     const loadHistory = async () => {
-        const res = await fetch(`${API_BASE}/api/history`, { headers: { 'Authorization': `Bearer ${token}` } });
+        const res = await fetch(`${API_BASE}/history`, { headers: { 'Authorization': `Bearer ${token}` } });
         if (res.ok) {
             setHistory(await res.json());
         }

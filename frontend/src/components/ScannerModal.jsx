@@ -29,7 +29,7 @@ export const ScannerModal = ({ isOpen, onClose, token }) => {
         try {
             const fd = new FormData();
             fd.append('receipt', file);
-            const res = await fetch(`${API_BASE}/api/scan_receipt`, { 
+            const res = await fetch(`${API_BASE}/scan_receipt`, { 
                 method: 'POST', 
                 body: fd,
                 headers: { 'Authorization': `Bearer ${token}` }

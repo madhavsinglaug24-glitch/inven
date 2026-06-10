@@ -20,15 +20,15 @@ export const OperationModal = ({ isOpen, onClose, onRefresh, type, items, token,
         if(isOpen) {
             setRows([{ itemId: '', qty: '', price: '' }]);
             setSupplier('');
-            fetch(`${API_BASE}/api/suppliers`, { headers: { 'Authorization': `Bearer ${token}` } })
+            fetch(`${API_BASE}/suppliers`, { headers: { 'Authorization': `Bearer ${token}` } })
                 .then(r=>r.json()).then(setSuppliers).catch(console.error);
-            fetch(`${API_BASE}/api/consumers`, { headers: { 'Authorization': `Bearer ${token}` } })
+            fetch(`${API_BASE}/consumers`, { headers: { 'Authorization': `Bearer ${token}` } })
                 .then(r=>r.json()).then(setConsumers).catch(console.error);
         }
     }, [isOpen, token]);
 
     const handleAddSupplierSubmit = async (nameToUse) => {
-        const res = await fetch(`${API_BASE}/api/suppliers`, {
+        const res = await fetch(`${API_BASE}/suppliers`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({ name: nameToUse })
@@ -56,7 +56,7 @@ export const OperationModal = ({ isOpen, onClose, onRefresh, type, items, token,
     };
 
     const actualDeleteSupplier = async (sup) => {
-        const res = await fetch(`${API_BASE}/api/suppliers/${sup.supplier_id}`, {
+        const res = await fetch(`${API_BASE}/suppliers/${sup.supplier_id}`, {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -67,7 +67,7 @@ export const OperationModal = ({ isOpen, onClose, onRefresh, type, items, token,
     };
 
     const handleAddConsumerSubmit = async (nameToUse) => {
-        const res = await fetch(`${API_BASE}/api/consumers`, {
+        const res = await fetch(`${API_BASE}/consumers`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({ name: nameToUse })
@@ -95,7 +95,7 @@ export const OperationModal = ({ isOpen, onClose, onRefresh, type, items, token,
     };
 
     const actualDeleteConsumer = async (con) => {
-        const res = await fetch(`${API_BASE}/api/consumers/${con.consumer_id}`, {
+        const res = await fetch(`${API_BASE}/consumers/${con.consumer_id}`, {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -129,7 +129,7 @@ export const OperationModal = ({ isOpen, onClose, onRefresh, type, items, token,
                 }))
             };
 
-            const res = await fetch(`${API_BASE}/api/inventory/update`, {
+            const res = await fetch(`${API_BASE}/inventory/update`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify(payload)
