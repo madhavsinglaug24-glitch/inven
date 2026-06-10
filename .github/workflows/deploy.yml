@@ -16,7 +16,6 @@ jobs:
           host: ${{ secrets.VM_HOST }}
           username: ${{ secrets.VM_USERNAME }}
           key: ${{ secrets.VM_SSH_KEY }}
-          request_pty: true
           script: |
             cd /home/${{ secrets.VM_USERNAME }}/whatsapp-bot
             git reset --hard origin/main
@@ -27,4 +26,4 @@ jobs:
             npm install
             npm run build
             cd ..
-            pkill -HUP -f gunicorn || true
+            sudo -n systemctl restart sde_backend
