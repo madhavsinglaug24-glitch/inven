@@ -22,4 +22,8 @@ jobs:
             git pull origin main
             source venv/bin/activate
             pip install -r requirements.txt
-            sudo systemctl restart whatsapp-bot
+            cd frontend
+            npm install
+            npm run build
+            cd ..
+            sudo systemctl restart sde_backend
