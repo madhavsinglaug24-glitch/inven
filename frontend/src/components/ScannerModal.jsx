@@ -8,42 +8,35 @@ export const ScannerModal = ({ isOpen, onClose, token, items, onRefresh, initial
     const [file, setFile] = useState(null);
     const [preview, setPreview] = useState(null);
     const [loading, setLoading] = useState(false);
-    const [result, setResult] = useState(null); // { amount, merchant }
     const [error, setError] = useState('');
     const [step, setStep] = useState('upload'); // 'upload' | 'manual' | 'scanned' | 'confirm'
     const [stockType, setStockType] = useState(null); // 'restock' | 'consume'
+    // Editable transaction fields
+    const [merchant, setMerchant] = useState('');
+    const [amount, setAmount] = useState('');
     const [selectedItem, setSelectedItem] = useState('');
     const [qty, setQty] = useState('1');
     const [saving, setSaving] = useState(false);
-    // Manual entry fields
-    const [manualMerchant, setManualMerchant] = useState('');
-    const [manualAmount, setManualAmount] = useState('');
     const fileInput = useRef(null);
 
-    // Reset when modal opens with a new mode
     useEffect(() => {
         if (isOpen) {
             reset();
-            if (initialMode === 'manual') {
-                setStep('manual');
-            } else {
-                setStep('upload');
-            }
+            setStep(initialMode === 'manual' ? 'manual' : 'upload');
         }
     }, [isOpen, initialMode]);
 
     const reset = () => {
         setFile(null);
         setPreview(null);
-        setResult(null);
         setError('');
         setStep('upload');
         setStockType(null);
+        setMerchant('');
+        setAmount('');
         setSelectedItem('');
         setQty('1');
         setSaving(false);
-        setManualMerchant('');
-        setManualAmount('');
     };
 
     const handleFile = (e) => {
@@ -74,7 +67,6 @@ export const ScannerModal = ({ isOpen, onClose, token, items, onRefresh, initial
                         const compressedFile = new File([blob], f.name, { type: 'image/jpeg', lastModified: Date.now() });
                         setFile(compressedFile);
                         setPreview(URL.createObjectURL(compressedFile));
-                        setResult(null);
                         setError('');
                     }, 'image/jpeg', 0.8);
                 };
@@ -96,7 +88,8 @@ export const ScannerModal = ({ isOpen, onClose, token, items, onRefresh, initial
             });
             const data = await res.json();
             if (res.ok && data.amount !== undefined) {
-                setResult(data);
+                setMerchant(data.merchant || '');
+                setAmount(String(data.amount || ''));
                 setStep('scanned');
             } else {
                 setError(data.error || 'Scan failed. Please try again.');
@@ -107,13 +100,12 @@ export const ScannerModal = ({ isOpen, onClose, token, items, onRefresh, initial
         setLoading(false);
     };
 
-    const handleManualSubmit = () => {
-        const amt = parseFloat(manualAmount);
-        if (!manualMerchant.trim()) { setError('Please enter a merchant/supplier name.'); return; }
+    const handleContinue = () => {
+        if (!merchant.trim()) { setError('Please enter a merchant/supplier name.'); return; }
+        const amt = parseFloat(amount);
         if (isNaN(amt) || amt <= 0) { setError('Please enter a valid amount.'); return; }
-        setResult({ amount: amt, merchant: manualMerchant.trim() });
-        setStep('scanned');
         setError('');
+        setStep('scanned');
     };
 
     const handleStockSubmit = async () => {
@@ -123,11 +115,11 @@ export const ScannerModal = ({ isOpen, onClose, token, items, onRefresh, initial
         try {
             const payload = {
                 type: stockType,
-                supplier: result?.merchant || 'Manual Entry',
+                supplier: merchant || 'Manual Entry',
                 items: [{
                     item_id: selectedItem,
                     qty: Number(qty),
-                    price: Number(result?.amount || 0)
+                    price: Number(amount || 0)
                 }]
             };
             const res = await fetch(`${API_BASE}/inventory/update`, {
@@ -149,7 +141,54 @@ export const ScannerModal = ({ isOpen, onClose, token, items, onRefresh, initial
         setSaving(false);
     };
 
-    const modalTitle = step === 'manual' ? 'Enter Transaction' : 'Scan Receipt';
+    const modalTitle = step === 'manual' ? 'Enter Transaction' : step === 'confirm' ? (stockType === 'restock' ? 'Stock IN' : 'Stock OUT') : 'Scan Receipt';
+
+    const ErrorBox = () => error ? (
+        <div style={{ color: 'var(--accent-red)', marginBottom: '16px', fontSize: '14px', textAlign: 'center', padding: '12px', backgroundColor: 'var(--accent-red-dim)', borderRadius: '8px' }}>{error}</div>
+    ) : null;
+
+    // Shared editable fields for merchant + amount
+    const EditableFields = ({ showHeading }) => (
+        <div style={{ marginBottom: '20px' }}>
+            {showHeading && <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '12px' }}>You can edit the details below:</p>}
+            <div style={{ marginBottom: '12px' }}>
+                <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 500 }}>Merchant / Supplier *</label>
+                <input 
+                    type="text" className="form-input" value={merchant} onChange={e => setMerchant(e.target.value)}
+                    placeholder="e.g. Big Bazaar, Amazon..."
+                    style={{ width: '100%', backgroundColor: 'var(--bg-elevated)' }}
+                />
+            </div>
+            <div style={{ marginBottom: '12px' }}>
+                <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 500 }}>Total Amount (₹) *</label>
+                <input 
+                    type="number" className="form-input" value={amount} onChange={e => setAmount(e.target.value)}
+                    placeholder="e.g. 1500" min="0" step="0.01"
+                    style={{ width: '100%', backgroundColor: 'var(--bg-elevated)' }}
+                />
+            </div>
+            <div style={{ marginBottom: '12px' }}>
+                <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 500 }}>Select Item *</label>
+                <select className="form-input" value={selectedItem} onChange={e => setSelectedItem(e.target.value)}
+                    style={{ width: '100%', backgroundColor: 'var(--bg-elevated)', cursor: 'pointer' }}>
+                    <option value="">-- Choose an item --</option>
+                    {(items || []).map(item => (
+                        <option key={item.Item_ID} value={item.Item_ID}>
+                            [{item.Item_ID}] {item.Item_Name} (Stock: {item.Current_Stock})
+                        </option>
+                    ))}
+                </select>
+            </div>
+            <div>
+                <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 500 }}>Quantity *</label>
+                <input 
+                    type="number" className="form-input" value={qty} onChange={e => setQty(e.target.value)}
+                    min="1" placeholder="1"
+                    style={{ width: '100%', backgroundColor: 'var(--bg-elevated)' }}
+                />
+            </div>
+        </div>
+    );
 
     return (
         <Modal isOpen={isOpen} onClose={() => { onClose(); reset(); }} title={modalTitle} width="480px">
@@ -172,9 +211,7 @@ export const ScannerModal = ({ isOpen, onClose, token, items, onRefresh, initial
             {step === 'upload' && preview && (
                 <div>
                     <img src={preview} alt="Receipt" style={{ width: '100%', maxHeight: '250px', objectFit: 'contain', borderRadius: '8px', marginBottom: '16px', backgroundColor: '#000' }} />
-                    
-                    {error && <div style={{ color: 'var(--accent-red)', marginBottom: '16px', fontSize: '14px', textAlign: 'center', padding: '12px', backgroundColor: 'var(--accent-red-dim)', borderRadius: '8px' }}>{error}</div>}
-                    
+                    <ErrorBox />
                     <div style={{ display: 'flex', gap: '12px' }}>
                         <button className="btn-action" style={{ flex: 1, justifyContent: 'center' }} onClick={() => { setFile(null); setPreview(null); setError(''); }}>
                             Retake
@@ -189,146 +226,85 @@ export const ScannerModal = ({ isOpen, onClose, token, items, onRefresh, initial
             {/* STEP: Manual Entry */}
             {step === 'manual' && (
                 <div>
-                    {error && <div style={{ color: 'var(--accent-red)', marginBottom: '16px', fontSize: '14px', textAlign: 'center', padding: '12px', backgroundColor: 'var(--accent-red-dim)', borderRadius: '8px' }}>{error}</div>}
-                    
-                    <div style={{ marginBottom: '16px' }}>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 500 }}>Merchant / Supplier *</label>
-                        <input 
-                            type="text" 
-                            className="form-input" 
-                            value={manualMerchant} 
-                            onChange={e => setManualMerchant(e.target.value)}
-                            placeholder="e.g. Big Bazaar, Amazon..."
-                            style={{ width: '100%', backgroundColor: 'var(--bg-elevated)' }}
-                        />
-                    </div>
-
-                    <div style={{ marginBottom: '24px' }}>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 500 }}>Total Amount (₹) *</label>
-                        <input 
-                            type="number" 
-                            className="form-input" 
-                            value={manualAmount} 
-                            onChange={e => setManualAmount(e.target.value)}
-                            placeholder="e.g. 1500"
-                            min="0"
-                            step="0.01"
-                            style={{ width: '100%', backgroundColor: 'var(--bg-elevated)' }}
-                        />
-                    </div>
-
-                    <button className="btn-action btn-credit" style={{ width: '100%', justifyContent: 'center' }} onClick={handleManualSubmit}>
-                        Continue
-                    </button>
-                </div>
-            )}
-
-            {/* STEP: Scanned Result - Ask Stock In or Out */}
-            {step === 'scanned' && result && (
-                <div>
-                    {preview && <img src={preview} alt="Receipt" style={{ width: '100%', maxHeight: '150px', objectFit: 'contain', borderRadius: '8px', marginBottom: '16px', backgroundColor: '#000' }} />}
-                    
-                    <div style={{ backgroundColor: 'var(--bg-elevated)', padding: '16px', borderRadius: '8px', marginBottom: '20px', border: '1px solid var(--border-color)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                            <span style={{ color: 'var(--text-secondary)' }}>Merchant</span>
-                            <span style={{ fontWeight: 600 }}>{result.merchant || 'Unknown'}</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span style={{ color: 'var(--text-secondary)' }}>Amount</span>
-                            <span style={{ color: 'var(--accent-green)', fontWeight: 600, fontSize: '18px' }}>₹{Number(result.amount).toLocaleString()}</span>
-                        </div>
-                    </div>
-
-                    {error && <div style={{ color: 'var(--accent-red)', marginBottom: '16px', fontSize: '14px', textAlign: 'center', padding: '12px', backgroundColor: 'var(--accent-red-dim)', borderRadius: '8px' }}>{error}</div>}
-
-                    <p style={{ color: 'var(--text-secondary)', textAlign: 'center', marginBottom: '16px', fontSize: '14px' }}>What type of transaction is this?</p>
-
-                    <div style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
+                    <ErrorBox />
+                    <EditableFields showHeading={false} />
+                    <div style={{ display: 'flex', gap: '12px' }}>
                         <button 
                             className="btn-action" 
-                            onClick={() => { setStockType('restock'); setStep('confirm'); }}
-                            style={{ 
-                                flex: 1, justifyContent: 'center', display: 'flex', alignItems: 'center', gap: '8px', padding: '16px',
+                            onClick={() => { if (!merchant.trim() || !amount || !selectedItem || !qty) { setError('Please fill all required fields.'); return; } setStockType('restock'); setError(''); handleStockSubmit(); }}
+                            disabled={saving}
+                            style={{ flex: 1, justifyContent: 'center', display: 'flex', alignItems: 'center', gap: '8px', padding: '14px',
                                 backgroundColor: 'var(--accent-green-dim)', color: 'var(--accent-green)', borderColor: 'var(--accent-green)',
-                                fontSize: '15px', fontWeight: 600
-                            }}
+                                fontWeight: 600 }}
                         >
-                            <PackagePlus size={22} /> Stock IN
+                            <PackagePlus size={20} /> {saving ? 'Saving...' : 'Stock IN'}
                         </button>
                         <button 
                             className="btn-action"
-                            onClick={() => { setStockType('consume'); setStep('confirm'); }}
-                            style={{ 
-                                flex: 1, justifyContent: 'center', display: 'flex', alignItems: 'center', gap: '8px', padding: '16px',
+                            onClick={() => { if (!merchant.trim() || !amount || !selectedItem || !qty) { setError('Please fill all required fields.'); return; } setStockType('consume'); setError(''); handleStockSubmit(); }}
+                            disabled={saving}
+                            style={{ flex: 1, justifyContent: 'center', display: 'flex', alignItems: 'center', gap: '8px', padding: '14px',
                                 backgroundColor: 'var(--accent-red-dim)', color: 'var(--accent-red)', borderColor: 'var(--accent-red)',
-                                fontSize: '15px', fontWeight: 600
-                            }}
+                                fontWeight: 600 }}
                         >
-                            <PackageMinus size={22} /> Stock OUT
+                            <PackageMinus size={20} /> {saving ? 'Saving...' : 'Stock OUT'}
                         </button>
                     </div>
+                </div>
+            )}
 
-                    <button className="btn-action" style={{ width: '100%', justifyContent: 'center' }} onClick={reset}>
+            {/* STEP: Scanned Result - editable fields + Stock IN/OUT */}
+            {step === 'scanned' && (
+                <div>
+                    {preview && <img src={preview} alt="Receipt" style={{ width: '100%', maxHeight: '120px', objectFit: 'contain', borderRadius: '8px', marginBottom: '16px', backgroundColor: '#000' }} />}
+                    <ErrorBox />
+                    <EditableFields showHeading={true} />
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                        <button 
+                            className="btn-action" 
+                            onClick={() => { if (!merchant.trim() || !amount || !selectedItem || !qty) { setError('Please fill all required fields.'); return; } setStockType('restock'); setError(''); }}
+                            style={{ flex: 1, justifyContent: 'center', display: 'flex', alignItems: 'center', gap: '8px', padding: '14px',
+                                backgroundColor: 'var(--accent-green-dim)', color: 'var(--accent-green)', borderColor: 'var(--accent-green)',
+                                fontWeight: 600 }}
+                        >
+                            <PackagePlus size={20} /> Stock IN
+                        </button>
+                        <button 
+                            className="btn-action"
+                            onClick={() => { if (!merchant.trim() || !amount || !selectedItem || !qty) { setError('Please fill all required fields.'); return; } setStockType('consume'); setError(''); }}
+                            style={{ flex: 1, justifyContent: 'center', display: 'flex', alignItems: 'center', gap: '8px', padding: '14px',
+                                backgroundColor: 'var(--accent-red-dim)', color: 'var(--accent-red)', borderColor: 'var(--accent-red)',
+                                fontWeight: 600 }}
+                        >
+                            <PackageMinus size={20} /> Stock OUT
+                        </button>
+                    </div>
+                    <button className="btn-action" style={{ width: '100%', justifyContent: 'center', marginTop: '12px' }} onClick={reset}>
                         Start Over
                     </button>
                 </div>
             )}
 
-            {/* STEP: Confirm - Select Item + Qty */}
-            {step === 'confirm' && result && (
-                <div>
-                    <div style={{ backgroundColor: 'var(--bg-elevated)', padding: '12px 16px', borderRadius: '8px', marginBottom: '20px', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div>
-                            <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>
-                                {stockType === 'restock' ? '📦 STOCK IN' : '📤 STOCK OUT'}
-                            </span>
-                            <div style={{ fontWeight: 600 }}>{result.merchant}</div>
-                        </div>
-                        <span style={{ color: 'var(--accent-green)', fontWeight: 600, fontSize: '18px' }}>₹{Number(result.amount).toLocaleString()}</span>
-                    </div>
-
-                    {error && <div style={{ color: 'var(--accent-red)', marginBottom: '16px', fontSize: '14px', textAlign: 'center', padding: '12px', backgroundColor: 'var(--accent-red-dim)', borderRadius: '8px' }}>{error}</div>}
-
-                    <div style={{ marginBottom: '16px' }}>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 500 }}>Select Item *</label>
-                        <select 
-                            className="form-input" 
-                            value={selectedItem} 
-                            onChange={e => setSelectedItem(e.target.value)}
-                            style={{ width: '100%', backgroundColor: 'var(--bg-elevated)', cursor: 'pointer' }}
-                        >
-                            <option value="">-- Choose an item --</option>
-                            {(items || []).map(item => (
-                                <option key={item.Item_ID} value={item.Item_ID}>
-                                    [{item.Item_ID}] {item.Item_Name} (Stock: {item.Current_Stock})
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-
-                    <div style={{ marginBottom: '20px' }}>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 500 }}>Quantity *</label>
-                        <input 
-                            type="number" 
-                            className="form-input" 
-                            value={qty} 
-                            onChange={e => setQty(e.target.value)}
-                            min="1"
-                            style={{ width: '100%', backgroundColor: 'var(--bg-elevated)' }}
-                        />
-                    </div>
-
+            {/* STEP: Confirm */}
+            {step === 'scanned' && stockType && (
+                <div style={{ marginTop: '20px', padding: '16px', backgroundColor: 'var(--bg-elevated)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                    <h4 style={{ marginBottom: '12px', textAlign: 'center' }}>
+                        {stockType === 'restock' ? '📦 Confirm Stock IN' : '📤 Confirm Stock OUT'}
+                    </h4>
+                    <p style={{ fontSize: '13px', color: 'var(--text-secondary)', textAlign: 'center', marginBottom: '16px' }}>
+                        {qty}x {(items || []).find(i => i.Item_ID === selectedItem)?.Item_Name || selectedItem} from <strong>{merchant}</strong> for <strong>₹{Number(amount).toLocaleString()}</strong>
+                    </p>
                     <div style={{ display: 'flex', gap: '12px' }}>
-                        <button className="btn-action" style={{ flex: 1, justifyContent: 'center' }} onClick={() => { setStep('scanned'); setStockType(null); setError(''); }}>
-                            Back
+                        <button className="btn-action" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setStockType(null)}>
+                            Cancel
                         </button>
                         <button 
                             className={`btn-action ${stockType === 'consume' ? 'btn-debit' : 'btn-credit'}`}
                             style={{ flex: 2, justifyContent: 'center' }} 
                             onClick={handleStockSubmit} 
-                            disabled={saving || !selectedItem || !qty}
+                            disabled={saving}
                         >
-                            {saving ? 'Saving...' : stockType === 'restock' ? 'Confirm Stock IN' : 'Confirm Stock OUT'}
+                            {saving ? 'Saving...' : 'Confirm'}
                         </button>
                     </div>
                 </div>

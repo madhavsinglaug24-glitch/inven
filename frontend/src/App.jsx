@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PieChart, Package, BookOpen, Sun, Moon, Menu, Camera, Printer, Plus, X, Type } from 'lucide-react';
+import { PieChart, Package, BookOpen, Sun, Moon, Menu, Camera, Printer, Plus, X, Pencil } from 'lucide-react';
 
 import { OverviewTab } from './views/OverviewTab';
 import { InventoryView } from './views/InventoryView';
@@ -15,7 +15,7 @@ const FABMenu = ({ onScan, onManual }) => {
             {open && <div className="fab-menu-overlay" onClick={() => setOpen(false)} />}
             
             {open && (
-                <div className="fab-menu" style={{ bottom: '140px', right: '24px' }}>
+                <div className="fab-menu" style={{ bottom: '92px', right: '24px' }}>
                     <div className="fab-menu-item" onClick={() => { setOpen(false); onScan(); }}>
                         <span>Scan Receipt</span>
                         <button style={{ backgroundColor: 'var(--accent-green)', color: '#fff' }}>
@@ -25,7 +25,7 @@ const FABMenu = ({ onScan, onManual }) => {
                     <div className="fab-menu-item" onClick={() => { setOpen(false); onManual(); }}>
                         <span>Enter Manually</span>
                         <button style={{ backgroundColor: 'var(--accent-blue)', color: '#fff' }}>
-                            <Type size={22} />
+                            <Pencil size={22} />
                         </button>
                     </div>
                 </div>
@@ -35,12 +35,12 @@ const FABMenu = ({ onScan, onManual }) => {
                 className="fab-camera"
                 onClick={() => setOpen(!open)}
                 style={{ 
-                    position: 'fixed', right: '24px', bottom: '80px', touchAction: 'none',
-                    transform: open ? 'rotate(45deg)' : 'rotate(0deg)',
+                    position: 'fixed', right: '24px', bottom: '24px',
+                    transform: open ? 'rotate(45deg)' : 'none',
                     transition: 'transform 0.2s ease'
                 }}
             >
-                {open ? <X size={28} /> : <Plus size={28} />}
+                <Plus size={28} />
             </button>
         </>
     );

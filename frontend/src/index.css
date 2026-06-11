@@ -183,14 +183,14 @@ input[type=number] {
 .btn-debit:hover { background: var(--accent-red-dim); border-color: var(--accent-red); }
 
 .fab-camera {
-    position: fixed; bottom: 32px; right: 32px;
-    width: 64px; height: 64px; border-radius: 32px;
+    position: fixed; bottom: 24px; right: 24px;
+    width: 56px; height: 56px; border-radius: 50%;
     background-color: var(--accent-green); color: #fff;
     display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    border: none; cursor: pointer; z-index: 100; transition: transform 0.2s;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+    border: none; cursor: pointer; z-index: 999; transition: transform 0.2s;
 }
-.fab-camera:hover { transform: scale(1.05); }
+.fab-camera:hover { box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4); }
     
 /* Mobile Responsiveness */
 @media (max-width: 768px) {
