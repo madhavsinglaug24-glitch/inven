@@ -25,6 +25,7 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 from flask_socketio import SocketIO
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -33,6 +34,7 @@ load_dotenv()
 
 # Serve React frontend from the dist folder
 app = Flask(__name__, static_folder="frontend/dist", static_url_path="/")
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 CORS(app)
 app.config["SECRET_KEY"] = os.urandom(24)
 
