@@ -57,6 +57,7 @@ function App() {
     const [scannerOpen, setScannerOpen] = useState(false);
     const [scannerMode, setScannerMode] = useState('scan'); // 'scan' or 'manual'
     const [inventoryItems, setInventoryItems] = useState([]);
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
 
     const loadInventoryItems = async () => {
         try {
@@ -80,6 +81,7 @@ function App() {
         socket.on('inventory_updated', (data) => {
             console.log('Real-time update received:', data.message);
             loadInventoryItems(); // Instantly refresh data when someone else edits it!
+            setRefreshTrigger(prev => prev + 1);
         });
         
         return () => {
@@ -169,16 +171,16 @@ function App() {
 
             <main className="main-content">
                 <div style={{ display: mode === 'overview' ? 'block' : 'none' }}>
-                    <OverviewTab token={token} onNavigate={setMode} />
+                    <OverviewTab token={token} onNavigate={setMode} refreshTrigger={refreshTrigger} />
                 </div>
                 <div style={{ display: mode === 'inventory' ? 'block' : 'none' }}>
-                    <InventoryView token={token} />
+                    <InventoryView token={token} refreshTrigger={refreshTrigger} />
                 </div>
                 <div style={{ display: mode === 'ledger' ? 'block' : 'none' }}>
-                    <LedgerView token={token} />
+                    <LedgerView token={token} refreshTrigger={refreshTrigger} />
                 </div>
                 <div style={{ display: mode === 'history' ? 'block' : 'none' }}>
-                    <HistoryView token={token} />
+                    <HistoryView token={token} refreshTrigger={refreshTrigger} />
                 </div>
             </main>
 

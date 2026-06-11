@@ -4,7 +4,7 @@ import { API_BASE } from '../api';
 import { OperationModal } from '../components/OperationModal';
 import { AddItemModal } from '../components/AddItemModal';
 
-export const InventoryView = ({ token }) => {
+export const InventoryView = ({ token, refreshTrigger }) => {
     const [items, setItems] = useState([]);
     const [history, setHistory] = useState([]);
     const [viewMode, setViewMode] = useState('stock'); // 'stock' or 'history'
@@ -40,7 +40,7 @@ export const InventoryView = ({ token }) => {
     useEffect(() => { 
         loadItems(); 
         loadHistory();
-    }, [token]);
+    }, [token, refreshTrigger]);
 
     const filteredItems = items.filter(i => {
         const query = search.toLowerCase();

@@ -2,19 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { Download } from 'lucide-react';
 import { API_BASE } from '../api';
 
-export const HistoryView = ({ token }) => {
+export const HistoryView = ({ token, refreshTrigger }) => {
     const [activeTab, setActiveTab] = useState('inventory');
     const [inventoryHistory, setInventoryHistory] = useState([]);
     const [ledgerHistory, setLedgerHistory] = useState([]);
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        if (activeTab === 'inventory' && inventoryHistory.length === 0) {
+        if (activeTab === 'inventory') {
             fetchInventoryHistory();
-        } else if (activeTab === 'ledger' && ledgerHistory.length === 0) {
+        } else if (activeTab === 'ledger') {
             fetchLedgerHistory();
         }
-    }, [activeTab]);
+    }, [activeTab, refreshTrigger]);
 
     const fetchInventoryHistory = async () => {
         setLoading(true);

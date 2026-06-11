@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Database } from 'lucide-react';
 import { API_BASE } from '../api';
 
-export const OverviewTab = ({ token, onNavigate }) => {
+export const OverviewTab = ({ token, onNavigate, refreshTrigger }) => {
     const [stats, setStats] = useState(null);
     const [summary, setSummary] = useState(null);
     
@@ -20,7 +20,7 @@ export const OverviewTab = ({ token, onNavigate }) => {
             if (summaryRes.ok) setSummary(await summaryRes.json());
         };
         fetchStats();
-    }, [token]);
+    }, [token, refreshTrigger]);
 
     if (!stats || !summary || summary.balance === undefined) {
         if (summary && summary.message === "Unauthorized") {

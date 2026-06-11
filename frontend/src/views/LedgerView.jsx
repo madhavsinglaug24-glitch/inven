@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
-import { PlusCircle, MinusCircle, Search, ChevronDown, ChevronUp } from 'lucide-react';
+import { PlusCircle, MinusCircle, Search, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 import { API_BASE } from '../api';
 import { TxModal } from '../components/TxModal';
 
-export const LedgerView = ({ token }) => {
+export const LedgerView = ({ token, refreshTrigger }) => {
     const [txs, setTxs] = useState([]);
     const [txModalType, setTxModalType] = useState(null); // 'income' or 'expense'
     const [expandedTxn, setExpandedTxn] = useState(null);
@@ -24,7 +24,25 @@ export const LedgerView = ({ token }) => {
         setTxs(await res.json());
     };
 
-    useEffect(() => { loadTxs(); }, [token]);
+    const handleDeleteTxn = async (id, e) => {
+        if (e) e.stopPropagation();
+        if (!window.confirm("Are you sure you want to delete this transaction?")) return;
+        try {
+            const res = await fetch(`${API_BASE}/transactions/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                loadTxs();
+            } else {
+                alert("Failed to delete transaction");
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    useEffect(() => { loadTxs(); }, [token, refreshTrigger]);
 
     const existingMerchants = [...new Set(txs.map(t => t.merchant))].filter(Boolean);
 
@@ -145,7 +163,7 @@ export const LedgerView = ({ token }) => {
                 
                 <div className="desktop-only">
                     <table className="data-table">
-                        <thead><tr><th>ID</th><th>Date</th><th>Merchant</th><th>Credit</th><th>Debit</th><th>Balance</th></tr></thead>
+                        <thead><tr><th>ID</th><th>Date</th><th>Merchant</th><th>Credit</th><th>Debit</th><th>Balance</th><th></th></tr></thead>
                         <tbody>
                             {filteredTxs.map((tx, i) => {
                                 return (
@@ -156,6 +174,11 @@ export const LedgerView = ({ token }) => {
                                         <td style={{ color: 'var(--accent-green)', fontWeight: 600 }}>{tx.credit > 0 ? `₹${tx.credit.toLocaleString()}` : '-'}</td>
                                         <td style={{ color: 'var(--accent-red)', fontWeight: 600 }}>{tx.debit > 0 ? `₹${tx.debit.toLocaleString()}` : '-'}</td>
                                         <td style={{ fontWeight: 'bold' }}>₹{tx.balance.toLocaleString()}</td>
+                                        <td>
+                                            <button className="btn-action" onClick={(e) => handleDeleteTxn(tx.id, e)} style={{ padding: '8px', color: 'var(--accent-red)' }}>
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </td>
                                     </tr>
                                 )
                             })}
@@ -195,6 +218,15 @@ export const LedgerView = ({ token }) => {
                                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
                                         <span style={{ color: 'var(--text-secondary)' }}>Balance After</span>
                                         <span style={{ fontWeight: 'bold' }}>₹{tx.balance.toLocaleString()}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
+                                        <button 
+                                            className="btn-action" 
+                                            onClick={(e) => handleDeleteTxn(tx.id, e)}
+                                            style={{ backgroundColor: 'var(--accent-red-dim)', color: 'var(--accent-red)', padding: '8px 16px', fontSize: '13px', borderRadius: '8px' }}
+                                        >
+                                            <Trash2 size={14} style={{ marginRight: '6px' }} /> Delete
+                                        </button>
                                     </div>
                                 </div>
                             )}

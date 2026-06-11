@@ -21,9 +21,9 @@ export const OperationModal = ({ isOpen, onClose, onRefresh, type, items, token,
             setRows([{ itemId: '', qty: '', price: '' }]);
             setSupplier('');
             fetch(`${API_BASE}/suppliers`, { headers: { 'Authorization': `Bearer ${token}` } })
-                .then(r=>r.json()).then(setSuppliers).catch(console.error);
+                .then(r=>r.json()).then(data => setSuppliers(Array.isArray(data) ? data : [])).catch(console.error);
             fetch(`${API_BASE}/consumers`, { headers: { 'Authorization': `Bearer ${token}` } })
-                .then(r=>r.json()).then(setConsumers).catch(console.error);
+                .then(r=>r.json()).then(data => setConsumers(Array.isArray(data) ? data : [])).catch(console.error);
         }
     }, [isOpen, token]);
 
@@ -163,8 +163,8 @@ export const OperationModal = ({ isOpen, onClose, onRefresh, type, items, token,
     
     // For restock, show suppliers. For consume, show customers.
     const contactOptions = type === 'restock' 
-        ? suppliers.map(s => ({ value: s.name, label: s.name, raw: s }))
-        : consumers.map(c => ({ value: c.name, label: c.name, raw: c }));
+        ? (Array.isArray(suppliers) ? suppliers : []).map(s => ({ value: s.name, label: s.name, raw: s }))
+        : (Array.isArray(consumers) ? consumers : []).map(c => ({ value: c.name, label: c.name, raw: c }));
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title={type === 'restock' ? 'Restock Items' : 'Consume Items'} width="1000px">

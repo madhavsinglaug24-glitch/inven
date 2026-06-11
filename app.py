@@ -997,6 +997,19 @@ def add_transaction():
     except Exception as e:
         return jsonify({"message": str(e)}), 500
 
+@app.route("/api/transactions/<txn_id>", methods=["DELETE"])
+def delete_transaction(txn_id):
+    if not check_dashboard_auth():
+        return jsonify({"message": "Unauthorized"}), 401
+    try:
+        with get_db_connection() as conn:
+            conn.execute("DELETE FROM ledger WHERE id = ?", (txn_id,))
+            conn.commit()
+        socketio.emit("inventory_updated", {"message": "Transaction deleted"})
+        return jsonify({"success": True}), 200
+    except Exception as e:
+        return jsonify({"message": str(e)}), 500
+
 @app.route("/api/suppliers", methods=["GET", "POST"])
 def manage_suppliers():
     if not check_dashboard_auth(): return jsonify({"message": "Unauthorized"}), 401
