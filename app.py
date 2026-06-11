@@ -1103,7 +1103,7 @@ def scan_receipt_api():
         )
 
         payload = {
-            "model": "openrouter/free",
+            "model": "meta-llama/llama-3.2-11b-vision-instruct:free",
             "messages": [
                 {
                     "role": "user",
@@ -1174,6 +1174,23 @@ def scan_receipt_api():
                 return jsonify({"amount": amount, "merchant": merchant}), 200
             except (json.JSONDecodeError, ValueError):
                 pass
+                
+        # Fallback 3: Regex extraction for partial/broken text
+        amount = 0.0
+        merchant = ""
+        amt_match = re.search(r'"amount"\s*:\s*([\d\.]+)', ai_text)
+        if amt_match:
+            try:
+                amount = float(amt_match.group(1))
+            except:
+                pass
+        
+        merch_match = re.search(r'"merchant"\s*:\s*"([^"]+)"', ai_text)
+        if merch_match:
+            merchant = merch_match.group(1)
+            
+        if amount > 0 or merchant:
+            return jsonify({"amount": amount, "merchant": merchant or "Unknown"}), 200
         
         return jsonify({"error": f"Could not parse AI response: {ai_text[:200]}"}), 400
     except Exception as e:
