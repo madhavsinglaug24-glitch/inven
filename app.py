@@ -1120,6 +1120,8 @@ def scan_receipt_api():
         }
         
         resp = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload, timeout=15)
+        if not resp.ok:
+            return jsonify({"error": f"Groq Error: {resp.text}"}), 400
         resp.raise_for_status()
         
         ai_text = resp.json()["choices"][0]["message"]["content"].strip()
