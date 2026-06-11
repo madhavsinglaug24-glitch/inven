@@ -1127,7 +1127,11 @@ def scan_receipt_api():
             return jsonify({"error": f"OpenRouter Error: {resp.text}"}), 400
         resp.raise_for_status()
         
-        ai_text = resp.json()["choices"][0]["message"]["content"].strip()
+        msg_content = resp.json().get("choices", [{}])[0].get("message", {}).get("content")
+        if not msg_content:
+            return jsonify({"error": "OpenRouter returned an empty response (try again)"}), 400
+            
+        ai_text = msg_content.strip()
         if ai_text.startswith("```json"): ai_text = ai_text[7:-3].strip()
         elif ai_text.startswith("```"): ai_text = ai_text[3:-3].strip()
             
