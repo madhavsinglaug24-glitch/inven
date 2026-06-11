@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { PieChart, Package, BookOpen, Sun, Moon, Menu, Camera, Printer, Plus, X, Pencil } from 'lucide-react';
+import { PieChart, Package, BookOpen, Sun, Moon, Menu, Camera, Printer, Plus, X, Pencil, LogOut } from 'lucide-react';
+import { GoogleOAuthProvider } from '@react-oauth/google';
+
+import { LoginView } from './views/LoginView';
 
 import { OverviewTab } from './views/OverviewTab';
 import { InventoryView } from './views/InventoryView';
@@ -46,13 +49,25 @@ const FABMenu = ({ onScan, onManual }) => {
 };
 
 function App() {
-    const [token, setToken] = useState('dummy_token');
+    const [token, setToken] = useState(localStorage.getItem('apiToken') || null);
+    const [userEmail, setUserEmail] = useState(localStorage.getItem('userEmail') || '');
+    const [clientId, setClientId] = useState('');
     const [mode, setMode] = useState('overview');
     const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [scannerOpen, setScannerOpen] = useState(false);
     const [scannerMode, setScannerMode] = useState('scan'); // 'scan' or 'manual'
     const [inventoryItems, setInventoryItems] = useState([]);
+
+    useEffect(() => {
+        // Fetch public config
+        fetch('/api/config')
+            .then(res => res.json())
+            .then(data => {
+                if (data.googleClientId) setClientId(data.googleClientId);
+            })
+            .catch(err => console.error("Could not fetch config", err));
+    }, []);
 
     const loadInventoryItems = async () => {
         try {
@@ -65,13 +80,39 @@ function App() {
         loadInventoryItems();
     }, [token]);
 
+    const handleLogout = () => {
+        localStorage.removeItem('apiToken');
+        localStorage.removeItem('userEmail');
+        setToken(null);
+        setUserEmail('');
+    };
+
     useEffect(() => {
         document.body.className = theme === 'light' ? 'light-theme' : '';
         localStorage.setItem('theme', theme);
     }, [theme]);
 
+    if (!token) {
+        if (!clientId) {
+            return (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: 'var(--bg-base)' }}>
+                    <p style={{ color: 'var(--text-secondary)' }}>Loading Google SSO configuration...</p>
+                </div>
+            );
+        }
+        return (
+            <GoogleOAuthProvider clientId={clientId}>
+                <LoginView onLoginSuccess={(newToken) => {
+                    setToken(newToken);
+                    setUserEmail(localStorage.getItem('userEmail'));
+                }} />
+            </GoogleOAuthProvider>
+        );
+    }
+
     return (
-        <>
+        <GoogleOAuthProvider clientId={clientId}>
+        <div id="root">
             <div className="mobile-header">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <img src="/sde-logo.svg" alt="SDE Logo" style={{ height: '32px', borderRadius: '6px' }} />
@@ -104,10 +145,27 @@ function App() {
                         </li>
                     </ul>
                 </nav>
-                <div className="sidebar-footer" style={{ marginTop: 'auto', paddingTop: '24px', borderTop: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <button className="btn-action" onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} style={{ width: '100%', justifyContent: 'center' }}>
-                        {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
-                        <span className="nav-text" style={{ marginLeft: '8px' }}>Toggle Theme</span>
+                <div className="sidebar-footer" style={{ padding: '20px' }}>
+                    {userEmail && (
+                        <div style={{ marginBottom: '15px', fontSize: '12px', color: 'var(--text-secondary)', wordBreak: 'break-all' }}>
+                            Logged in as:<br/><strong>{userEmail}</strong>
+                        </div>
+                    )}
+                    <button 
+                        className="btn-action w-full" 
+                        onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                        style={{ marginBottom: '10px' }}
+                    >
+                        {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+                        {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+                    </button>
+                    <button 
+                        className="btn-action w-full" 
+                        onClick={handleLogout}
+                        style={{ borderColor: 'var(--accent-red)', color: 'var(--accent-red)' }}
+                    >
+                        <LogOut size={18} />
+                        Sign Out
                     </button>
                 </div>
             </aside>
@@ -132,8 +190,16 @@ function App() {
                 onManual={() => { setScannerMode('manual'); setScannerOpen(true); }} 
             />
 
-            <ScannerModal token={token} isOpen={scannerOpen} onClose={() => setScannerOpen(false)} items={inventoryItems} onRefresh={loadInventoryItems} initialMode={scannerMode} />
-        </>
+            <ScannerModal 
+                isOpen={scannerOpen} 
+                onClose={() => setScannerOpen(false)} 
+                mode={scannerMode}
+                token={token} 
+                onRefresh={loadInventoryItems}
+                items={inventoryItems}
+            />
+        </div>
+        </GoogleOAuthProvider>
     );
 }
 
