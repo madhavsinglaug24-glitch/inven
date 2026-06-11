@@ -45,7 +45,9 @@ body.light-theme {
     --shadow-card: 0 4px 15px rgba(0,0,0,0.08);
 }
 
-* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+button, a { outline: none; }
+button:focus, a:focus { outline: none; }
 body { background-color: var(--bg-base); color: var(--text-primary); transition: background-color var(--transition-speed), color var(--transition-speed); overflow-x: hidden; }
 
 /* Layout */
