@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Download } from 'lucide-react';
 import { API_BASE } from '../api';
 
 export const HistoryView = ({ token }) => {
@@ -39,9 +40,39 @@ export const HistoryView = ({ token }) => {
         setLoading(false);
     };
 
+    const exportToExcel = () => {
+        let csvContent = "";
+        if (activeTab === 'inventory') {
+            csvContent += "Timestamp,Item ID,Item Name,Action,Quantity,User Phone,Prev Stock,New Stock,Contact Type,Contact Name,Comment,Txn ID\n";
+            inventoryHistory.forEach(row => {
+                const r = [row.timestamp, row.item_id, row.item_name, row.action, row.quantity, row.user_phone, row.previous_stock, row.new_stock, row.contact_type, row.contact_name, row.comment, row.txn_id].map(v => `"${(v||'').toString().replace(/"/g, '""')}"`).join(",");
+                csvContent += r + "\n";
+            });
+        } else {
+            csvContent += "Date,Type,Amount,Name,Comment,Logged By,Txn ID\n";
+            ledgerHistory.forEach(row => {
+                const r = [row.Date, row.Type, row.Amount, row.Name, row.Comment, row.Logged_By, row.Txn_ID].map(v => `"${(v||'').toString().replace(/"/g, '""')}"`).join(",");
+                csvContent += r + "\n";
+            });
+        }
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.setAttribute("download", `${activeTab}_history.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     return (
         <div className="fade-in">
-            <h2 className="page-title">Master History</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                <h2 className="page-title">Print</h2>
+                <button className="btn-action" onClick={exportToExcel}>
+                    <Download size={20} style={{marginRight: 8}}/> Download Excel
+                </button>
+            </div>
+            
             <div style={{ display: 'flex', gap: '16px', marginBottom: '24px' }}>
                 <button 
                     className={`btn-action ${activeTab === 'inventory' ? 'btn-credit' : ''}`} 

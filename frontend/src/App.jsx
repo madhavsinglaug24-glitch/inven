@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { PieChart, CheckSquare, Package, BookOpen, Sun, Moon, LogOut, Menu, Camera, History } from 'lucide-react';
+import { PieChart, CheckSquare, Package, BookOpen, Sun, Moon, LogOut, Menu, Camera, Printer } from 'lucide-react';
 
 import { LoginView } from './views/LoginView';
 import { OverviewTab } from './views/OverviewTab';
@@ -105,7 +105,7 @@ function App() {
                             <BookOpen size={20} /> <span className="nav-text">Ledger</span>
                         </li>
                         <li className={`nav-item ${mode === 'history' ? 'active' : ''}`} onClick={() => setMode('history')}>
-                            <History size={20} /> <span className="nav-text">History</span>
+                            <Printer size={20} /> <span className="nav-text">Print</span>
                         </li>
                     </ul>
                 </nav>

@@ -34,9 +34,6 @@ export const OverviewTab = ({ token, onNavigate }) => {
         <div className="fade-in">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                 <h1 className="page-title">Overview</h1>
-                <button className="btn-action" onClick={() => window.open(`${API_BASE}/backup?token=${token}`, '_blank')}>
-                    <Database size={20} style={{marginRight: 8}}/> Download SQL Backup
-                </button>
             </div>
             
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '24px', marginBottom: '24px' }}>
