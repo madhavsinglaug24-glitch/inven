@@ -15,10 +15,36 @@ export const ScannerModal = ({ isOpen, onClose, token }) => {
     const handleFile = (e) => {
         const f = e.target.files[0];
         if (f) {
-            setFile(f);
-            setPreview(URL.createObjectURL(f));
-            setResult(null);
-            setError('');
+            const reader = new FileReader();
+            reader.readAsDataURL(f);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+                    const MAX_SIZE = 1200;
+                    if (width > height && width > MAX_SIZE) {
+                        height *= MAX_SIZE / width;
+                        width = MAX_SIZE;
+                    } else if (height > MAX_SIZE) {
+                        width *= MAX_SIZE / height;
+                        height = MAX_SIZE;
+                    }
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    canvas.toBlob((blob) => {
+                        const compressedFile = new File([blob], f.name, { type: 'image/jpeg', lastModified: Date.now() });
+                        setFile(compressedFile);
+                        setPreview(URL.createObjectURL(compressedFile));
+                        setResult(null);
+                        setError('');
+                    }, 'image/jpeg', 0.8);
+                };
+            };
         }
     };
 
