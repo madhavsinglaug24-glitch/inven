@@ -1082,10 +1082,11 @@ def scan_receipt_api():
         return jsonify({"error": "No receipt file provided"}), 400
     
     file = request.files["receipt"]
-    if not GROQ_API_KEY:
-        return jsonify({"error": "AI scanning offline (GROQ_API_KEY missing)"}), 503
-
     try:
+        api_key = os.environ.get("OPENAI_API_KEY")
+        if not api_key:
+            return jsonify({"error": "AI scanning offline (OPENAI_API_KEY missing)"}), 503
+
         import base64
         import requests
         import json
@@ -1100,7 +1101,7 @@ def scan_receipt_api():
         )
 
         payload = {
-            "model": "llama-3.2-90b-vision-preview",
+            "model": "gpt-4o-mini",
             "messages": [
                 {
                     "role": "user",
@@ -1115,13 +1116,13 @@ def scan_receipt_api():
         }
         
         headers = {
-            "Authorization": f"Bearer {GROQ_API_KEY}",
+            "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
         }
         
-        resp = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload, timeout=15)
+        resp = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload, timeout=15)
         if not resp.ok:
-            return jsonify({"error": f"Groq Error: {resp.text}"}), 400
+            return jsonify({"error": f"OpenAI Error: {resp.text}"}), 400
         resp.raise_for_status()
         
         ai_text = resp.json()["choices"][0]["message"]["content"].strip()
