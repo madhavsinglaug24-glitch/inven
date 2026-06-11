@@ -234,6 +234,10 @@ input[type=number] {
     /* Stats grid */
     .grid-cols-4 { grid-template-columns: 1fr 1fr !important; gap: 12px !important; }
     .grid-cols-2 { grid-template-columns: 1fr !important; }
+    
+    /* FAB Adjustments */
+    .fab-camera { bottom: 84px !important; }
+    .fab-menu { bottom: 152px !important; }
 }
 
 
@@ -281,7 +285,7 @@ input[type=number] {
 
 /* FAB Menu */
 .fab-menu-overlay { position: fixed; inset: 0; z-index: 998; }
-.fab-menu { position: fixed; z-index: 999; display: flex; flex-direction: column-reverse; gap: 12px; align-items: flex-end; }
+.fab-menu { position: fixed; bottom: 92px; right: 28px; z-index: 999; display: flex; flex-direction: column-reverse; gap: 12px; align-items: flex-end; }
 .fab-menu-item { display: flex; align-items: center; gap: 10px; cursor: pointer; animation: fabSlideIn 0.2s ease-out; }
 .fab-menu-item span { background: var(--bg-elevated); color: var(--text-primary); padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,0.3); border: 1px solid var(--border-color); }
 .fab-menu-item button { width: 48px; height: 48px; border-radius: 50%; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.3); transition: transform 0.15s; }

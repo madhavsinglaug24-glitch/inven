@@ -15,7 +15,7 @@ const FABMenu = ({ onScan, onManual }) => {
             {open && <div className="fab-menu-overlay" onClick={() => setOpen(false)} />}
             
             {open && (
-                <div className="fab-menu" style={{ bottom: '92px', right: '28px' }}>
+                <div className="fab-menu">
                     <div className="fab-menu-item" onClick={() => { setOpen(false); onScan(); }}>
                         <span>Scan Receipt</span>
                         <button style={{ backgroundColor: 'var(--accent-teal)', color: '#fff' }}>
@@ -35,7 +35,6 @@ const FABMenu = ({ onScan, onManual }) => {
                 className="fab-camera"
                 onClick={() => setOpen(!open)}
                 style={{ 
-                    position: 'fixed', right: '24px', bottom: '24px',
                     transform: open ? 'rotate(45deg)' : 'none',
                     transition: 'transform 0.2s ease'
                 }}
