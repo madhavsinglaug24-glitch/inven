@@ -80,18 +80,22 @@ function App() {
     return (
         <>
             <div className="mobile-header">
-                <img src="/logo.png" alt="SDE Logo" style={{ height: '28px', objectFit: 'contain' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <img src="/sde-logo.svg" alt="SDE Logo" style={{ height: '32px', borderRadius: '6px' }} />
+                    <span className="brand-name" style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, letterSpacing: '3px', fontSize: '22px', textTransform: 'uppercase' }}>SDE</span>
+                </div>
                 <button className="btn-action" onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} style={{ padding: '8px' }}>
                     {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
                 </button>
             </div>
 
             <aside className={`sidebar ${!sidebarOpen ? 'collapsed' : ''}`}>
-                <div className="brand" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px' }}>
+                <div className="brand" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <button onClick={() => setSidebarOpen(!sidebarOpen)} style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}>
                         <Menu style={{ width: '28px', height: '28px' }} />
                     </button>
-                    <img src="/logo.png" alt="SDE Logo" style={{ height: '32px', objectFit: 'contain', display: sidebarOpen ? 'block' : 'none' }} />
+                    <img src="/sde-logo.svg" alt="SDE Logo" style={{ height: '36px', borderRadius: '6px' }} />
+                    <span className="brand-name" style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, letterSpacing: '3px', fontSize: '24px', textTransform: 'uppercase' }}>SDE</span>
                 </div>
                 <nav>
                     <ul className="nav-menu">
