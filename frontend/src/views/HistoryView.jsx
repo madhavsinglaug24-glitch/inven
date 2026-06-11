@@ -31,7 +31,7 @@ export const HistoryView = ({ token }) => {
     const fetchLedgerHistory = async () => {
         setLoading(true);
         try {
-            const res = await fetch(`${API_BASE}/ledger`);
+            const res = await fetch(`${API_BASE}/transactions`);
             if (res.ok) {
                 const data = await res.json();
                 setLedgerHistory(data);
@@ -43,15 +43,29 @@ export const HistoryView = ({ token }) => {
     const exportToExcel = () => {
         let csvContent = "";
         if (activeTab === 'inventory') {
-            csvContent += "Timestamp,Item ID,Item Name,Action,Quantity,User Phone,Prev Stock,New Stock,Contact Type,Contact Name,Comment,Txn ID\n";
+            csvContent += "Date,Item,Action,Qty,Contact,Comment\n";
             inventoryHistory.forEach(row => {
-                const r = [row.timestamp, row.item_id, row.item_name, row.action, row.quantity, row.user_phone, row.previous_stock, row.new_stock, row.contact_type, row.contact_name, row.comment, row.txn_id].map(v => `"${(v||'').toString().replace(/"/g, '""')}"`).join(",");
+                const r = [
+                    new Date(row.timestamp).toLocaleString(), 
+                    row.item_name, 
+                    row.action, 
+                    row.quantity, 
+                    row.contact_name || '-', 
+                    row.comment || '-'
+                ].map(v => `"${(v||'').toString().replace(/"/g, '""')}"`).join(",");
                 csvContent += r + "\n";
             });
         } else {
-            csvContent += "Date,Type,Amount,Name,Comment,Logged By,Txn ID\n";
+            csvContent += "ID,Date,Merchant,Credit,Debit,Balance\n";
             ledgerHistory.forEach(row => {
-                const r = [row.Date, row.Type, row.Amount, row.Name, row.Comment, row.Logged_By, row.Txn_ID].map(v => `"${(v||'').toString().replace(/"/g, '""')}"`).join(",");
+                const r = [
+                    row.id, 
+                    row.date, 
+                    row.merchant, 
+                    row.credit || 0, 
+                    row.debit || 0, 
+                    row.balance
+                ].map(v => `"${(v||'').toString().replace(/"/g, '""')}"`).join(",");
                 csvContent += r + "\n";
             });
         }
@@ -95,35 +109,27 @@ export const HistoryView = ({ token }) => {
                     <table className="excel-table">
                         <thead>
                             <tr>
-                                <th>Timestamp</th>
-                                <th>Item ID</th>
-                                <th>Item Name</th>
+                                <th>Date</th>
+                                <th>Item</th>
                                 <th>Action</th>
-                                <th>Quantity</th>
-                                <th>User Phone</th>
-                                <th>Prev Stock</th>
-                                <th>New Stock</th>
-                                <th>Contact Type</th>
-                                <th>Contact Name</th>
+                                <th>Qty</th>
+                                <th>Contact</th>
                                 <th>Comment</th>
-                                <th>Txn ID</th>
                             </tr>
                         </thead>
                         <tbody>
                             {inventoryHistory.map((row, i) => (
                                 <tr key={i}>
-                                    <td>{row.timestamp}</td>
-                                    <td>{row.item_id}</td>
-                                    <td>{row.item_name}</td>
-                                    <td>{row.action}</td>
-                                    <td>{row.quantity}</td>
-                                    <td>{row.user_phone}</td>
-                                    <td>{row.previous_stock}</td>
-                                    <td>{row.new_stock}</td>
-                                    <td>{row.contact_type}</td>
-                                    <td>{row.contact_name}</td>
-                                    <td>{row.comment}</td>
-                                    <td>{row.txn_id}</td>
+                                    <td style={{ color: 'var(--text-secondary)' }}>{new Date(row.timestamp).toLocaleString()}</td>
+                                    <td style={{ fontWeight: 600 }}>{row.item_name}</td>
+                                    <td>
+                                        <span style={{ padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 600, backgroundColor: row.action === 'RESTOCK' ? 'var(--accent-green-dim)' : 'var(--accent-red-dim)', color: row.action === 'RESTOCK' ? 'var(--accent-teal)' : 'var(--accent-red)' }}>
+                                            {row.action}
+                                        </span>
+                                    </td>
+                                    <td style={{ fontWeight: 'bold' }}>{row.quantity}</td>
+                                    <td style={{ color: 'var(--text-secondary)' }}>{row.contact_name || '-'}</td>
+                                    <td style={{ color: 'var(--text-secondary)' }}>{row.comment || '-'}</td>
                                 </tr>
                             ))}
                         </tbody>
@@ -134,25 +140,23 @@ export const HistoryView = ({ token }) => {
                     <table className="excel-table">
                         <thead>
                             <tr>
+                                <th>ID</th>
                                 <th>Date</th>
-                                <th>Type</th>
-                                <th>Amount</th>
-                                <th>Name</th>
-                                <th>Comment</th>
-                                <th>Logged By</th>
-                                <th>Txn ID</th>
+                                <th>Merchant</th>
+                                <th>Credit</th>
+                                <th>Debit</th>
+                                <th>Balance</th>
                             </tr>
                         </thead>
                         <tbody>
                             {ledgerHistory.map((row, i) => (
                                 <tr key={i}>
-                                    <td>{row.Date}</td>
-                                    <td>{row.Type}</td>
-                                    <td>{row.Amount}</td>
-                                    <td>{row.Name}</td>
-                                    <td>{row.Comment}</td>
-                                    <td>{row.Logged_By}</td>
-                                    <td>{row.Txn_ID}</td>
+                                    <td style={{ color: 'var(--text-secondary)' }}>{row.id}</td>
+                                    <td style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{row.date}</td>
+                                    <td style={{ fontWeight: 600 }}>{row.merchant}</td>
+                                    <td style={{ color: 'var(--accent-teal)', fontWeight: 600 }}>{row.credit > 0 ? `₹${row.credit.toLocaleString()}` : '-'}</td>
+                                    <td style={{ color: 'var(--accent-red)', fontWeight: 600 }}>{row.debit > 0 ? `₹${row.debit.toLocaleString()}` : '-'}</td>
+                                    <td style={{ fontWeight: 'bold' }}>₹{row.balance.toLocaleString()}</td>
                                 </tr>
                             ))}
                         </tbody>
