@@ -24,6 +24,7 @@ from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from dotenv import load_dotenv
 from flask_socketio import SocketIO
+from werkzeug.security import generate_password_hash, check_password_hash
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -390,7 +391,28 @@ def init_db():
                 language TEXT
             )
         """)
+        
+        # Web Dashboard Users Table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS web_users (
+                username TEXT PRIMARY KEY,
+                password_hash TEXT,
+                role TEXT
+            )
+        """)
         conn.commit()
+
+        # Seed default admin if empty
+        row = cursor.execute("SELECT COUNT(*) FROM web_users").fetchone()
+        if row and row[0] == 0:
+            import os
+            from werkzeug.security import generate_password_hash
+            default_user = os.environ.get("ADMIN_USERNAME", "admin")
+            default_pass = os.environ.get("DASHBOARD_PASSWORD", "admin123")
+            cursor.execute("INSERT INTO web_users (username, password_hash, role) VALUES (?, ?, ?)",
+                           (default_user, generate_password_hash(default_pass), "admin"))
+            conn.commit()
+
 
 # Self-initialize database tables on app load
 init_db()
@@ -736,18 +758,25 @@ def standard_login():
     username = data.get("username", "").strip()
     password = data.get("password", "")
     
-    if username != ADMIN_USERNAME or password != DASHBOARD_PASSWORD:
+    if not username or not password:
+        return jsonify({"message": "Username and password required"}), 400
+        
+    with get_db_connection() as conn:
+        user = conn.execute("SELECT * FROM web_users WHERE username = ?".replace("'", ""), (username,)).fetchone()
+        
+    if not user or not check_password_hash(user["password_hash"], password):
         return jsonify({"message": "Invalid username or password"}), 401
         
     # Create persistent session token (valid for 30 days)
     payload = {
         "username": username,
+        "role": user["role"],
         "exp": datetime.utcnow() + timedelta(days=30)
     }
     secret = os.environ.get("FLASK_SECRET_KEY", "default-sde-secret-key-123")
     session_token = jwt.encode(payload, secret, algorithm="HS256")
     
-    return jsonify({"token": session_token, "username": username}), 200
+    return jsonify({"token": session_token, "username": username, "role": user["role"]}), 200
 
 
 
