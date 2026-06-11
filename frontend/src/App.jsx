@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { PieChart, Package, BookOpen, Sun, Moon, Menu, Camera, Printer, Plus, X, Pencil, LogOut } from 'lucide-react';
+import io from 'socket.io-client';
 
 import { LoginView } from './views/LoginView';
 
@@ -66,6 +67,24 @@ function App() {
 
     useEffect(() => {
         loadInventoryItems();
+        
+        // Initialize Socket.IO connection for real-time updates
+        const socket = io(window.location.origin, {
+            path: '/socket.io'
+        });
+        
+        socket.on('connect', () => {
+            console.log('Connected to real-time sync server');
+        });
+        
+        socket.on('inventory_updated', (data) => {
+            console.log('Real-time update received:', data.message);
+            loadInventoryItems(); // Instantly refresh data when someone else edits it!
+        });
+        
+        return () => {
+            socket.disconnect();
+        };
     }, [token]);
 
     const handleLogout = () => {

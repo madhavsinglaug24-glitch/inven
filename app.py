@@ -23,6 +23,7 @@ import requests
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from dotenv import load_dotenv
+from flask_socketio import SocketIO
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -33,6 +34,9 @@ load_dotenv()
 app = Flask(__name__, static_folder="frontend/dist", static_url_path="/")
 CORS(app)
 app.config["SECRET_KEY"] = os.urandom(24)
+
+# Initialize SocketIO
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='gevent')
 
 DASHBOARD_PASSWORD = os.environ.get("DASHBOARD_PASSWORD", "admin123")
 ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
@@ -788,6 +792,7 @@ def api_update_stock(item_id):
         old_stock = int(item.get("Current_Stock", 0))
         update_inventory_stock(item_id, new_stock)
         log_history(item_id, item["Item_Name"], "Dashboard Edit", abs(new_stock - old_stock), "Dashboard", old_stock, new_stock, comment="Manual edit from dashboard")
+        socketio.emit("inventory_updated", {"message": "Item stock updated via API"})
         return jsonify({"status": "ok"}), 200
     except Exception as e:
         return jsonify({"message": str(e)}), 500
@@ -958,6 +963,7 @@ def add_transaction():
             conn.execute('INSERT INTO ledger (timestamp, type, amount, name, comment, logged_by) VALUES (?, ?, ?, ?, ?, ?)',
                          (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), ledger_type, abs(amount), merchant, comment, 'Web User'))
             conn.commit()
+        socketio.emit("inventory_updated", {"message": "Transaction added"})
         return jsonify({"success": True, "message": "Transaction added."}), 200
     except Exception as e:
         return jsonify({"message": str(e)}), 500
@@ -989,6 +995,7 @@ def delete_supplier(supplier_id):
         with get_db_connection() as conn:
             conn.execute("DELETE FROM suppliers WHERE supplier_id = ?", (supplier_id,))
             conn.commit()
+        socketio.emit("inventory_updated", {"message": "Supplier deleted"})
         return jsonify({"success": True}), 200
     except Exception as e:
         return jsonify({"message": str(e)}), 500
