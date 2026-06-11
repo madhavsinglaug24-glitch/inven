@@ -35,6 +35,7 @@ CORS(app)
 app.config["SECRET_KEY"] = os.urandom(24)
 
 DASHBOARD_PASSWORD = os.environ.get("DASHBOARD_PASSWORD", "admin123")
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 ACTIVE_SESSIONS = {}  # token -> login_time
 
 
