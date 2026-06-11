@@ -661,7 +661,11 @@ def index():
     """Serve the React frontend."""
     if not os.path.exists(app.static_folder):
         return jsonify({"status": "online", "message": "Frontend not built yet. Please run npm run build in frontend directory."}), 200
-    return app.send_static_file("index.html")
+    
+    response = app.send_static_file("index.html")
+    # Tell browser to validate the HTML file before using a cached copy
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    return response
 
 @app.route("/<path:path>")
 def serve_static(path):
@@ -671,9 +675,25 @@ def serve_static(path):
         
     full_path = os.path.join(app.static_folder, path)
     if os.path.exists(full_path) and not os.path.isdir(full_path):
-        return send_from_directory(app.static_folder, path)
-    return app.send_static_file("index.html")
+        response = send_from_directory(app.static_folder, path)
+        # Aggressively cache static assets (JS, CSS, images) for 1 year
+        if path.startswith("assets/") or path.endswith((".js", ".css", ".png", ".svg", ".ico")):
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        return response
+        
+    # Fallback to index.html for React Router
+    response = app.send_static_file("index.html")
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    return response
 
+@app.after_request
+def add_cache_headers(response):
+    """Ensure API requests are never cached by the browser."""
+    if request.path.startswith("/api/") or request.path.startswith("/dashboard/"):
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "-1"
+    return response
 
 @app.route("/health", methods=["GET"])
 def health():
