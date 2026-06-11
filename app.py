@@ -35,8 +35,8 @@ CORS(app)
 app.config["SECRET_KEY"] = os.urandom(24)
 
 DASHBOARD_PASSWORD = os.environ.get("DASHBOARD_PASSWORD", "admin123")
+ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
-ACTIVE_SESSIONS = {}  # token -> login_time
 
 
 logger = logging.getLogger(__name__)
@@ -703,58 +703,27 @@ def check_dashboard_auth():
         return True
     except Exception as e:
         logger.error(f"JWT Verification failed: {e}")
-        return False
-
-@app.route("/api/auth/google", methods=["POST"])
-def google_sso_login():
-    """Authenticate user via Google SSO and return a persistent JWT token."""
-    try:
-        from google.oauth2 import id_token
-        from google.auth.transport import requests as google_requests
-        import jwt
-        from datetime import datetime, timedelta
+@app.route("/api/auth/login", methods=["POST"])
+def standard_login():
+    import jwt
+    from datetime import datetime, timedelta
+    
+    data = request.get_json() or {}
+    username = data.get("username", "").strip()
+    password = data.get("password", "")
+    
+    if username != ADMIN_USERNAME or password != DASHBOARD_PASSWORD:
+        return jsonify({"message": "Invalid username or password"}), 401
         
-        data = request.get_json() or {}
-        token = data.get("credential")
-        client_id = os.environ.get("GOOGLE_CLIENT_ID")
-        
-        if not client_id:
-            return jsonify({"message": "Google SSO is not configured on the server. Please add GOOGLE_CLIENT_ID to .env."}), 500
-
-        # Verify the token with Google
-        idinfo = id_token.verify_oauth2_token(token, google_requests.Request(), client_id)
-        email = idinfo.get("email")
-        
-        # Check against ALLOWED_EMAILS
-        allowed_emails = [e.strip().lower() for e in os.environ.get("ALLOWED_EMAILS", "").split(",") if e.strip()]
-        
-        if not allowed_emails:
-             return jsonify({"message": "ALLOWED_EMAILS is not configured on the server."}), 500
-             
-        if email.lower() not in allowed_emails and "*" not in allowed_emails:
-            return jsonify({"message": f"Access Denied: Email '{email}' is not authorized."}), 403
-            
-        # Create a persistent session token (valid for 30 days)
-        payload = {
-            "email": email,
-            "exp": datetime.utcnow() + timedelta(days=30)
-        }
-        secret = os.environ.get("FLASK_SECRET_KEY", "default-sde-secret-key-123")
-        session_token = jwt.encode(payload, secret, algorithm="HS256")
-        
-        return jsonify({"token": session_token, "email": email}), 200
-        
-    except ValueError:
-        return jsonify({"message": "Invalid Google credential token."}), 401
-    except Exception as e:
-        return jsonify({"message": f"Authentication error: {str(e)}"}), 500
-
-@app.route("/api/config", methods=["GET"])
-def get_config():
-    """Return public configuration for the frontend."""
-    return jsonify({
-        "googleClientId": os.environ.get("GOOGLE_CLIENT_ID", "")
-    })
+    # Create persistent session token (valid for 30 days)
+    payload = {
+        "username": username,
+        "exp": datetime.utcnow() + timedelta(days=30)
+    }
+    secret = os.environ.get("FLASK_SECRET_KEY", "default-sde-secret-key-123")
+    session_token = jwt.encode(payload, secret, algorithm="HS256")
+    
+    return jsonify({"token": session_token, "username": username}), 200
 
 
 
