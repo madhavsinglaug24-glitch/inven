@@ -1085,7 +1085,7 @@ def scan_receipt_api():
     try:
         api_key = os.environ.get("OPENAI_API_KEY")
         if not api_key:
-            return jsonify({"error": "AI scanning offline (OPENAI_API_KEY missing)"}), 503
+            return jsonify({"error": "AI scanning offline (API Key missing in .env)"}), 503
 
         import base64
         import requests
@@ -1101,7 +1101,7 @@ def scan_receipt_api():
         )
 
         payload = {
-            "model": "gpt-4o-mini",
+            "model": "openrouter/free",
             "messages": [
                 {
                     "role": "user",
@@ -1117,12 +1117,14 @@ def scan_receipt_api():
         
         headers = {
             "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://sde-dashboard.com",
+            "X-Title": "SDE App"
         }
         
-        resp = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload, timeout=15)
+        resp = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload, timeout=20)
         if not resp.ok:
-            return jsonify({"error": f"OpenAI Error: {resp.text}"}), 400
+            return jsonify({"error": f"OpenRouter Error: {resp.text}"}), 400
         resp.raise_for_status()
         
         ai_text = resp.json()["choices"][0]["message"]["content"].strip()
