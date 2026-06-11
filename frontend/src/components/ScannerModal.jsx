@@ -100,21 +100,14 @@ export const ScannerModal = ({ isOpen, onClose, token, items, onRefresh, initial
         setLoading(false);
     };
 
-    const handleContinue = () => {
-        if (!merchant.trim()) { setError('Please enter a merchant/supplier name.'); return; }
-        const amt = parseFloat(amount);
-        if (isNaN(amt) || amt <= 0) { setError('Please enter a valid amount.'); return; }
-        setError('');
-        setStep('scanned');
-    };
-
-    const handleStockSubmit = async () => {
-        if (!stockType || !selectedItem || !qty) return;
+    const handleStockSubmit = async (overrideType) => {
+        const typeToUse = (typeof overrideType === 'string') ? overrideType : stockType;
+        if (!typeToUse || !selectedItem || !qty) return;
         setSaving(true);
         setError('');
         try {
             const payload = {
-                type: stockType,
+                type: typeToUse,
                 supplier: merchant || 'Manual Entry',
                 items: [{
                     item_id: selectedItem,
@@ -231,7 +224,7 @@ export const ScannerModal = ({ isOpen, onClose, token, items, onRefresh, initial
                     <div style={{ display: 'flex', gap: '12px' }}>
                         <button 
                             className="btn-action" 
-                            onClick={() => { if (!merchant.trim() || !amount || !selectedItem || !qty) { setError('Please fill all required fields.'); return; } setStockType('restock'); setError(''); handleStockSubmit(); }}
+                            onClick={() => { if (!merchant.trim() || !amount || !selectedItem || !qty) { setError('Please fill all required fields.'); return; } setStockType('restock'); setError(''); handleStockSubmit('restock'); }}
                             disabled={saving}
                             style={{ flex: 1, justifyContent: 'center', display: 'flex', alignItems: 'center', gap: '8px', padding: '14px',
                                 backgroundColor: 'var(--accent-green-dim)', color: 'var(--accent-green)', borderColor: 'var(--accent-green)',
@@ -241,7 +234,7 @@ export const ScannerModal = ({ isOpen, onClose, token, items, onRefresh, initial
                         </button>
                         <button 
                             className="btn-action"
-                            onClick={() => { if (!merchant.trim() || !amount || !selectedItem || !qty) { setError('Please fill all required fields.'); return; } setStockType('consume'); setError(''); handleStockSubmit(); }}
+                            onClick={() => { if (!merchant.trim() || !amount || !selectedItem || !qty) { setError('Please fill all required fields.'); return; } setStockType('consume'); setError(''); handleStockSubmit('consume'); }}
                             disabled={saving}
                             style={{ flex: 1, justifyContent: 'center', display: 'flex', alignItems: 'center', gap: '8px', padding: '14px',
                                 backgroundColor: 'var(--accent-red-dim)', color: 'var(--accent-red)', borderColor: 'var(--accent-red)',
