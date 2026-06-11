@@ -244,10 +244,10 @@ input[type=number] {
 
 
 .mobile-header { display: none; }
-
+.mobile-nav-logout { display: none; }
 
 @media (max-width: 768px) {
-    
+    .mobile-nav-logout { display: flex !important; }
 }
 
 

@@ -142,6 +142,9 @@ function App() {
                         <li className={`nav-item ${mode === 'history' ? 'active' : ''}`} onClick={() => setMode('history')}>
                             <Printer size={20} /> <span className="nav-text">Print</span>
                         </li>
+                        <li className="nav-item mobile-nav-logout" onClick={handleLogout} style={{ color: 'var(--accent-red)' }}>
+                            <LogOut size={20} /> <span className="nav-text">Log Out</span>
+                        </li>
                     </ul>
                 </nav>
                 <div className="sidebar-footer" style={{ padding: '20px' }}>
