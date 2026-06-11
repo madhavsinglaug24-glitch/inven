@@ -1,11 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
-import { PieChart, CheckSquare, Package, BookOpen, Sun, Moon, LogOut, Menu, Camera } from 'lucide-react';
+import { PieChart, CheckSquare, Package, BookOpen, Sun, Moon, LogOut, Menu, Camera, History } from 'lucide-react';
 
 import { LoginView } from './views/LoginView';
 import { OverviewTab } from './views/OverviewTab';
 import { InventoryView } from './views/InventoryView';
 import { LedgerView } from './views/LedgerView';
+import { HistoryView } from './views/HistoryView';
 import { ScannerModal } from './components/ScannerModal';
 
 const DraggableFAB = ({ onClick }) => {
@@ -103,6 +104,9 @@ function App() {
                         <li className={`nav-item ${mode === 'ledger' ? 'active' : ''}`} onClick={() => setMode('ledger')}>
                             <BookOpen size={20} /> <span className="nav-text">Ledger</span>
                         </li>
+                        <li className={`nav-item ${mode === 'history' ? 'active' : ''}`} onClick={() => setMode('history')}>
+                            <History size={20} /> <span className="nav-text">History</span>
+                        </li>
                     </ul>
                 </nav>
                 <div className="sidebar-footer" style={{ marginTop: 'auto', paddingTop: '24px', borderTop: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -122,6 +126,9 @@ function App() {
                 </div>
                 <div style={{ display: mode === 'ledger' ? 'block' : 'none' }}>
                     <LedgerView token={token} />
+                </div>
+                <div style={{ display: mode === 'history' ? 'block' : 'none' }}>
+                    <HistoryView token={token} />
                 </div>
             </main>
 
