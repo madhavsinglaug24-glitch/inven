@@ -46,6 +46,30 @@ def find_folder(service, folder_name):
         return None
     return items[0]['id']
 
+def delete_old_backups(service, folder_id):
+    if not folder_id:
+        return
+        
+    try:
+        # Calculate the date 7 days ago
+        seven_days_ago = (datetime.datetime.utcnow() - datetime.timedelta(days=7)).isoformat() + 'Z'
+        
+        # Query for backup files older than 7 days in the specific folder
+        query = f"'{folder_id}' in parents and createdTime < '{seven_days_ago}' and name contains 'inventory_backup_' and trashed=false"
+        
+        results = service.files().list(q=query, fields="files(id, name, createdTime)").execute()
+        items = results.get('files', [])
+        
+        if items:
+            print(f"Found {len(items)} old backup(s) to delete.")
+            
+        for item in items:
+            print(f"Deleting old backup: {item['name']}")
+            service.files().delete(fileId=item['id']).execute()
+            
+    except Exception as e:
+        print(f"An error occurred while deleting old backups: {e}")
+
 def upload_backup():
     service = get_drive_service()
     if not service:
@@ -80,6 +104,10 @@ def upload_backup():
     try:
         file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
         print(f"Backup successful! File ID: {file.get('id')}")
+        
+        if folder_id:
+            delete_old_backups(service, folder_id)
+            
     except Exception as e:
         print(f"An error occurred during upload: {e}")
 

@@ -29,7 +29,8 @@ from dotenv import load_dotenv
 # ---------------------------------------------------------------------------
 load_dotenv()
 
-app = Flask(__name__)
+# Serve React frontend from the dist folder
+app = Flask(__name__, static_folder="frontend/dist", static_url_path="/")
 CORS(app)
 app.config["SECRET_KEY"] = os.urandom(24)
 
@@ -656,8 +657,21 @@ def reset_session(phone: str):
 
 @app.route("/", methods=["GET"])
 def index():
-    """Root endpoint for health checks and status."""
-    return jsonify({"status": "online", "service": "WhatsApp Inventory Bot"}), 200
+    """Serve the React frontend."""
+    if not os.path.exists(app.static_folder):
+        return jsonify({"status": "online", "message": "Frontend not built yet. Please run npm run build in frontend directory."}), 200
+    return app.send_static_file("index.html")
+
+@app.route("/<path:path>")
+def serve_static(path):
+    """Serve static files or fallback to React router."""
+    if not app.static_folder:
+        return "Not found", 404
+        
+    full_path = os.path.join(app.static_folder, path)
+    if os.path.exists(full_path) and not os.path.isdir(full_path):
+        return send_from_directory(app.static_folder, path)
+    return app.send_static_file("index.html")
 
 
 @app.route("/health", methods=["GET"])
