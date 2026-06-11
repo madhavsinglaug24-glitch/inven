@@ -15,16 +15,16 @@ const FABMenu = ({ onScan, onManual }) => {
             {open && <div className="fab-menu-overlay" onClick={() => setOpen(false)} />}
             
             {open && (
-                <div className="fab-menu" style={{ bottom: '92px', right: '24px' }}>
+                <div className="fab-menu" style={{ bottom: '92px', right: '28px' }}>
                     <div className="fab-menu-item" onClick={() => { setOpen(false); onScan(); }}>
                         <span>Scan Receipt</span>
-                        <button style={{ backgroundColor: 'var(--accent-green)', color: '#fff' }}>
+                        <button style={{ backgroundColor: 'var(--accent-teal)', color: '#fff' }}>
                             <Camera size={22} />
                         </button>
                     </div>
                     <div className="fab-menu-item" onClick={() => { setOpen(false); onManual(); }}>
                         <span>Enter Manually</span>
-                        <button style={{ backgroundColor: 'var(--accent-blue)', color: '#fff' }}>
+                        <button style={{ backgroundColor: 'var(--accent-teal)', color: '#fff' }}>
                             <Pencil size={22} />
                         </button>
                     </div>
