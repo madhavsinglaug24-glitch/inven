@@ -18,6 +18,13 @@ def add_user(username, password, role="admin"):
         sys.exit(1)
 
     try:
+        # Ensure tables exist by importing and running init_db from app.py
+        try:
+            from app import init_db
+            init_db()
+        except ImportError:
+            pass # If app.py isn't found, just proceed and hope the table exists
+
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
         
