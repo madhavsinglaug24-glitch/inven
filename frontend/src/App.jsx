@@ -94,8 +94,6 @@ function App() {
                     <button onClick={() => setSidebarOpen(!sidebarOpen)} style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}>
                         <Menu style={{ width: '28px', height: '28px' }} />
                     </button>
-                    <img src="/sde-logo.svg" alt="SDE Logo" style={{ height: '36px', borderRadius: '6px' }} />
-                    <span className="brand-name" style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, letterSpacing: '3px', fontSize: '24px', textTransform: 'uppercase' }}>SDE</span>
                 </div>
                 <nav>
                     <ul className="nav-menu">
