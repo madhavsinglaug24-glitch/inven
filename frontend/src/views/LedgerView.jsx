@@ -3,11 +3,13 @@ import React, { useState, useEffect } from 'react';
 import { PlusCircle, MinusCircle, Search, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 import { API_BASE } from '../api';
 import { TxModal } from '../components/TxModal';
+import { ConfirmModal } from '../components/ConfirmModal';
 
 export const LedgerView = ({ token, refreshTrigger }) => {
     const [txs, setTxs] = useState([]);
     const [txModalType, setTxModalType] = useState(null); // 'income' or 'expense'
     const [expandedTxn, setExpandedTxn] = useState(null);
+    const [confirmDelete, setConfirmDelete] = useState(null); // id of tx to delete
     
     // Search & Filter State
     const [search, setSearch] = useState('');
@@ -24,15 +26,21 @@ export const LedgerView = ({ token, refreshTrigger }) => {
         setTxs(await res.json());
     };
 
-    const handleDeleteTxn = async (id, e) => {
+    const handleDeleteClick = (id, e) => {
         if (e) e.stopPropagation();
-        if (!window.confirm("Are you sure you want to delete this transaction?")) return;
+        setConfirmDelete(id);
+    };
+
+    const confirmAndDeleteTxn = async () => {
+        if (!confirmDelete) return;
+        const id = confirmDelete;
         try {
             const res = await fetch(`${API_BASE}/transactions/${id}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (res.ok) {
+                setConfirmDelete(null);
                 loadTxs();
             } else {
                 alert("Failed to delete transaction");
@@ -175,7 +183,7 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                                         <td style={{ color: 'var(--accent-red)', fontWeight: 600 }}>{tx.debit > 0 ? `₹${tx.debit.toLocaleString()}` : '-'}</td>
                                         <td style={{ fontWeight: 'bold' }}>₹{tx.balance.toLocaleString()}</td>
                                         <td>
-                                            <button className="btn-action" onClick={(e) => handleDeleteTxn(tx.id, e)} style={{ padding: '8px', color: 'var(--accent-red)' }}>
+                                            <button className="btn-action" onClick={(e) => handleDeleteClick(tx.id, e)} style={{ padding: '8px', color: 'var(--accent-red)' }}>
                                                 <Trash2 size={16} />
                                             </button>
                                         </td>
@@ -222,7 +230,7 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
                                         <button 
                                             className="btn-action" 
-                                            onClick={(e) => handleDeleteTxn(tx.id, e)}
+                                            onClick={(e) => handleDeleteClick(tx.id, e)}
                                             style={{ backgroundColor: 'var(--accent-red-dim)', color: 'var(--accent-red)', padding: '8px 16px', fontSize: '13px', borderRadius: '8px' }}
                                         >
                                             <Trash2 size={14} style={{ marginRight: '6px' }} /> Delete
@@ -235,6 +243,14 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                     {filteredTxs.length === 0 && <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-secondary)' }}>No transactions found</div>}
                 </div>
             </div>
+
+            <ConfirmModal
+                isOpen={!!confirmDelete}
+                onClose={() => setConfirmDelete(null)}
+                title="Delete Transaction"
+                message="Are you sure you want to delete this transaction from the ledger?"
+                onConfirm={confirmAndDeleteTxn}
+            />
         </div>
     );
 };
