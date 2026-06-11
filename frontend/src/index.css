@@ -270,3 +270,16 @@ input[type=number] {
 .excel-table th { position: sticky; top: 0; background-color: var(--bg-elevated); color: var(--text-primary); padding: 8px 12px; border: 1px solid var(--border-color); white-space: nowrap; font-weight: 600; z-index: 2; }
 .excel-table td { padding: 6px 12px; border: 1px solid var(--border-color); color: var(--text-secondary); white-space: nowrap; }
 .excel-table tbody tr:hover td { background-color: var(--bg-elevated); color: var(--text-primary); }
+
+/* Spin animation */
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.spin { animation: spin 1s linear infinite; }
+
+/* FAB Menu */
+.fab-menu-overlay { position: fixed; inset: 0; z-index: 998; }
+.fab-menu { position: fixed; z-index: 999; display: flex; flex-direction: column-reverse; gap: 12px; align-items: flex-end; }
+.fab-menu-item { display: flex; align-items: center; gap: 10px; cursor: pointer; animation: fabSlideIn 0.2s ease-out; }
+.fab-menu-item span { background: var(--bg-elevated); color: var(--text-primary); padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,0.3); border: 1px solid var(--border-color); }
+.fab-menu-item button { width: 48px; height: 48px; border-radius: 50%; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.3); transition: transform 0.15s; }
+.fab-menu-item button:hover { transform: scale(1.1); }
+@keyframes fabSlideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }

@@ -1,67 +1,48 @@
-
 import React, { useState, useEffect } from 'react';
-import { PieChart, CheckSquare, Package, BookOpen, Sun, Moon, LogOut, Menu, Camera, Printer } from 'lucide-react';
+import { PieChart, Package, BookOpen, Sun, Moon, Menu, Camera, Printer, Plus, X, Type } from 'lucide-react';
 
-import { LoginView } from './views/LoginView';
 import { OverviewTab } from './views/OverviewTab';
 import { InventoryView } from './views/InventoryView';
 import { LedgerView } from './views/LedgerView';
 import { HistoryView } from './views/HistoryView';
 import { ScannerModal } from './components/ScannerModal';
 
-const DraggableFAB = ({ onClick }) => {
-    const [pos, setPos] = useState({ bottom: 80, right: 24 });
-    const dragRef = React.useRef(null);
-    const startPos = React.useRef(null);
-
-    const handleTouchStart = (e) => {
-        const touch = e.touches[0];
-        startPos.current = { x: touch.clientX, y: touch.clientY, bottom: pos.bottom, right: pos.right, isDragging: false };
-    };
-
-    const handleTouchMove = (e) => {
-        if (!startPos.current) return;
-        const touch = e.touches[0];
-        const dx = startPos.current.x - touch.clientX;
-        const dy = startPos.current.y - touch.clientY;
-        if (Math.abs(dx) > 5 || Math.abs(dy) > 5) startPos.current.isDragging = true;
-        setPos({ right: startPos.current.right + dx, bottom: startPos.current.bottom + dy });
-    };
-
-    const handleTouchEnd = (e) => {
-        if (startPos.current && !startPos.current.isDragging) onClick();
-        startPos.current = null;
-    };
-
-    // For mouse support on desktop
-    const handleMouseDown = (e) => {
-        startPos.current = { x: e.clientX, y: e.clientY, bottom: pos.bottom, right: pos.right, isDragging: false };
-        const handleMouseMove = (me) => {
-            if (!startPos.current) return;
-            const dx = startPos.current.x - me.clientX;
-            const dy = startPos.current.y - me.clientY;
-            if (Math.abs(dx) > 5 || Math.abs(dy) > 5) startPos.current.isDragging = true;
-            setPos({ right: startPos.current.right + dx, bottom: startPos.current.bottom + dy });
-        };
-        const handleMouseUp = () => {
-            document.removeEventListener('mousemove', handleMouseMove);
-            document.removeEventListener('mouseup', handleMouseUp);
-            if (startPos.current && !startPos.current.isDragging) onClick();
-            startPos.current = null;
-        };
-        document.addEventListener('mousemove', handleMouseMove);
-        document.addEventListener('mouseup', handleMouseUp);
-    };
-
+const FABMenu = ({ onScan, onManual }) => {
+    const [open, setOpen] = useState(false);
+    
     return (
-        <button 
-            ref={dragRef} className="fab-camera"
-            onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}
-            onMouseDown={handleMouseDown}
-            style={{ right: `${pos.right}px`, bottom: `${pos.bottom}px`, touchAction: 'none', position: 'fixed' }}
-        >
-            <Camera size={28} />
-        </button>
+        <>
+            {open && <div className="fab-menu-overlay" onClick={() => setOpen(false)} />}
+            
+            {open && (
+                <div className="fab-menu" style={{ bottom: '140px', right: '24px' }}>
+                    <div className="fab-menu-item" onClick={() => { setOpen(false); onScan(); }}>
+                        <span>Scan Receipt</span>
+                        <button style={{ backgroundColor: 'var(--accent-green)', color: '#fff' }}>
+                            <Camera size={22} />
+                        </button>
+                    </div>
+                    <div className="fab-menu-item" onClick={() => { setOpen(false); onManual(); }}>
+                        <span>Enter Manually</span>
+                        <button style={{ backgroundColor: 'var(--accent-blue)', color: '#fff' }}>
+                            <Type size={22} />
+                        </button>
+                    </div>
+                </div>
+            )}
+            
+            <button 
+                className="fab-camera"
+                onClick={() => setOpen(!open)}
+                style={{ 
+                    position: 'fixed', right: '24px', bottom: '80px', touchAction: 'none',
+                    transform: open ? 'rotate(45deg)' : 'rotate(0deg)',
+                    transition: 'transform 0.2s ease'
+                }}
+            >
+                {open ? <X size={28} /> : <Plus size={28} />}
+            </button>
+        </>
     );
 };
 
@@ -71,6 +52,19 @@ function App() {
     const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [scannerOpen, setScannerOpen] = useState(false);
+    const [scannerMode, setScannerMode] = useState('scan'); // 'scan' or 'manual'
+    const [inventoryItems, setInventoryItems] = useState([]);
+
+    const loadInventoryItems = async () => {
+        try {
+            const res = await fetch(`/api/inventory`, { headers: { 'Authorization': `Bearer ${token}` } });
+            if (res.ok) setInventoryItems(await res.json());
+        } catch (e) { console.error(e); }
+    };
+
+    useEffect(() => {
+        loadInventoryItems();
+    }, [token]);
 
     useEffect(() => {
         document.body.className = theme === 'light' ? 'light-theme' : '';
@@ -134,9 +128,12 @@ function App() {
                 </div>
             </main>
 
-            <DraggableFAB onClick={() => setScannerOpen(true)} />
+            <FABMenu 
+                onScan={() => { setScannerMode('scan'); setScannerOpen(true); }} 
+                onManual={() => { setScannerMode('manual'); setScannerOpen(true); }} 
+            />
 
-            <ScannerModal token={token} isOpen={scannerOpen} onClose={() => setScannerOpen(false)} />
+            <ScannerModal token={token} isOpen={scannerOpen} onClose={() => setScannerOpen(false)} items={inventoryItems} onRefresh={loadInventoryItems} initialMode={scannerMode} />
         </>
     );
 }

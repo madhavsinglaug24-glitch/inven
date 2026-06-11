@@ -1088,16 +1088,18 @@ def scan_receipt_api():
             return jsonify({"error": "AI scanning offline (API Key missing in .env)"}), 503
 
         import base64
-        import requests
+        import requests as http_requests
         import json
+        import re
         file_bytes = file.read()
         b64_img = base64.b64encode(file_bytes).decode('utf-8')
         mime_type = file.content_type or "image/jpeg"
 
         prompt = (
-            "Analyze this receipt image. Extract the total amount and the merchant/store name. "
-            "Respond ONLY with a valid JSON object in this format: {\"amount\": 12.34, \"merchant\": \"Store Name\"}. "
-            "Do not include markdown or other text."
+            "You are analyzing a receipt or invoice image. "
+            "Extract the total amount (as a number) and the merchant/store name (as a string). "
+            "You MUST respond with ONLY a raw JSON object, no markdown, no explanation. "
+            "Example: {\"amount\": 150.00, \"merchant\": \"Big Bazaar\"}"
         )
 
         payload = {
@@ -1122,20 +1124,58 @@ def scan_receipt_api():
             "X-Title": "SDE App"
         }
         
-        resp = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload, timeout=20)
+        resp = http_requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload, timeout=30)
         if not resp.ok:
-            return jsonify({"error": f"OpenRouter Error: {resp.text}"}), 400
-        resp.raise_for_status()
+            error_body = resp.text
+            try:
+                err_json = json.loads(error_body)
+                error_msg = err_json.get("error", {}).get("message", error_body)
+            except Exception:
+                error_msg = error_body
+            return jsonify({"error": f"AI Error: {error_msg}"}), 400
         
-        msg_content = resp.json().get("choices", [{}])[0].get("message", {}).get("content")
+        resp_json = resp.json()
+        msg_content = None
+        try:
+            msg_content = resp_json["choices"][0]["message"]["content"]
+        except (KeyError, IndexError, TypeError):
+            pass
+        
         if not msg_content:
-            return jsonify({"error": "OpenRouter returned an empty response (try again)"}), 400
+            return jsonify({"error": "AI returned an empty response. Please try again."}), 400
             
         ai_text = msg_content.strip()
-        if ai_text.startswith("```json"): ai_text = ai_text[7:-3].strip()
-        elif ai_text.startswith("```"): ai_text = ai_text[3:-3].strip()
-            
-        return jsonify(json.loads(ai_text)), 200
+        
+        # Strip markdown code fences
+        if ai_text.startswith("```json"):
+            ai_text = ai_text[7:]
+        if ai_text.startswith("```"):
+            ai_text = ai_text[3:]
+        if ai_text.endswith("```"):
+            ai_text = ai_text[:-3]
+        ai_text = ai_text.strip()
+        
+        # Try direct JSON parse first
+        try:
+            parsed = json.loads(ai_text)
+            amount = float(parsed.get("amount", 0))
+            merchant = str(parsed.get("merchant", "Unknown"))
+            return jsonify({"amount": amount, "merchant": merchant}), 200
+        except (json.JSONDecodeError, ValueError):
+            pass
+        
+        # Fallback: find JSON object in the text using regex
+        json_match = re.search(r'\{[^{}]*\}', ai_text)
+        if json_match:
+            try:
+                parsed = json.loads(json_match.group())
+                amount = float(parsed.get("amount", 0))
+                merchant = str(parsed.get("merchant", "Unknown"))
+                return jsonify({"amount": amount, "merchant": merchant}), 200
+            except (json.JSONDecodeError, ValueError):
+                pass
+        
+        return jsonify({"error": f"Could not parse AI response: {ai_text[:200]}"}), 400
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
