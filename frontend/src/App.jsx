@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { PieChart, Package, BookOpen, Sun, Moon, Menu, Camera, Printer, Plus, X, Pencil, LogOut } from 'lucide-react';
-import { GoogleOAuthProvider } from '@react-oauth/google';
 
 import { LoginView } from './views/LoginView';
 
@@ -51,23 +50,12 @@ const FABMenu = ({ onScan, onManual }) => {
 function App() {
     const [token, setToken] = useState(localStorage.getItem('apiToken') || null);
     const [userEmail, setUserEmail] = useState(localStorage.getItem('userEmail') || '');
-    const [clientId, setClientId] = useState('');
     const [mode, setMode] = useState('overview');
     const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [scannerOpen, setScannerOpen] = useState(false);
     const [scannerMode, setScannerMode] = useState('scan'); // 'scan' or 'manual'
     const [inventoryItems, setInventoryItems] = useState([]);
-
-    useEffect(() => {
-        // Fetch public config
-        fetch('/api/config')
-            .then(res => res.json())
-            .then(data => {
-                if (data.googleClientId) setClientId(data.googleClientId);
-            })
-            .catch(err => console.error("Could not fetch config", err));
-    }, []);
 
     const loadInventoryItems = async () => {
         try {
@@ -93,25 +81,15 @@ function App() {
     }, [theme]);
 
     if (!token) {
-        if (!clientId) {
-            return (
-                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: 'var(--bg-base)' }}>
-                    <p style={{ color: 'var(--text-secondary)' }}>Loading Google SSO configuration...</p>
-                </div>
-            );
-        }
         return (
-            <GoogleOAuthProvider clientId={clientId}>
-                <LoginView onLoginSuccess={(newToken) => {
-                    setToken(newToken);
-                    setUserEmail(localStorage.getItem('userEmail'));
-                }} />
-            </GoogleOAuthProvider>
+            <LoginView onLoginSuccess={(newToken) => {
+                setToken(newToken);
+                setUserEmail(localStorage.getItem('userEmail'));
+            }} />
         );
     }
 
     return (
-        <GoogleOAuthProvider clientId={clientId}>
         <div id="root">
             <div className="mobile-header">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -199,7 +177,6 @@ function App() {
                 items={inventoryItems}
             />
         </div>
-        </GoogleOAuthProvider>
     );
 }
 
