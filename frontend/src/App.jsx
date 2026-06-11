@@ -147,27 +147,27 @@ function App() {
                         </li>
                     </ul>
                 </nav>
-                <div className="sidebar-footer" style={{ padding: '20px' }}>
+                <div className="sidebar-footer" style={{ padding: '20px', width: '100%', overflow: 'hidden' }}>
                     {userEmail && (
-                        <div style={{ marginBottom: '15px', fontSize: '12px', color: 'var(--text-secondary)', wordBreak: 'break-all' }}>
+                        <div className="nav-text" style={{ marginBottom: '15px', fontSize: '12px', color: 'var(--text-secondary)', wordBreak: 'break-all' }}>
                             Logged in as:<br/><strong>{userEmail}</strong>
                         </div>
                     )}
                     <button 
-                        className="btn-action w-full" 
+                        className="btn-action" 
                         onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                        style={{ marginBottom: '10px' }}
+                        style={{ marginBottom: '10px', width: '100%', justifyContent: 'center' }}
                     >
                         {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-                        {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+                        <span className="nav-text">{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
                     </button>
                     <button 
-                        className="btn-action w-full" 
+                        className="btn-action" 
                         onClick={handleLogout}
-                        style={{ borderColor: 'var(--accent-red)', color: 'var(--accent-red)' }}
+                        style={{ borderColor: 'var(--accent-red)', color: 'var(--accent-red)', width: '100%', justifyContent: 'center' }}
                     >
                         <LogOut size={18} />
-                        Sign Out
+                        <span className="nav-text">Sign Out</span>
                     </button>
                 </div>
             </aside>
