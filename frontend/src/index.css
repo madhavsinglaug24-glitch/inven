@@ -186,19 +186,19 @@ input[type=number] {
 }
 
 .bg-grad-red {
-    background: #FF6875;
+    background: linear-gradient(135deg, #FF9E80 0%, #FF6875 100%);
 }
 
 .bg-grad-blue {
-    background: #339AF0;
+    background: linear-gradient(135deg, #74C0FC 0%, #339AF0 100%);
 }
 
 .bg-grad-green {
-    background: #20C997;
+    background: linear-gradient(135deg, #6BE7CD 0%, #20C997 100%);
 }
 
 .bg-grad-purple {
-    background: #9B51E0;
+    background: linear-gradient(135deg, #C28EFE 0%, #9B51E0 100%);
 }
 
 
