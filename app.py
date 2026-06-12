@@ -415,6 +415,13 @@ def init_db():
                            (default_user, generate_password_hash(default_pass), "admin"))
             conn.commit()
 
+        # Database migrations
+        try:
+            cursor.execute("ALTER TABLE history ADD COLUMN unit_price REAL DEFAULT 0")
+            conn.commit()
+        except Exception:
+            pass
+
 
 # Self-initialize database tables on app load
 init_db()
@@ -851,32 +858,6 @@ def api_ledger():
         return jsonify({"message": str(e)}), 500
 
 
-@app.route("/api/history", methods=["GET"])
-def api_history():
-    """Retrieve all stock changes audit history in descending order."""
-    if not check_dashboard_auth():
-        return jsonify({"message": "Unauthorized"}), 401
-    try:
-        with get_db_connection() as conn:
-            rows = conn.execute("SELECT * FROM history ORDER BY id DESC").fetchall()
-            return jsonify([{
-                "timestamp": r["timestamp"],
-                "item_id": r["item_id"],
-                "item_name": r["item_name"],
-                "action": r["action"],
-                "quantity": r["quantity"],
-                "user_phone": r["user_phone"],
-                "previous_stock": r["previous_stock"],
-                "new_stock": r["new_stock"],
-                "contact_type": r["contact_type"],
-                "contact_name": r["contact_name"],
-                "comment": r["comment"],
-                "txn_id": r["txn_id"]
-            } for r in rows]), 200
-    except Exception as e:
-        return jsonify({"message": str(e)}), 500
-
-
 @app.route("/api/stats", methods=["GET"])
 def api_stats():
     """Compute and compile high-level dashboard performance metrics."""
@@ -1075,6 +1056,40 @@ def delete_consumer(consumer_id):
     except Exception as e:
         return jsonify({"message": str(e)}), 500
 
+@app.route("/api/history/<id>", methods=["DELETE"])
+def delete_history(id):
+    if not check_dashboard_auth(): return jsonify({"message": "Unauthorized"}), 401
+    try:
+        with get_db_connection() as conn:
+            # Get the history row
+            row = conn.execute("SELECT * FROM history WHERE id = ?", (id,)).fetchone()
+            if not row:
+                return jsonify({"error": "History log not found"}), 404
+            
+            # Reverse the stock change in inventory
+            item_id = row['item_id']
+            qty = row['quantity']
+            action = row['action']
+            
+            inventory_item = conn.execute("SELECT current_stock FROM inventory WHERE item_id = ?", (item_id,)).fetchone()
+            if inventory_item:
+                current_stock = inventory_item['current_stock']
+                if action == 'RESTOCK':
+                    new_stock = current_stock - qty
+                else: # CONSUME
+                    new_stock = current_stock + qty
+                
+                # Update inventory
+                conn.execute("UPDATE inventory SET current_stock = ? WHERE item_id = ?", (new_stock, item_id))
+            
+            # Delete the history row
+            conn.execute("DELETE FROM history WHERE id = ?", (id,))
+            conn.commit()
+            
+        return jsonify({"success": True}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route("/api/history", methods=["GET"])
 def get_history():
     if not check_dashboard_auth(): return jsonify({"message": "Unauthorized"}), 401
@@ -1156,10 +1171,11 @@ def inventory_update_react():
                 conn.execute("UPDATE inventory SET current_stock = ?, purchase_price = ? WHERE item_id = ?", (new_stock, new_avg_price, item_id))
                 
                 # Log history
-                conn.execute('''INSERT INTO history (timestamp, item_id, item_name, action, quantity, previous_stock, new_stock, contact_type, contact_name, comment)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                unit_price = (price / qty) if qty > 0 else 0
+                conn.execute('''INSERT INTO history (timestamp, item_id, item_name, action, quantity, previous_stock, new_stock, contact_type, contact_name, comment, unit_price)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
                              (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), item_id, item['item_name'], 'RESTOCK' if action_type == 'restock' else 'CONSUME', 
-                              qty, old_stock, new_stock, 'Supplier' if action_type == 'restock' else 'System', supplier, 'Web Dashboard'))
+                              qty, old_stock, new_stock, 'Supplier' if action_type == 'restock' else 'System', supplier, 'Web Dashboard', unit_price))
                 
                 total_price += price
                 names_for_ledger.append(f"{qty}x {item['item_name']}")

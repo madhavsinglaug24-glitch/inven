@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PackagePlus, PackageMinus, Plus, Search, ChevronDown, ChevronUp } from 'lucide-react';
+import { PackagePlus, PackageMinus, Plus, Search, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 import { API_BASE } from '../api';
 import { OperationModal } from '../components/OperationModal';
 import { AddItemModal } from '../components/AddItemModal';
@@ -41,6 +41,23 @@ export const InventoryView = ({ token, refreshTrigger }) => {
         loadItems(); 
         loadHistory();
     }, [token, refreshTrigger]);
+
+    const handleDeleteHistory = async (id) => {
+        if (!window.confirm("Are you sure you want to delete this log AND reverse its stock change?")) return;
+        try {
+            const res = await fetch(`${API_BASE}/history/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                loadHistory();
+                loadItems();
+            } else {
+                const data = await res.json();
+                alert(data.error || "Failed to delete");
+            }
+        } catch (e) { alert("Network error"); }
+    };
 
     const filteredItems = items.filter(i => {
         const query = search.toLowerCase();
@@ -181,7 +198,7 @@ export const InventoryView = ({ token, refreshTrigger }) => {
                     <>
                         <div className="desktop-only">
                             <table className="data-table">
-                                <thead><tr><th>Date</th><th>Item</th><th>Action</th><th>Qty</th><th>Contact</th><th>Comment</th></tr></thead>
+                                <thead><tr><th>Date</th><th>Item</th><th>Action</th><th>Qty</th><th>Unit ₹</th><th>Contact</th><th>Comment</th><th></th></tr></thead>
                                 <tbody>
                                     {filteredHistory.map((h, idx) => (
                                         <tr key={idx} className="hover-row">
@@ -193,11 +210,17 @@ export const InventoryView = ({ token, refreshTrigger }) => {
                                                 </span>
                                             </td>
                                             <td style={{ fontWeight: 'bold' }}>{h.quantity}</td>
+                                            <td>{h.unit_price ? `₹${h.unit_price.toLocaleString()}` : '-'}</td>
                                             <td style={{ color: 'var(--text-secondary)' }}>{h.contact_name || '-'}</td>
                                             <td style={{ color: 'var(--text-secondary)' }}>{h.comment || '-'}</td>
+                                            <td>
+                                                <button onClick={() => handleDeleteHistory(h.id)} style={{ background: 'transparent', border: 'none', color: 'var(--accent-red)', cursor: 'pointer', padding: '4px' }}>
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </td>
                                         </tr>
                                     ))}
-                                    {filteredHistory.length === 0 && <tr><td colSpan="6" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-secondary)' }}>No history found</td></tr>}
+                                    {filteredHistory.length === 0 && <tr><td colSpan="8" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-secondary)' }}>No history found</td></tr>}
                                 </tbody>
                             </table>
                         </div>
@@ -233,6 +256,21 @@ export const InventoryView = ({ token, refreshTrigger }) => {
                                                 <span>{new Date(h.timestamp).toLocaleTimeString()}</span>
                                             </div>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                                                <span style={{ color: 'var(--text-secondary)' }}>Unit Price</span>
+                                                <span>{h.unit_price ? `₹${h.unit_price.toLocaleString()}` : '-'}</span>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                                                <span style={{ color: 'var(--text-secondary)' }}>Contact</span>
+                                                <span>{h.contact_name || '-'}</span>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                                                <span style={{ color: 'var(--text-secondary)' }}>Comment</span>
+                                                <span>{h.comment || '-'}</span>
+                                            </div>
+                                            <button onClick={() => handleDeleteHistory(h.id)} style={{ marginTop: '8px', padding: '8px', backgroundColor: 'var(--accent-red-dim)', color: 'var(--accent-red)', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                                <Trash2 size={14} /> Delete & Reverse Stock
+                                            </button>
+                                        </div>
                                                 <span style={{ color: 'var(--text-secondary)' }}>Contact</span>
                                                 <span>{h.contact_name || '-'}</span>
                                             </div>

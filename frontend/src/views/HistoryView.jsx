@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Download } from 'lucide-react';
+import { Download, Trash2 } from 'lucide-react';
 import { API_BASE } from '../api';
 
 export const HistoryView = ({ token, refreshTrigger }) => {
@@ -26,6 +26,22 @@ export const HistoryView = ({ token, refreshTrigger }) => {
             }
         } catch (e) { console.error(e); }
         setLoading(false);
+    };
+
+    const handleDeleteHistory = async (id) => {
+        if (!window.confirm("Are you sure you want to delete this log AND reverse its stock change?")) return;
+        try {
+            const res = await fetch(`${API_BASE}/history/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                fetchInventoryHistory();
+            } else {
+                const data = await res.json();
+                alert(data.error || "Failed to delete");
+            }
+        } catch (e) { alert("Network error"); }
     };
 
     const fetchLedgerHistory = async () => {
@@ -113,8 +129,10 @@ export const HistoryView = ({ token, refreshTrigger }) => {
                                 <th>Item</th>
                                 <th>Action</th>
                                 <th>Qty</th>
+                                <th>Unit ₹</th>
                                 <th>Contact</th>
                                 <th>Comment</th>
+                                <th></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -128,8 +146,14 @@ export const HistoryView = ({ token, refreshTrigger }) => {
                                         </span>
                                     </td>
                                     <td style={{ fontWeight: 'bold' }}>{row.quantity}</td>
+                                    <td>{row.unit_price ? `₹${row.unit_price.toLocaleString()}` : '-'}</td>
                                     <td style={{ color: 'var(--text-secondary)' }}>{row.contact_name || '-'}</td>
                                     <td style={{ color: 'var(--text-secondary)' }}>{row.comment || '-'}</td>
+                                    <td>
+                                        <button onClick={() => handleDeleteHistory(row.id)} style={{ background: 'transparent', border: 'none', color: 'var(--accent-red)', cursor: 'pointer', padding: '4px' }}>
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>
