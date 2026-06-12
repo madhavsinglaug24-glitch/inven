@@ -37,28 +37,28 @@ export const OverviewTab = ({ token, onNavigate, refreshTrigger }) => {
             </div>
             
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '24px', marginBottom: '24px' }}>
-                <div className="card hover-card metric-solid" style={{ backgroundColor: '#8b5cf6', cursor: 'pointer', border: 'none' }} onClick={() => onNavigate('ledger')}>
-                    <div className="metric-label" style={{ color: 'rgba(255,255,255,0.8)' }}>Total Cash Balance</div>
-                    <div className="metric-value" style={{ color: 'white' }}>₹{summary.balance.toLocaleString()}</div>
+                <div className="card hover-card card-gradient bg-grad-purple" style={{ cursor: 'pointer' }} onClick={() => onNavigate('ledger')}>
+                    <div className="metric-label">Total Cash Balance</div>
+                    <div className="metric-value">₹{summary.balance.toLocaleString()}</div>
                 </div>
-                <div className="card hover-card metric-solid" style={{ backgroundColor: 'var(--accent-teal)', cursor: 'pointer', border: 'none' }} onClick={() => onNavigate('ledger')}>
-                    <div className="metric-label" style={{ color: 'rgba(255,255,255,0.8)' }}>Total Cash IN</div>
-                    <div className="metric-value" style={{ color: 'white' }}>₹{summary.income.toLocaleString()}</div>
+                <div className="card hover-card card-gradient bg-grad-green" style={{ cursor: 'pointer' }} onClick={() => onNavigate('ledger')}>
+                    <div className="metric-label">Total Cash IN</div>
+                    <div className="metric-value">₹{summary.income.toLocaleString()}</div>
                 </div>
-                <div className="card hover-card metric-solid" style={{ backgroundColor: '#9b2c2c', cursor: 'pointer', border: 'none' }} onClick={() => onNavigate('ledger')}>
-                    <div className="metric-label" style={{ color: 'rgba(255,255,255,0.8)' }}>Total Cash OUT</div>
-                    <div className="metric-value" style={{ color: 'white' }}>₹{summary.expense.toLocaleString()}</div>
+                <div className="card hover-card card-gradient bg-grad-red" style={{ cursor: 'pointer' }} onClick={() => onNavigate('ledger')}>
+                    <div className="metric-label">Total Cash OUT</div>
+                    <div className="metric-value">₹{summary.expense.toLocaleString()}</div>
                 </div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '24px' }}>
-                <div className="card hover-card metric-solid" style={{ backgroundColor: '#8b5cf6', cursor: 'pointer', border: 'none' }} onClick={() => onNavigate('inventory')}>
-                    <div className="metric-label" style={{ color: 'rgba(255,255,255,0.8)' }}>Total Inventory Items</div>
-                    <div className="metric-value" style={{ color: 'white' }}>{stats.total_items}</div>
+                <div className="card hover-card card-gradient bg-grad-blue" style={{ cursor: 'pointer' }} onClick={() => onNavigate('inventory')}>
+                    <div className="metric-label">Total Inventory Items</div>
+                    <div className="metric-value">{stats.total_items}</div>
                 </div>
-                <div className="card hover-card metric-solid" style={{ backgroundColor: '#9b2c2c', cursor: 'pointer', border: 'none' }} onClick={() => onNavigate('inventory')}>
-                    <div className="metric-label" style={{ color: 'rgba(255,255,255,0.8)' }}>Low Stock Alerts</div>
-                    <div className="metric-value" style={{ color: 'white' }}>{stats.low_stock_count}</div>
+                <div className="card hover-card card-gradient bg-grad-red" style={{ cursor: 'pointer' }} onClick={() => onNavigate('inventory')}>
+                    <div className="metric-label">Low Stock Alerts</div>
+                    <div className="metric-value">{stats.low_stock_count}</div>
                 </div>
             </div>
         </div>

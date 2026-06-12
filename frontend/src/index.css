@@ -165,6 +165,55 @@ input[type=number] {
 .metric-label { font-size: 14px; color: var(--text-secondary); margin-bottom: 8px; font-weight: 500; }
 .metric-value { font-size: 32px; font-weight: 600; letter-spacing: -1px; margin-bottom: 8px; }
 
+/* Gradient Cards */
+.card-gradient {
+    position: relative;
+    overflow: hidden;
+    color: white !important;
+    border: none !important;
+}
+
+.card-gradient .metric-label {
+    color: rgba(255, 255, 255, 0.9) !important;
+    position: relative;
+    z-index: 2;
+}
+
+.card-gradient .metric-value {
+    color: white !important;
+    position: relative;
+    z-index: 2;
+}
+
+.bg-grad-red {
+    background: 
+        radial-gradient(circle at 100% 100%, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.12) 80px, transparent 80px),
+        radial-gradient(circle at 75% 100%, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.08) 120px, transparent 120px),
+        linear-gradient(135deg, #FF9E80 0%, #FF6875 100%);
+}
+
+.bg-grad-blue {
+    background: 
+        radial-gradient(circle at 100% 100%, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.12) 80px, transparent 80px),
+        radial-gradient(circle at 75% 100%, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.08) 120px, transparent 120px),
+        linear-gradient(135deg, #74C0FC 0%, #339AF0 100%);
+}
+
+.bg-grad-green {
+    background: 
+        radial-gradient(circle at 100% 100%, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.12) 80px, transparent 80px),
+        radial-gradient(circle at 75% 100%, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.08) 120px, transparent 120px),
+        linear-gradient(135deg, #6BE7CD 0%, #20C997 100%);
+}
+
+.bg-grad-purple {
+    background: 
+        radial-gradient(circle at 100% 100%, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.12) 80px, transparent 80px),
+        radial-gradient(circle at 75% 100%, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.08) 120px, transparent 120px),
+        linear-gradient(135deg, #C28EFE 0%, #9B51E0 100%);
+}
+
+
 /* Tables & Lists */
 .data-table { width: 100%; border-collapse: collapse; text-align: left; }
 .data-table th { padding: 12px 16px; color: var(--text-secondary); font-weight: 500; font-size: 13px; border-bottom: 1px solid var(--border-color); }
