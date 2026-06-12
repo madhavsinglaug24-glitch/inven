@@ -3,6 +3,7 @@ import { PackagePlus, PackageMinus, Plus, Search, ChevronDown, ChevronUp, Trash2
 import { API_BASE } from '../api';
 import { OperationModal } from '../components/OperationModal';
 import { AddItemModal } from '../components/AddItemModal';
+import { PrintModal } from '../components/PrintModal';
 
 export const InventoryView = ({ token, refreshTrigger }) => {
     const [items, setItems] = useState([]);
@@ -14,6 +15,7 @@ export const InventoryView = ({ token, refreshTrigger }) => {
     
     const [expandedStock, setExpandedStock] = useState(null);
     const [expandedHistory, setExpandedHistory] = useState(null);
+    const [printModalOpen, setPrintModalOpen] = useState(false);
     
     // Filters
     const [search, setSearch] = useState('');
@@ -123,6 +125,25 @@ export const InventoryView = ({ token, refreshTrigger }) => {
         document.body.removeChild(link);
     };
 
+    const stockColumns = [
+        { key: 'Item_ID', label: 'ID' },
+        { key: 'Item_Name', label: 'Name' },
+        { key: 'Current_Stock', label: 'Stock' },
+        { key: 'Purchase_Price', label: 'Avg Cost', render: r => `₹${r.Purchase_Price?.toLocaleString() || 0}` },
+        { key: 'Min_Stock', label: 'Min Stock' }
+    ];
+
+    const historyColumns = [
+        { key: 'timestamp', label: 'Date', render: r => new Date(r.timestamp).toLocaleString() },
+        { key: 'item_name', label: 'Item' },
+        { key: 'action', label: 'Action' },
+        { key: 'quantity', label: 'Qty' },
+        { key: 'unit_price', label: 'Unit ₹', render: r => r.unit_price ? `₹${r.unit_price.toLocaleString()}` : '-' },
+        { key: 'total', label: 'Total ₹', render: r => r.unit_price ? `₹${(r.unit_price * r.quantity).toLocaleString()}` : '-' },
+        { key: 'contact_name', label: 'Contact', render: r => r.contact_name || '-' },
+        { key: 'comment', label: 'Comment', render: r => r.comment || '-' }
+    ];
+
     return (
         <div className="fade-in">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
@@ -166,10 +187,18 @@ export const InventoryView = ({ token, refreshTrigger }) => {
                                     <input type="date" className="form-input" value={customEnd} onChange={e => setCustomEnd(e.target.value)} min={customStart} style={{ backgroundColor: 'var(--bg-elevated)', padding: '8px 12px' }}/>
                                 </div>
                             )}
+                            <button className="btn-action" onClick={() => setPrintModalOpen(true)} style={{ padding: '8px 16px' }} title="Print History">
+                                Print
+                            </button>
                             <button className="btn-action" onClick={exportToExcel} style={{ padding: '8px 16px' }} title="Download Excel">
                                 <Download size={20} style={{ marginRight: '8px' }} /> Export
                             </button>
                         </>
+                    )}
+                    {viewMode === 'stock' && (
+                        <button className="btn-action" onClick={() => setPrintModalOpen(true)} style={{ padding: '8px 16px' }} title="Print Stock">
+                            Print
+                        </button>
                     )}
                     
                     <button className="btn-action" style={{ padding: '12px', borderRadius: '50%', width: '48px', height: '48px', justifyContent: 'center' }} onClick={() => setAddModalOpen(true)}>
@@ -311,6 +340,14 @@ export const InventoryView = ({ token, refreshTrigger }) => {
                     </>
                 )}
             </div>
+
+            <PrintModal
+                isOpen={printModalOpen}
+                onClose={() => setPrintModalOpen(false)}
+                columns={viewMode === 'stock' ? stockColumns : historyColumns}
+                data={viewMode === 'stock' ? filteredItems : filteredHistory}
+                title={viewMode === 'stock' ? 'Inventory Stock Report' : 'Inventory History Report'}
+            />
         </div>
     );
 };

@@ -4,12 +4,14 @@ import { PlusCircle, MinusCircle, Search, ChevronDown, ChevronUp, Trash2, Downlo
 import { API_BASE } from '../api';
 import { TxModal } from '../components/TxModal';
 import { ConfirmModal } from '../components/ConfirmModal';
+import { PrintModal } from '../components/PrintModal';
 
 export const LedgerView = ({ token, refreshTrigger }) => {
     const [txs, setTxs] = useState([]);
     const [txModalType, setTxModalType] = useState(null); // 'income' or 'expense'
     const [expandedTxn, setExpandedTxn] = useState(null);
     const [confirmDelete, setConfirmDelete] = useState(null); // id of tx to delete
+    const [printModalOpen, setPrintModalOpen] = useState(false);
     
     // Search & Filter State
     const [search, setSearch] = useState('');
@@ -110,6 +112,15 @@ export const LedgerView = ({ token, refreshTrigger }) => {
         document.body.removeChild(link);
     };
 
+    const ledgerColumns = [
+        { key: 'id', label: 'ID' },
+        { key: 'date', label: 'Date' },
+        { key: 'merchant', label: 'Merchant' },
+        { key: 'credit', label: 'Credit', render: r => r.credit > 0 ? `₹${r.credit.toLocaleString()}` : '-' },
+        { key: 'debit', label: 'Debit', render: r => r.debit > 0 ? `₹${r.debit.toLocaleString()}` : '-' },
+        { key: 'balance', label: 'Balance', render: r => `₹${r.balance.toLocaleString()}` }
+    ];
+
     return (
         <div className="fade-in">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
@@ -120,6 +131,9 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                     </button>
                     <button className="btn-action" onClick={() => setTxModalType('expense')} style={{ backgroundColor: 'var(--accent-red-dim)', color: 'var(--accent-red)', padding: '12px', borderRadius: '50%', width: '48px', height: '48px', justifyContent: 'center' }}>
                         <MinusCircle size={24} />
+                    </button>
+                    <button className="btn-action" onClick={() => setPrintModalOpen(true)} style={{ padding: '12px 16px', borderRadius: '24px', justifyContent: 'center' }} title="Print Ledger">
+                        Print
                     </button>
                     <button className="btn-action" onClick={exportToExcel} style={{ padding: '12px 16px', borderRadius: '24px', justifyContent: 'center' }} title="Download Excel">
                         <Download size={20} style={{ marginRight: '8px' }} /> Export
@@ -275,6 +289,14 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                 title="Delete Transaction"
                 message="Are you sure you want to delete this transaction from the ledger?"
                 onConfirm={confirmAndDeleteTxn}
+            />
+
+            <PrintModal
+                isOpen={printModalOpen}
+                onClose={() => setPrintModalOpen(false)}
+                columns={ledgerColumns}
+                data={filteredTxs}
+                title="Ledger Report"
             />
         </div>
     );
