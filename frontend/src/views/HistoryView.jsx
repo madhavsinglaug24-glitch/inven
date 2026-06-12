@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Download, Trash2 } from 'lucide-react';
+import { Download, Trash2, Search } from 'lucide-react';
 import { API_BASE } from '../api';
 
 export const HistoryView = ({ token, refreshTrigger }) => {
@@ -7,6 +7,7 @@ export const HistoryView = ({ token, refreshTrigger }) => {
     const [inventoryHistory, setInventoryHistory] = useState([]);
     const [ledgerHistory, setLedgerHistory] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
         if (activeTab === 'inventory') {
@@ -56,16 +57,34 @@ export const HistoryView = ({ token, refreshTrigger }) => {
         setLoading(false);
     };
 
+    const filteredInventory = inventoryHistory.filter(h => {
+        const q = searchQuery.toLowerCase();
+        return (
+            String(h.item_name || '').toLowerCase().includes(q) ||
+            String(h.contact_name || '').toLowerCase().includes(q) ||
+            String(h.action || '').toLowerCase().includes(q)
+        );
+    });
+
+    const filteredLedger = ledgerHistory.filter(h => {
+        const q = searchQuery.toLowerCase();
+        return (
+            String(h.merchant || '').toLowerCase().includes(q) ||
+            String(h.id || '').toLowerCase().includes(q)
+        );
+    });
+
     const exportToExcel = () => {
         let csvContent = "";
         if (activeTab === 'inventory') {
-            csvContent += "Date,Item,Action,Qty,Contact,Comment\n";
-            inventoryHistory.forEach(row => {
+            csvContent += "Date,Item,Action,Qty,Unit ₹,Contact,Comment\n";
+            filteredInventory.forEach(row => {
                 const r = [
                     new Date(row.timestamp).toLocaleString(), 
                     row.item_name, 
                     row.action, 
                     row.quantity, 
+                    row.unit_price || '-',
                     row.contact_name || '-', 
                     row.comment || '-'
                 ].map(v => `"${(v||'').toString().replace(/"/g, '""')}"`).join(",");
@@ -73,7 +92,7 @@ export const HistoryView = ({ token, refreshTrigger }) => {
             });
         } else {
             csvContent += "ID,Date,Merchant,Credit,Debit,Balance\n";
-            ledgerHistory.forEach(row => {
+            filteredLedger.forEach(row => {
                 const r = [
                     row.id, 
                     row.date, 
@@ -118,6 +137,16 @@ export const HistoryView = ({ token, refreshTrigger }) => {
                 </button>
             </div>
 
+            <div className="search-box" style={{ marginBottom: '24px' }}>
+                <Search size={20} color="var(--text-secondary)" />
+                <input 
+                    type="text" 
+                    placeholder="Filter by contact, item, or action..." 
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                />
+            </div>
+
             <div className="excel-container">
                 {loading && <div style={{ padding: '20px' }}>Loading...</div>}
                 
@@ -136,7 +165,7 @@ export const HistoryView = ({ token, refreshTrigger }) => {
                             </tr>
                         </thead>
                         <tbody>
-                            {inventoryHistory.map((row, i) => (
+                            {filteredInventory.map((row, i) => (
                                 <tr key={i}>
                                     <td style={{ color: 'var(--text-secondary)' }}>{new Date(row.timestamp).toLocaleString()}</td>
                                     <td style={{ fontWeight: 600 }}>{row.item_name}</td>
@@ -173,7 +202,7 @@ export const HistoryView = ({ token, refreshTrigger }) => {
                             </tr>
                         </thead>
                         <tbody>
-                            {ledgerHistory.map((row, i) => (
+                            {filteredLedger.map((row, i) => (
                                 <tr key={i}>
                                     <td style={{ color: 'var(--text-secondary)' }}>{row.id}</td>
                                     <td style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{row.date}</td>
