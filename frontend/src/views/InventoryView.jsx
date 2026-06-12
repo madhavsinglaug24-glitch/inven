@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PackagePlus, PackageMinus, Plus, Search, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
+import { PackagePlus, PackageMinus, Plus, Search, ChevronDown, ChevronUp, Trash2, Download } from 'lucide-react';
 import { API_BASE } from '../api';
 import { OperationModal } from '../components/OperationModal';
 import { AddItemModal } from '../components/AddItemModal';
@@ -99,6 +99,30 @@ export const InventoryView = ({ token, refreshTrigger }) => {
         return true;
     });
 
+    const exportToExcel = () => {
+        let csvContent = "Date,Item,Action,Qty,Unit ₹,Total ₹,Contact,Comment\n";
+        filteredHistory.forEach(row => {
+            const r = [
+                new Date(row.timestamp).toLocaleString(), 
+                row.item_name, 
+                row.action, 
+                row.quantity, 
+                row.unit_price || '-',
+                row.unit_price ? (row.unit_price * row.quantity) : '-',
+                row.contact_name || '-', 
+                row.comment || '-'
+            ].map(v => `"${(v||'').toString().replace(/"/g, '""')}"`).join(",");
+            csvContent += r + "\n";
+        });
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.setAttribute("download", `inventory_history.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     return (
         <div className="fade-in">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
@@ -142,6 +166,10 @@ export const InventoryView = ({ token, refreshTrigger }) => {
                                     <input type="date" className="form-input" value={customEnd} onChange={e => setCustomEnd(e.target.value)} min={customStart} style={{ backgroundColor: 'var(--bg-elevated)', padding: '8px 12px' }}/>
                                 </div>
                             )}
+                            )}
+                            <button className="btn-action" onClick={exportToExcel} style={{ padding: '8px 16px' }} title="Download Excel">
+                                <Download size={20} style={{ marginRight: '8px' }} /> Export
+                            </button>
                         </>
                     )}
                     
@@ -198,7 +226,7 @@ export const InventoryView = ({ token, refreshTrigger }) => {
                     <>
                         <div className="desktop-only">
                             <table className="data-table">
-                                <thead><tr><th>Date</th><th>Item</th><th>Action</th><th>Qty</th><th>Unit ₹</th><th>Contact</th><th>Comment</th><th></th></tr></thead>
+                                <thead><tr><th>Date</th><th>Item</th><th>Action</th><th>Qty</th><th>Unit ₹</th><th>Total ₹</th><th>Contact</th><th>Comment</th><th></th></tr></thead>
                                 <tbody>
                                     {filteredHistory.map((h, idx) => (
                                         <tr key={idx} className="hover-row">
@@ -211,6 +239,7 @@ export const InventoryView = ({ token, refreshTrigger }) => {
                                             </td>
                                             <td style={{ fontWeight: 'bold' }}>{h.quantity}</td>
                                             <td>{h.unit_price ? `₹${h.unit_price.toLocaleString()}` : '-'}</td>
+                                            <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{h.unit_price ? `₹${(h.unit_price * h.quantity).toLocaleString()}` : '-'}</td>
                                             <td style={{ color: 'var(--text-secondary)' }}>{h.contact_name || '-'}</td>
                                             <td style={{ color: 'var(--text-secondary)' }}>{h.comment || '-'}</td>
                                             <td>
@@ -220,7 +249,7 @@ export const InventoryView = ({ token, refreshTrigger }) => {
                                             </td>
                                         </tr>
                                     ))}
-                                    {filteredHistory.length === 0 && <tr><td colSpan="8" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-secondary)' }}>No history found</td></tr>}
+                                    {filteredHistory.length === 0 && <tr><td colSpan="9" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-secondary)' }}>No history found</td></tr>}
                                 </tbody>
                             </table>
                         </div>
@@ -258,6 +287,10 @@ export const InventoryView = ({ token, refreshTrigger }) => {
                                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
                                                 <span style={{ color: 'var(--text-secondary)' }}>Unit Price</span>
                                                 <span>{h.unit_price ? `₹${h.unit_price.toLocaleString()}` : '-'}</span>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 600 }}>
+                                                <span style={{ color: 'var(--text-primary)' }}>Total Price</span>
+                                                <span>{h.unit_price ? `₹${(h.unit_price * h.quantity).toLocaleString()}` : '-'}</span>
                                             </div>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
                                                 <span style={{ color: 'var(--text-secondary)' }}>Contact</span>
