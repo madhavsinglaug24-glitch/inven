@@ -147,7 +147,7 @@ function App() {
                         </li>
                     </ul>
                 </nav>
-                <div className="sidebar-footer" style={{ padding: '20px', width: '100%', overflow: 'hidden', marginTop: 'auto' }}>
+                <div className="sidebar-footer" style={{ width: '100%', marginTop: 'auto' }}>
                     {userEmail && (
                         <div className="nav-text" style={{ marginBottom: '15px', fontSize: '12px', color: 'var(--text-secondary)', wordBreak: 'break-all' }}>
                             Logged in as:<br/><strong>{userEmail}</strong>

@@ -67,7 +67,7 @@ body { background-color: var(--bg-base); color: var(--text-primary); transition:
 
 .sidebar.collapsed { width: 80px; align-items: center; }
 .sidebar.collapsed .brand-name, .sidebar.collapsed .nav-text { display: none; }
-.sidebar.collapsed .sidebar-footer { padding: 20px 16px !important; }
+.sidebar.collapsed .sidebar-footer { padding: 0 !important; }
 .sidebar.collapsed .sidebar-footer .btn-action { width: 48px !important; padding: 10px !important; margin: 0 auto 10px auto !important; }
 
 .sidebar.collapsed .nav-item { padding: 0; justify-content: center; width: 48px; margin: 0 auto; height: 48px; border-radius: 24px; }
