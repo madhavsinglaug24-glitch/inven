@@ -110,22 +110,22 @@ export const InventoryView = ({ token, refreshTrigger }) => {
         const groups = [];
         const billMap = {};
         filteredHistory.forEach(h => {
-            const key = h.bill_no || `__single_${h.id}`;
-            if (h.bill_no && billMap[key] !== undefined) {
+            const key = h.Bill_No || `__single_${h.id}`;
+            if (h.Bill_No && billMap[key] !== undefined) {
                 groups[billMap[key]].items.push(h);
                 groups[billMap[key]].totalQty += h.quantity;
                 groups[billMap[key]].totalAmount += (h.unit_price || 0) * h.quantity;
             } else {
                 billMap[key] = groups.length;
                 groups.push({
-                    bill_no: h.bill_no,
+                    Bill_No: h.Bill_No,
                     action: h.action,
                     timestamp: h.timestamp,
                     contact_name: h.contact_name,
                     items: [h],
                     totalQty: h.quantity,
                     totalAmount: (h.unit_price || 0) * h.quantity,
-                    isSingle: !h.bill_no
+                    isSingle: !h.Bill_No
                 });
             }
         });
@@ -263,7 +263,7 @@ export const InventoryView = ({ token, refreshTrigger }) => {
                                     {groupedHistory.map((group, gIdx) => (
                                         <React.Fragment key={gIdx}>
                                             <tr className="hover-row" onClick={() => setExpandedBill(expandedBill === gIdx ? null : gIdx)} style={{ cursor: 'pointer' }}>
-                                                <td style={{ color: 'var(--text-secondary)' }}>{group.bill_no || '-'}</td>
+                                                <td style={{ color: 'var(--text-secondary)' }}>{group.Bill_No || '-'}</td>
                                                 <td style={{ fontWeight: 600 }}>
                                                     {group.isSingle ? group.items[0].item_name : `${group.items.length} items`}
                                                 </td>
@@ -329,7 +329,7 @@ export const InventoryView = ({ token, refreshTrigger }) => {
                                                 {group.isSingle ? group.items[0].item_name : `${group.items.length} items`}
                                             </span>
                                             <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>
-                                                {group.bill_no ? `Bill: ${group.bill_no}` : new Date(group.timestamp).toLocaleDateString()}
+                                                {group.Bill_No ? `Bill: ${group.Bill_No}` : new Date(group.timestamp).toLocaleDateString()}
                                             </span>
                                         </div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>

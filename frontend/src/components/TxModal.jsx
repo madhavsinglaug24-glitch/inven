@@ -5,7 +5,7 @@ import { PromptModal } from './PromptModal';
 import { SearchableSelect } from './SearchableSelect';
 import { API_BASE } from '../api';
 
-export const TxModal = ({ isOpen, onClose, onRefresh, type, token, existingMerchants }) => {
+export const TxModal = ({ isOpen, onClose, onRefresh, type, token }) => {
     const [amount, setAmount] = useState('');
     const [merchant, setMerchant] = useState('');
     const [description, setDescription] = useState('');
@@ -14,10 +14,15 @@ export const TxModal = ({ isOpen, onClose, onRefresh, type, token, existingMerch
     const [promptOpen, setPromptOpen] = useState(false);
 
     useEffect(() => {
-        if(existingMerchants) {
-            setMerchants([...new Set(existingMerchants)]);
-        }
-    }, [existingMerchants]);
+        fetch(`${API_BASE}/merchants`, { headers: { 'Authorization': `Bearer ${token}` } })
+            .then(res => res.json())
+            .then(data => {
+                if (Array.isArray(data)) {
+                    setMerchants(data);
+                }
+            })
+            .catch(err => console.error("Failed to load merchants", err));
+    }, [token, isOpen]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -40,6 +45,35 @@ export const TxModal = ({ isOpen, onClose, onRefresh, type, token, existingMerch
         setLoading(false);
     };
 
+    const handleAddMerchantSubmit = async (nameToUse) => {
+        const res = await fetch(`${API_BASE}/merchants`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ name: nameToUse })
+        });
+        if(res.ok) {
+            const data = await res.json();
+            setMerchants(prev => [...prev, data]);
+            setMerchant(data.name);
+            setPromptOpen(false);
+        } else {
+            alert("Failed to add merchant");
+        }
+    };
+
+    const handleDeleteMerchant = async (merchObj) => {
+        if (!merchObj || !merchObj.merchant_id) return;
+        if (!window.confirm(`Delete merchant "${merchObj.name}"?`)) return;
+        const res = await fetch(`${API_BASE}/merchants/${merchObj.merchant_id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if(res.ok) {
+            setMerchants(prev => prev.filter(m => m.merchant_id !== merchObj.merchant_id));
+            if(merchant === merchObj.name) setMerchant('');
+        }
+    };
+
     return (
         <Modal isOpen={isOpen} onClose={onClose} title={`Add ${type === 'income' ? 'Cash IN' : 'Cash OUT'}`}>
             <form onSubmit={handleSubmit}>
@@ -51,7 +85,7 @@ export const TxModal = ({ isOpen, onClose, onRefresh, type, token, existingMerch
                 <div className="form-group">
                     <label className="form-label">Merchant / Store *</label>
                     <SearchableSelect 
-                        options={merchants}
+                        options={merchants.map(m => ({ value: m.name, label: m.name, raw: m }))}
                         value={merchant}
                         onChange={setMerchant}
                         placeholder="Select or Search Merchant"
@@ -59,10 +93,10 @@ export const TxModal = ({ isOpen, onClose, onRefresh, type, token, existingMerch
                             if (!newM) {
                                 setPromptOpen(true);
                             } else {
-                                setMerchants(prev => [...prev, newM]);
-                                setMerchant(newM);
+                                handleAddMerchantSubmit(newM);
                             }
                         }}
+                        onDelete={handleDeleteMerchant}
                         addNewText="Add New Merchant"
                         freeText={true}
                         required={true}
@@ -86,8 +120,7 @@ export const TxModal = ({ isOpen, onClose, onRefresh, type, token, existingMerch
                 label="Merchant Name"
                 placeholder="e.g. Ali Baba"
                 onSubmit={(val) => {
-                    setMerchants(prev => [...prev, val]);
-                    setMerchant(val);
+                    handleAddMerchantSubmit(val);
                 }}
             />
         </Modal>

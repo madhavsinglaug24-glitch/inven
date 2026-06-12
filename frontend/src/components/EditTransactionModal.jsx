@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { API_BASE } from '../api';
+import { Modal } from './Modal';
 
 export const EditTransactionModal = ({ isOpen, onClose, onRefresh, transaction, type, token }) => {
     const [formData, setFormData] = useState({});
@@ -53,61 +54,54 @@ export const EditTransactionModal = ({ isOpen, onClose, onRefresh, transaction, 
     };
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content" onClick={e => e.stopPropagation()} style={{ width: '400px' }}>
-                <div className="modal-header">
-                    <h3>Edit {type === 'history' ? 'Inventory Log' : 'Ledger Entry'}</h3>
-                    <button className="btn-icon" onClick={onClose}><X size={20} /></button>
-                </div>
+        <Modal isOpen={isOpen} onClose={onClose} title={`Edit ${type === 'history' ? 'Inventory Log' : 'Ledger Entry'}`}>
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {type === 'history' ? (
+                    <>
+                        <div className="form-group">
+                            <label className="form-label">Bill No</label>
+                            <input type="text" className="form-input" value={formData.bill_no} onChange={e => setFormData({...formData, bill_no: e.target.value})} />
+                        </div>
+                        <div className="form-group">
+                            <label className="form-label">Contact / Supplier</label>
+                            <input type="text" className="form-input" value={formData.contact_name} onChange={e => setFormData({...formData, contact_name: e.target.value})} />
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                            <div className="form-group">
+                                <label className="form-label">Quantity</label>
+                                <input type="number" className="form-input" min="0.01" step="0.01" required value={formData.quantity} onChange={e => setFormData({...formData, quantity: e.target.value})} />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Unit Price ₹</label>
+                                <input type="number" className="form-input" min="0" step="0.01" value={formData.unit_price} onChange={e => setFormData({...formData, unit_price: e.target.value})} />
+                            </div>
+                        </div>
+                        <div className="form-group">
+                            <label className="form-label">Comment</label>
+                            <input type="text" className="form-input" value={formData.comment} onChange={e => setFormData({...formData, comment: e.target.value})} />
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        <div className="form-group">
+                            <label className="form-label">Merchant / Name</label>
+                            <input type="text" className="form-input" required value={formData.merchant} onChange={e => setFormData({...formData, merchant: e.target.value})} />
+                        </div>
+                        <div className="form-group">
+                            <label className="form-label">Amount ₹</label>
+                            <input type="number" className="form-input" min="0" step="0.01" required value={formData.amount} onChange={e => setFormData({...formData, amount: e.target.value})} />
+                        </div>
+                        <div className="form-group">
+                            <label className="form-label">Comment</label>
+                            <input type="text" className="form-input" value={formData.comment} onChange={e => setFormData({...formData, comment: e.target.value})} />
+                        </div>
+                    </>
+                )}
                 
-                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '16px' }}>
-                    {type === 'history' ? (
-                        <>
-                            <div>
-                                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--text-secondary)' }}>Bill No</label>
-                                <input type="text" className="form-input" value={formData.bill_no} onChange={e => setFormData({...formData, bill_no: e.target.value})} />
-                            </div>
-                            <div>
-                                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--text-secondary)' }}>Contact / Supplier</label>
-                                <input type="text" className="form-input" value={formData.contact_name} onChange={e => setFormData({...formData, contact_name: e.target.value})} />
-                            </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                <div>
-                                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--text-secondary)' }}>Quantity</label>
-                                    <input type="number" className="form-input" min="0.01" step="0.01" required value={formData.quantity} onChange={e => setFormData({...formData, quantity: e.target.value})} />
-                                </div>
-                                <div>
-                                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--text-secondary)' }}>Unit Price ₹</label>
-                                    <input type="number" className="form-input" min="0" step="0.01" value={formData.unit_price} onChange={e => setFormData({...formData, unit_price: e.target.value})} />
-                                </div>
-                            </div>
-                            <div>
-                                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--text-secondary)' }}>Comment</label>
-                                <input type="text" className="form-input" value={formData.comment} onChange={e => setFormData({...formData, comment: e.target.value})} />
-                            </div>
-                        </>
-                    ) : (
-                        <>
-                            <div>
-                                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--text-secondary)' }}>Merchant / Name</label>
-                                <input type="text" className="form-input" required value={formData.merchant} onChange={e => setFormData({...formData, merchant: e.target.value})} />
-                            </div>
-                            <div>
-                                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--text-secondary)' }}>Amount ₹</label>
-                                <input type="number" className="form-input" min="0" step="0.01" required value={formData.amount} onChange={e => setFormData({...formData, amount: e.target.value})} />
-                            </div>
-                            <div>
-                                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--text-secondary)' }}>Comment</label>
-                                <input type="text" className="form-input" value={formData.comment} onChange={e => setFormData({...formData, comment: e.target.value})} />
-                            </div>
-                        </>
-                    )}
-                    
-                    <button type="submit" className="btn-action btn-credit" style={{ width: '100%', justifyContent: 'center', marginTop: '8px' }} disabled={loading}>
-                        {loading ? 'Saving...' : 'Save Changes'}
-                    </button>
-                </form>
-            </div>
-        </div>
+                <button type="submit" className="btn-action btn-credit" style={{ width: '100%', justifyContent: 'center', marginTop: '8px' }} disabled={loading}>
+                    {loading ? 'Saving...' : 'Save Changes'}
+                </button>
+            </form>
+        </Modal>
     );
 };

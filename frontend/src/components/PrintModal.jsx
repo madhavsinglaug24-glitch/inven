@@ -13,9 +13,6 @@ export const PrintModal = ({ isOpen, onClose, columns, data, title }) => {
     if (!isOpen) return null;
 
     const handlePrint = () => {
-        const printWindow = window.open('', '_blank');
-        const printDoc = printWindow.document;
-
         const tableHeaders = columns
             .filter(c => selectedCols[c.key])
             .map(c => `<th style="border: 1px solid #ddd; padding: 8px; text-align: left; background-color: #f2f2f2;">${c.label}</th>`)
@@ -35,6 +32,11 @@ export const PrintModal = ({ isOpen, onClose, columns, data, title }) => {
             }).join('')}</tr>`;
         }).join('');
 
+        const iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        document.body.appendChild(iframe);
+
+        const printDoc = iframe.contentWindow.document;
         printDoc.write(`
             <html>
                 <head>
@@ -56,11 +58,14 @@ export const PrintModal = ({ isOpen, onClose, columns, data, title }) => {
             </html>
         `);
         printDoc.close();
-        printWindow.focus();
+
         setTimeout(() => {
-            printWindow.print();
-            printWindow.close();
-            onClose();
+            iframe.contentWindow.focus();
+            iframe.contentWindow.print();
+            setTimeout(() => {
+                document.body.removeChild(iframe);
+                onClose();
+            }, 500);
         }, 250);
     };
 

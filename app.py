@@ -403,7 +403,11 @@ def init_db():
                 role TEXT
             )
         """)
-        conn.commit()
+        
+            conn.execute('CREATE INDEX IF NOT EXISTS idx_history_timestamp ON history (timestamp DESC)')
+            conn.execute('CREATE INDEX IF NOT EXISTS idx_ledger_timestamp ON ledger (timestamp DESC)')
+            conn.execute('CREATE INDEX IF NOT EXISTS idx_inventory_item_id ON inventory (item_id)')
+conn.commit()
 
         # Seed default admin if empty
         row = cursor.execute("SELECT COUNT(*) FROM web_users").fetchone()
@@ -1104,6 +1108,36 @@ def delete_history(id):
         return jsonify({"success": True}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/merchants", methods=["GET", "POST"])
+def api_merchants():
+    try:
+        with get_db_connection() as conn:
+            if request.method == "GET":
+                rows = conn.execute("SELECT * FROM merchants ORDER BY name ASC").fetchall()
+                return jsonify([dict(r) for r in rows]), 200
+            elif request.method == "POST":
+                data = request.json
+                name = data.get("name", "").strip()
+                if not name: return jsonify({"error": "Name required"}), 400
+                conn.execute("INSERT OR IGNORE INTO merchants (name) VALUES (?)", (name,))
+                conn.commit()
+                row = conn.execute("SELECT * FROM merchants WHERE name=?", (name,)).fetchone()
+                return jsonify(dict(row)), 201
+    except Exception as e:
+        logger.error(f"Merchants API error: {e}")
+        return jsonify({"error": "Database error"}), 500
+
+@app.route("/api/merchants/<merchant_id>", methods=["DELETE"])
+def api_delete_merchant(merchant_id):
+    try:
+        with get_db_connection() as conn:
+            conn.execute("DELETE FROM merchants WHERE merchant_id=?", (merchant_id,))
+            conn.commit()
+        return jsonify({"status": "success"}), 200
+    except Exception as e:
+        return jsonify({"error": "Database error"}), 500
 
 @app.route("/api/history", methods=["GET"])
 def get_history():

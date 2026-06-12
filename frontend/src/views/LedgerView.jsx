@@ -5,6 +5,7 @@ import { API_BASE } from '../api';
 import { TxModal } from '../components/TxModal';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { PrintModal } from '../components/PrintModal';
+import { ManageMerchantsModal } from '../components/ManageMerchantsModal';
 
 export const LedgerView = ({ token, refreshTrigger }) => {
     const [txs, setTxs] = useState([]);
@@ -12,6 +13,8 @@ export const LedgerView = ({ token, refreshTrigger }) => {
     const [expandedTxn, setExpandedTxn] = useState(null);
     const [confirmDelete, setConfirmDelete] = useState(null); // id of tx to delete
     const [printModalOpen, setPrintModalOpen] = useState(false);
+    const [manageMerchantsOpen, setManageMerchantsOpen] = useState(false);
+    const [loading, setLoading] = useState(true);
     
     // Search & Filter State
     const [search, setSearch] = useState('');
@@ -20,12 +23,17 @@ export const LedgerView = ({ token, refreshTrigger }) => {
     const [customEnd, setCustomEnd] = useState('');
 
     const loadTxs = async () => {
-        const res = await fetch(`${API_BASE}/transactions`, { headers: { 'Authorization': `Bearer ${token}` } });
-        if (res.status === 401) {
-            localStorage.removeItem('apiToken');
-            return window.location.reload();
+        setLoading(true);
+        try {
+            const res = await fetch(`${API_BASE}/transactions`, { headers: { 'Authorization': `Bearer ${token}` } });
+            if (res.status === 401) {
+                localStorage.removeItem('apiToken');
+                return window.location.reload();
+            }
+            setTxs(await res.json());
+        } finally {
+            setLoading(false);
         }
-        setTxs(await res.json());
     };
 
     const handleDeleteClick = (id, e) => {
@@ -105,19 +113,8 @@ export const LedgerView = ({ token, refreshTrigger }) => {
 
     return (
         <div className="fade-in">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                <h1 className="page-title">Ledger</h1>
-                <div style={{ display: 'flex', gap: '12px' }}>
-                    <button className="btn-action" onClick={() => setTxModalType('income')} style={{ backgroundColor: 'var(--accent-green-dim)', color: 'var(--accent-green)', padding: '12px', borderRadius: '50%', width: '48px', height: '48px', justifyContent: 'center' }}>
-                        <PlusCircle size={24} />
-                    </button>
-                    <button className="btn-action" onClick={() => setTxModalType('expense')} style={{ backgroundColor: 'var(--accent-red-dim)', color: 'var(--accent-red)', padding: '12px', borderRadius: '50%', width: '48px', height: '48px', justifyContent: 'center' }}>
-                        <MinusCircle size={24} />
-                    </button>
-                    <button className="btn-action" onClick={() => setPrintModalOpen(true)} style={{ padding: '12px 16px', borderRadius: '24px', justifyContent: 'center' }} title="Print Ledger">
-                        Print
-                    </button>
-                </div>
+            <div className="header" style={{ marginBottom: '24px' }}>
+                <h1 className="brand">Ledger</h1>
             </div>
 
             <TxModal 
@@ -129,51 +126,73 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                 existingMerchants={existingMerchants}
             />
 
-            <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', flexWrap: 'wrap', alignItems: 'center' }}>
-                <div style={{ position: 'relative', flex: 1, minWidth: '200px', maxWidth: '300px' }}>
-                    <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
-                    <input 
-                        type="text" 
-                        className="form-input" 
-                        placeholder="Search Ledger..." 
-                        value={search} 
-                        onChange={(e) => setSearch(e.target.value)}
-                        style={{ paddingLeft: '40px', backgroundColor: 'var(--bg-elevated)', width: '100%' }}
-                    />
-                </div>
-                
-                <select 
-                    className="form-input" 
-                    value={timeFilter} 
-                    onChange={e => setTimeFilter(e.target.value)}
-                    style={{ width: 'auto', backgroundColor: 'var(--bg-elevated)', cursor: 'pointer', paddingRight: '32px' }}
-                >
-                    <option value="all">All Time</option>
-                    <option value="month">This Month</option>
-                    <option value="year">This Year</option>
-                    <option value="custom">Custom Range...</option>
-                </select>
+            <ManageMerchantsModal 
+                isOpen={manageMerchantsOpen}
+                onClose={() => setManageMerchantsOpen(false)}
+                token={token}
+            />
 
-                {timeFilter === 'custom' && (
-                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+                <div style={{ display: 'flex', gap: '16px', flex: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <div style={{ position: 'relative', minWidth: '200px', maxWidth: '300px' }}>
+                        <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
                         <input 
-                            type="date" 
+                            type="text" 
                             className="form-input" 
-                            value={customStart} 
-                            onChange={e => setCustomStart(e.target.value)} 
-                            style={{ backgroundColor: 'var(--bg-elevated)', padding: '8px 12px' }}
-                        />
-                        <span style={{ color: 'var(--text-secondary)' }}>to</span>
-                        <input 
-                            type="date" 
-                            className="form-input" 
-                            value={customEnd} 
-                            onChange={e => setCustomEnd(e.target.value)} 
-                            min={customStart}
-                            style={{ backgroundColor: 'var(--bg-elevated)', padding: '8px 12px' }}
+                            placeholder="Search Ledger..." 
+                            value={search} 
+                            onChange={(e) => setSearch(e.target.value)}
+                            style={{ paddingLeft: '40px', backgroundColor: 'var(--bg-elevated)', width: '100%' }}
                         />
                     </div>
-                )}
+                    <select 
+                        className="form-input" 
+                        value={timeFilter} 
+                        onChange={e => setTimeFilter(e.target.value)}
+                        style={{ width: 'auto', backgroundColor: 'var(--bg-elevated)', cursor: 'pointer', paddingRight: '32px' }}
+                    >
+                        <option value="all">All Time</option>
+                        <option value="month">This Month</option>
+                        <option value="year">This Year</option>
+                        <option value="custom">Custom Range...</option>
+                    </select>
+
+                    {timeFilter === 'custom' && (
+                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                            <input 
+                                type="date" 
+                                className="form-input" 
+                                value={customStart} 
+                                onChange={e => setCustomStart(e.target.value)} 
+                                style={{ backgroundColor: 'var(--bg-elevated)', padding: '8px 12px' }}
+                            />
+                            <span style={{ color: 'var(--text-secondary)' }}>to</span>
+                            <input 
+                                type="date" 
+                                className="form-input" 
+                                value={customEnd} 
+                                onChange={e => setCustomEnd(e.target.value)} 
+                                min={customStart}
+                                style={{ backgroundColor: 'var(--bg-elevated)', padding: '8px 12px' }}
+                            />
+                        </div>
+                    )}
+                </div>
+                
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <button className="btn-action" onClick={() => setManageMerchantsOpen(true)} style={{ padding: '8px 16px', borderRadius: '24px', justifyContent: 'center' }} title="Manage Merchants">
+                        Contacts
+                    </button>
+                    <button className="btn-action" onClick={() => setPrintModalOpen(true)} style={{ padding: '8px 16px', borderRadius: '24px', justifyContent: 'center' }} title="Print Ledger">
+                        Print
+                    </button>
+                    <button className="btn-action" onClick={() => setTxModalType('income')} style={{ backgroundColor: 'var(--accent-green-dim)', color: 'var(--accent-green)', padding: '12px', borderRadius: '50%', width: '48px', height: '48px', justifyContent: 'center' }}>
+                        <PlusCircle size={24} />
+                    </button>
+                    <button className="btn-action" onClick={() => setTxModalType('expense')} style={{ backgroundColor: 'var(--accent-red-dim)', color: 'var(--accent-red)', padding: '12px', borderRadius: '50%', width: '48px', height: '48px', justifyContent: 'center' }}>
+                        <MinusCircle size={24} />
+                    </button>
+                </div>
             </div>
 
             <div className="card table-card" style={{ padding: 0, overflowX: 'auto' }}>
@@ -208,7 +227,11 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                                     </tr>
                                 )
                             })}
-                            {filteredTxs.length === 0 && <tr><td colSpan="6" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-secondary)' }}>No transactions found</td></tr>}
+                            {loading ? (
+                                <tr><td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}><div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}><div className="spin" style={{ width: '20px', height: '20px', border: '2px solid var(--accent-green)', borderTopColor: 'transparent', borderRadius: '50%' }}></div> Loading transactions...</div></td></tr>
+                            ) : filteredTxs.length === 0 ? (
+                                <tr><td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>No transactions found</td></tr>
+                            ) : null}
                         </tbody>
                     </table>
                 </div>
@@ -258,7 +281,15 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                             )}
                         </div>
                     ))}
-                    {filteredTxs.length === 0 && <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-secondary)' }}>No transactions found</div>}
+                    {loading ? (
+                        <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+                                <div className="spin" style={{ width: '20px', height: '20px', border: '2px solid var(--accent-green)', borderTopColor: 'transparent', borderRadius: '50%' }}></div> Loading...
+                            </div>
+                        </div>
+                    ) : filteredTxs.length === 0 ? (
+                        <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>No transactions found</div>
+                    ) : null}
                 </div>
             </div>
 
