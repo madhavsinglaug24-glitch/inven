@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { PackagePlus, PackageMinus, Plus, Search, ChevronDown, ChevronUp, Trash2, Download, Edit2 } from 'lucide-react';
 import { API_BASE } from '../api';
 import { OperationModal } from '../components/OperationModal';
@@ -63,45 +63,47 @@ export const InventoryView = ({ token, refreshTrigger }) => {
         } catch (e) { alert("Network error"); }
     };
 
-    const filteredItems = items.filter(i => {
-        const query = search.toLowerCase();
-        return (
-            String(i.id).toLowerCase().includes(query) ||
-            String(i.Item_Name).toLowerCase().includes(query) ||
-            String(i.Purchase_Price).includes(query)
-        );
-    });
-
-    const filteredHistory = history.filter(h => {
-        // Time filter
-        if (timeFilter !== 'all') {
-            const hDate = new Date(h.timestamp);
-            const now = new Date();
-            if (timeFilter === 'month') {
-                if (hDate.getMonth() !== now.getMonth() || hDate.getFullYear() !== now.getFullYear()) return false;
-            } else if (timeFilter === 'year') {
-                if (hDate.getFullYear() !== now.getFullYear()) return false;
-            } else if (timeFilter === 'custom') {
-                if (customStart && new Date(h.timestamp) < new Date(customStart)) return false;
-                if (customEnd) {
-                    const endD = new Date(customEnd);
-                    endD.setHours(23, 59, 59, 999);
-                    if (new Date(h.timestamp) > endD) return false;
-                }
-            }
-        }
-        // Search filter
-        if (search) {
+    const filteredItems = useMemo(() => {
+        return items.filter(i => {
             const query = search.toLowerCase();
             return (
-                String(h.item_name).toLowerCase().includes(query) ||
-                String(h.action).toLowerCase().includes(query) ||
-                String(h.contact_name).toLowerCase().includes(query) ||
-                String(h.comment).toLowerCase().includes(query)
+                String(i.id).toLowerCase().includes(query) ||
+                String(i.Item_Name).toLowerCase().includes(query) ||
+                String(i.Purchase_Price).includes(query)
             );
-        }
-        return true;
-    });
+        });
+    }, [items, search]);
+
+    const filteredHistory = useMemo(() => {
+        return history.filter(h => {
+            if (timeFilter !== 'all') {
+                const hDate = new Date(h.timestamp);
+                const now = new Date();
+                if (timeFilter === 'month') {
+                    if (hDate.getMonth() !== now.getMonth() || hDate.getFullYear() !== now.getFullYear()) return false;
+                } else if (timeFilter === 'year') {
+                    if (hDate.getFullYear() !== now.getFullYear()) return false;
+                } else if (timeFilter === 'custom') {
+                    if (customStart && new Date(h.timestamp) < new Date(customStart)) return false;
+                    if (customEnd) {
+                        const endD = new Date(customEnd);
+                        endD.setHours(23, 59, 59, 999);
+                        if (new Date(h.timestamp) > endD) return false;
+                    }
+                }
+            }
+            if (search) {
+                const query = search.toLowerCase();
+                return (
+                    String(h.item_name).toLowerCase().includes(query) ||
+                    String(h.action).toLowerCase().includes(query) ||
+                    String(h.contact_name).toLowerCase().includes(query) ||
+                    String(h.comment).toLowerCase().includes(query)
+                );
+            }
+            return true;
+        });
+    }, [history, search, timeFilter, customStart, customEnd]);
 
     const stockColumns = [
         { key: 'Item_ID', label: 'ID' },
@@ -163,14 +165,14 @@ export const InventoryView = ({ token, refreshTrigger }) => {
                                     <input type="date" className="form-input" value={customEnd} onChange={e => setCustomEnd(e.target.value)} min={customStart} style={{ backgroundColor: 'var(--bg-elevated)', padding: '8px 12px' }}/>
                                 </div>
                             )}
-                            <button className="btn-action" onClick={() => setPrintModalOpen(true)} style={{ padding: '8px 16px' }} title="Print History">
-                                Print
+                            <button className="btn-action" onClick={() => setPrintModalOpen(true)} style={{ padding: '8px 16px' }} title="Export or Print History">
+                                <Download size={20} style={{ marginRight: '8px' }} /> Export / Print
                             </button>
                         </>
                     )}
                     {viewMode === 'stock' && (
-                        <button className="btn-action" onClick={() => setPrintModalOpen(true)} style={{ padding: '8px 16px' }} title="Print Stock">
-                            Print
+                        <button className="btn-action" onClick={() => setPrintModalOpen(true)} style={{ padding: '8px 16px' }} title="Export or Print Stock">
+                            <Download size={20} style={{ marginRight: '8px' }} /> Export / Print
                         </button>
                     )}
                     

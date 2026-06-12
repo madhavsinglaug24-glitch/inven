@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { PlusCircle, MinusCircle, Search, ChevronDown, ChevronUp, Trash2, Download } from 'lucide-react';
 import { API_BASE } from '../api';
 import { TxModal } from '../components/TxModal';
@@ -57,60 +57,42 @@ export const LedgerView = ({ token, refreshTrigger }) => {
     const existingMerchants = [...new Set(txs.map(t => t.merchant))].filter(Boolean);
 
     // Filter Logic
-    const filteredTxs = txs.filter(t => {
-        // 1. Time Filter
-        if (timeFilter !== 'all') {
-            const txDate = new Date(t.date);
-            const now = new Date();
-            if (timeFilter === 'month') {
-                if (txDate.getMonth() !== now.getMonth() || txDate.getFullYear() !== now.getFullYear()) return false;
-            } else if (timeFilter === 'year') {
-                if (txDate.getFullYear() !== now.getFullYear()) return false;
-            } else if (timeFilter === 'custom') {
-                if (customStart && new Date(t.date) < new Date(customStart)) return false;
-                if (customEnd) {
-                    const endD = new Date(customEnd);
-                    endD.setHours(23, 59, 59, 999);
-                    if (new Date(t.date) > endD) return false;
+    const filteredTxs = useMemo(() => {
+        return txs.filter(t => {
+            if (timeFilter !== 'all') {
+                const txDate = new Date(t.date);
+                const now = new Date();
+                if (timeFilter === 'month') {
+                    if (txDate.getMonth() !== now.getMonth() || txDate.getFullYear() !== now.getFullYear()) return false;
+                } else if (timeFilter === 'year') {
+                    if (txDate.getFullYear() !== now.getFullYear()) return false;
+                } else if (timeFilter === 'custom') {
+                    if (customStart && new Date(t.date) < new Date(customStart)) return false;
+                    if (customEnd) {
+                        const endD = new Date(customEnd);
+                        endD.setHours(23, 59, 59, 999);
+                        if (new Date(t.date) > endD) return false;
+                    }
                 }
             }
-        }
-        // 2. Search Filter
-        if (search) {
-            const query = search.toLowerCase();
-            return (
-                String(t.merchant).toLowerCase().includes(query) ||
-                String(t.txn_id).toLowerCase().includes(query) ||
-                String(t.credit).includes(query) ||
-                String(t.debit).includes(query)
-            );
-        }
-        return true;
-    });
-
-    const totalFilteredBalance = filteredTxs.reduce((sum, t) => sum + (t.credit || 0) - (t.debit || 0), 0);
-
-    const exportToExcel = () => {
-        let csvContent = "ID,Date,Merchant,Credit,Debit,Balance\n";
-        filteredTxs.forEach(row => {
-            const r = [
-                row.id, 
-                row.date, 
-                row.merchant, 
-                row.credit || 0, 
-                row.debit || 0, 
-                row.balance
-            ].map(v => `"${(v||'').toString().replace(/"/g, '""')}"`).join(",");
-            csvContent += r + "\n";
+            if (search) {
+                const query = search.toLowerCase();
+                return (
+                    String(t.merchant).toLowerCase().includes(query) ||
+                    String(t.txn_id).toLowerCase().includes(query) ||
+                    String(t.credit).includes(query) ||
+                    String(t.debit).includes(query)
+                );
+            }
+            return true;
         });
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
-        link.setAttribute("download", `ledger_history.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
+    }, [txs, search, timeFilter, customStart, customEnd]);
+
+    const totalFilteredBalance = useMemo(() => {
+        return filteredTxs.reduce((sum, t) => sum + (t.credit || 0) - (t.debit || 0), 0);
+    }, [filteredTxs]);
+
+
 
     const ledgerColumns = [
         { key: 'id', label: 'ID' },
@@ -132,11 +114,8 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                     <button className="btn-action" onClick={() => setTxModalType('expense')} style={{ backgroundColor: 'var(--accent-red-dim)', color: 'var(--accent-red)', padding: '12px', borderRadius: '50%', width: '48px', height: '48px', justifyContent: 'center' }}>
                         <MinusCircle size={24} />
                     </button>
-                    <button className="btn-action" onClick={() => setPrintModalOpen(true)} style={{ padding: '12px 16px', borderRadius: '24px', justifyContent: 'center' }} title="Print Ledger">
-                        Print
-                    </button>
-                    <button className="btn-action" onClick={exportToExcel} style={{ padding: '12px 16px', borderRadius: '24px', justifyContent: 'center' }} title="Download Excel">
-                        <Download size={20} style={{ marginRight: '8px' }} /> Export
+                    <button className="btn-action" onClick={() => setPrintModalOpen(true)} style={{ padding: '12px 16px', borderRadius: '24px', justifyContent: 'center' }} title="Export or Print Ledger">
+                        <Download size={20} style={{ marginRight: '8px' }} /> Export / Print
                     </button>
                 </div>
             </div>

@@ -924,21 +924,25 @@ def get_transactions():
     if not check_dashboard_auth():
         return jsonify({"message": "Unauthorized"}), 401
     try:
+        limit = int(request.args.get('limit', 1000))
         with get_db_connection() as conn:
-            rows = conn.execute("SELECT * FROM ledger ORDER BY timestamp ASC").fetchall()
-            formatted_txs = []
-            running_balance = 0.0
+            query = '''
+            SELECT id, txn_id, timestamp, name, amount, type, 
+            SUM(CASE WHEN type LIKE '%IN%' THEN amount ELSE -amount END) OVER (ORDER BY timestamp ASC) as balance 
+            FROM ledger 
+            ORDER BY timestamp DESC LIMIT ?
+            '''
+            rows = conn.execute(query, (limit,)).fetchall()
             
+            formatted_txs = []
             for r in rows:
                 amt = float(r['amount'])
                 if 'OUT' in str(r['type']).upper():
                     debit = amt
                     credit = 0.0
-                    running_balance -= amt
                 else:
                     debit = 0.0
                     credit = amt
-                    running_balance += amt
                     
                 formatted_txs.append({
                     'id': r['id'],
@@ -947,11 +951,9 @@ def get_transactions():
                     'merchant': r['name'] or 'Unknown',
                     'credit': credit,
                     'debit': debit,
-                    'balance': running_balance
+                    'balance': r['balance']
                 })
-            
-            formatted_txs.reverse()
-        return jsonify(formatted_txs), 200
+            return jsonify(formatted_txs), 200
     except Exception as e:
         return jsonify({"message": str(e)}), 500
 
@@ -1107,8 +1109,9 @@ def delete_history(id):
 def get_history():
     if not check_dashboard_auth(): return jsonify({"message": "Unauthorized"}), 401
     try:
+        limit = int(request.args.get('limit', 1000))
         with get_db_connection() as conn:
-            rows = conn.execute("SELECT * FROM history ORDER BY timestamp DESC").fetchall()
+            rows = conn.execute("SELECT * FROM history ORDER BY timestamp DESC LIMIT ?", (limit,)).fetchall()
             return jsonify([dict(r) for r in rows]), 200
     except Exception as e:
         return jsonify({"message": str(e)}), 500
