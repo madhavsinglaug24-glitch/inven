@@ -271,14 +271,6 @@ export const InventoryView = ({ token, refreshTrigger }) => {
                                                 <Trash2 size={14} /> Delete & Reverse Stock
                                             </button>
                                         </div>
-                                                <span style={{ color: 'var(--text-secondary)' }}>Contact</span>
-                                                <span>{h.contact_name || '-'}</span>
-                                            </div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                                                <span style={{ color: 'var(--text-secondary)' }}>Comment</span>
-                                                <span>{h.comment || '-'}</span>
-                                            </div>
-                                        </div>
                                     )}
                                 </div>
                             ))}
