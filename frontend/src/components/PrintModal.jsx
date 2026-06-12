@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Printer, X, CheckSquare, Square, Download } from 'lucide-react';
+import { Printer, X, CheckSquare, Square } from 'lucide-react';
 
 export const PrintModal = ({ isOpen, onClose, columns, data, title }) => {
     const [selectedCols, setSelectedCols] = useState({});
@@ -25,11 +25,9 @@ export const PrintModal = ({ isOpen, onClose, columns, data, title }) => {
             return `<tr>${columns.filter(c => selectedCols[c.key]).map(c => {
                 let cellData = row[c.key];
                 if (c.render) {
-                    // Try to extract text if render returns JSX
                     cellData = c.render(row);
                     if (typeof cellData === 'object' && cellData !== null) {
                         cellData = cellData.props ? cellData.props.children : cellData;
-                        // Extremely naive extraction, fallback to raw data if needed
                         if (typeof cellData === 'object') cellData = row[c.key];
                     }
                 }
@@ -66,39 +64,11 @@ export const PrintModal = ({ isOpen, onClose, columns, data, title }) => {
         }, 250);
     };
 
-    const handleExportCSV = () => {
-        const activeColumns = columns.filter(c => selectedCols[c.key]);
-        let csvContent = activeColumns.map(c => `"${c.label}"`).join(",") + "\n";
-        
-        data.forEach(row => {
-            const r = activeColumns.map(c => {
-                let cellData = row[c.key];
-                if (c.render) {
-                    cellData = c.render(row);
-                    if (typeof cellData === 'object' && cellData !== null) {
-                        cellData = cellData.props ? cellData.props.children : cellData;
-                        if (typeof cellData === 'object') cellData = row[c.key];
-                    }
-                }
-                return `"${(cellData ?? '').toString().replace(/"/g, '""')}"`;
-            }).join(",");
-            csvContent += r + "\n";
-        });
-        
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
-        link.setAttribute("download", `${title.toLowerCase().replace(/ /g, '_')}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        onClose();
-    };
-
+    return (
         <div className="modal-overlay">
             <div className="modal-content fade-in" style={{ maxWidth: '400px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                    <h2 style={{ margin: 0, fontSize: '18px' }}>Export / Print Columns</h2>
+                    <h2 style={{ margin: 0, fontSize: '18px' }}>Print Columns</h2>
                     <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>
                         <X size={20} />
                     </button>
@@ -132,11 +102,8 @@ export const PrintModal = ({ isOpen, onClose, columns, data, title }) => {
                     </div>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
                     <button className="btn-action" onClick={onClose}>Cancel</button>
-                    <button className="btn-action" onClick={handleExportCSV} style={{ backgroundColor: 'var(--accent-teal-dim)', color: 'var(--accent-teal)' }}>
-                        <Download size={16} /> CSV
-                    </button>
                     <button className="btn-action btn-credit" onClick={handlePrint}>
                         <Printer size={16} /> Print
                     </button>

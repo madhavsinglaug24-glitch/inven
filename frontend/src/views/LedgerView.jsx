@@ -114,8 +114,8 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                     <button className="btn-action" onClick={() => setTxModalType('expense')} style={{ backgroundColor: 'var(--accent-red-dim)', color: 'var(--accent-red)', padding: '12px', borderRadius: '50%', width: '48px', height: '48px', justifyContent: 'center' }}>
                         <MinusCircle size={24} />
                     </button>
-                    <button className="btn-action" onClick={() => setPrintModalOpen(true)} style={{ padding: '12px 16px', borderRadius: '24px', justifyContent: 'center' }} title="Export or Print Ledger">
-                        <Download size={20} style={{ marginRight: '8px' }} /> Export / Print
+                    <button className="btn-action" onClick={() => setPrintModalOpen(true)} style={{ padding: '12px 16px', borderRadius: '24px', justifyContent: 'center' }} title="Print Ledger">
+                        Print
                     </button>
                 </div>
             </div>

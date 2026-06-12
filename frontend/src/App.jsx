@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PieChart, Package, BookOpen, Sun, Moon, Menu, Camera, Printer, Plus, X, Pencil, LogOut } from 'lucide-react';
+import { PieChart, Package, BookOpen, Sun, Moon, Menu, Camera, Plus, X, Pencil, LogOut, Download } from 'lucide-react';
 import io from 'socket.io-client';
 
 import { LoginView } from './views/LoginView';
@@ -7,6 +7,7 @@ import { LoginView } from './views/LoginView';
 import { OverviewTab } from './views/OverviewTab';
 import { InventoryView } from './views/InventoryView';
 import { LedgerView } from './views/LedgerView';
+import { ExportView } from './views/ExportView';
 import { ScannerModal } from './components/ScannerModal';
 
 const FABMenu = ({ onScan, onManual }) => {
@@ -138,6 +139,9 @@ function App() {
                         <li className={`nav-item ${mode === 'ledger' ? 'active' : ''}`} onClick={() => setMode('ledger')}>
                             <BookOpen size={20} /> <span className="nav-text">Ledger</span>
                         </li>
+                        <li className={`nav-item ${mode === 'export' ? 'active' : ''}`} onClick={() => setMode('export')}>
+                            <Download size={20} /> <span className="nav-text">Export</span>
+                        </li>
                         <li className="nav-item mobile-nav-logout" onClick={handleLogout} style={{ color: 'var(--accent-red)' }}>
                             <LogOut size={20} /> <span className="nav-text">Log Out</span>
                         </li>
@@ -177,6 +181,9 @@ function App() {
                 </div>
                 <div style={{ display: mode === 'ledger' ? 'block' : 'none' }}>
                     <LedgerView token={token} refreshTrigger={refreshTrigger} />
+                </div>
+                <div style={{ display: mode === 'export' ? 'block' : 'none' }}>
+                    <ExportView token={token} refreshTrigger={refreshTrigger} />
                 </div>
             </main>
 

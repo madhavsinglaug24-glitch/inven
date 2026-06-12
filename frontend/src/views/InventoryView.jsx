@@ -105,6 +105,35 @@ export const InventoryView = ({ token, refreshTrigger }) => {
         });
     }, [history, search, timeFilter, customStart, customEnd]);
 
+    // Group filtered history by bill_no for collapsible view
+    const groupedHistory = useMemo(() => {
+        const groups = [];
+        const billMap = {};
+        filteredHistory.forEach(h => {
+            const key = h.bill_no || `__single_${h.id}`;
+            if (h.bill_no && billMap[key] !== undefined) {
+                groups[billMap[key]].items.push(h);
+                groups[billMap[key]].totalQty += h.quantity;
+                groups[billMap[key]].totalAmount += (h.unit_price || 0) * h.quantity;
+            } else {
+                billMap[key] = groups.length;
+                groups.push({
+                    bill_no: h.bill_no,
+                    action: h.action,
+                    timestamp: h.timestamp,
+                    contact_name: h.contact_name,
+                    items: [h],
+                    totalQty: h.quantity,
+                    totalAmount: (h.unit_price || 0) * h.quantity,
+                    isSingle: !h.bill_no
+                });
+            }
+        });
+        return groups;
+    }, [filteredHistory]);
+
+    const [expandedBill, setExpandedBill] = useState(null);
+
     const stockColumns = [
         { key: 'Item_ID', label: 'ID' },
         { key: 'Item_Name', label: 'Name' },
@@ -165,14 +194,14 @@ export const InventoryView = ({ token, refreshTrigger }) => {
                                     <input type="date" className="form-input" value={customEnd} onChange={e => setCustomEnd(e.target.value)} min={customStart} style={{ backgroundColor: 'var(--bg-elevated)', padding: '8px 12px' }}/>
                                 </div>
                             )}
-                            <button className="btn-action" onClick={() => setPrintModalOpen(true)} style={{ padding: '8px 16px' }} title="Export or Print History">
-                                <Download size={20} style={{ marginRight: '8px' }} /> Export / Print
+                            <button className="btn-action" onClick={() => setPrintModalOpen(true)} style={{ padding: '8px 16px' }} title="Print History">
+                                Print
                             </button>
                         </>
                     )}
                     {viewMode === 'stock' && (
-                        <button className="btn-action" onClick={() => setPrintModalOpen(true)} style={{ padding: '8px 16px' }} title="Export or Print Stock">
-                            <Download size={20} style={{ marginRight: '8px' }} /> Export / Print
+                        <button className="btn-action" onClick={() => setPrintModalOpen(true)} style={{ padding: '8px 16px' }} title="Print Stock">
+                            Print
                         </button>
                     )}
                     
@@ -229,108 +258,124 @@ export const InventoryView = ({ token, refreshTrigger }) => {
                     <>
                         <div className="desktop-only">
                             <table className="data-table">
-                                <thead><tr><th>Bill No</th><th>Item</th><th>Action</th><th>Qty</th><th>Unit ₹</th><th>Total ₹</th><th></th></tr></thead>
+                                <thead><tr><th>Bill No</th><th>Items</th><th>Action</th><th>Total Qty</th><th>Total ₹</th><th>Date</th><th></th></tr></thead>
                                 <tbody>
-                                    {filteredHistory.map((h, idx) => (
-                                        <React.Fragment key={idx}>
-                                            <tr className="hover-row" onClick={() => setExpandedHistory(expandedHistory === idx ? null : idx)} style={{ cursor: 'pointer' }}>
-                                                <td style={{ color: 'var(--text-secondary)' }}>{h.Bill_No || '-'}</td>
-                                                <td style={{ fontWeight: 600 }}>{h.item_name}</td>
+                                    {groupedHistory.map((group, gIdx) => (
+                                        <React.Fragment key={gIdx}>
+                                            <tr className="hover-row" onClick={() => setExpandedBill(expandedBill === gIdx ? null : gIdx)} style={{ cursor: 'pointer' }}>
+                                                <td style={{ color: 'var(--text-secondary)' }}>{group.bill_no || '-'}</td>
+                                                <td style={{ fontWeight: 600 }}>
+                                                    {group.isSingle ? group.items[0].item_name : `${group.items.length} items`}
+                                                </td>
                                                 <td>
-                                                    <span style={{ padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 600, backgroundColor: h.action === 'RESTOCK' ? 'var(--accent-green-dim)' : 'var(--accent-red-dim)', color: h.action === 'RESTOCK' ? 'var(--accent-green)' : 'var(--accent-red)' }}>
-                                                        {h.action}
+                                                    <span style={{ padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 600, backgroundColor: group.action === 'RESTOCK' ? 'var(--accent-green-dim)' : 'var(--accent-red-dim)', color: group.action === 'RESTOCK' ? 'var(--accent-green)' : 'var(--accent-red)' }}>
+                                                        {group.action}
                                                     </span>
                                                 </td>
-                                                <td style={{ fontWeight: 'bold' }}>{h.quantity}</td>
-                                                <td>{h.unit_price ? `₹${h.unit_price.toLocaleString()}` : '-'}</td>
-                                                <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{h.unit_price ? `₹${(h.unit_price * h.quantity).toLocaleString()}` : '-'}</td>
-                                                <td style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
-                                                    {expandedHistory === idx ? <ChevronUp size={18} color="var(--text-secondary)"/> : <ChevronDown size={18} color="var(--text-secondary)"/>}
-                                                    <button onClick={(e) => { e.stopPropagation(); setEditingTransaction({ type: 'history', data: h }); }} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '4px' }}>
-                                                        <Edit2 size={16} />
-                                                    </button>
-                                                    <button onClick={(e) => { e.stopPropagation(); handleDeleteHistory(h.id); }} style={{ background: 'transparent', border: 'none', color: 'var(--accent-red)', cursor: 'pointer', padding: '4px' }}>
-                                                        <Trash2 size={16} />
-                                                    </button>
+                                                <td style={{ fontWeight: 'bold' }}>{group.totalQty}</td>
+                                                <td style={{ fontWeight: 600 }}>{group.totalAmount > 0 ? `₹${group.totalAmount.toLocaleString()}` : '-'}</td>
+                                                <td style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{new Date(group.timestamp).toLocaleDateString()}</td>
+                                                <td>
+                                                    {expandedBill === gIdx ? <ChevronUp size={18} color="var(--text-secondary)"/> : <ChevronDown size={18} color="var(--text-secondary)"/>}
                                                 </td>
                                             </tr>
-                                            {expandedHistory === idx && (
+                                            {expandedBill === gIdx && (
                                                 <tr style={{ backgroundColor: 'var(--bg-elevated)' }}>
-                                                    <td colSpan="7" style={{ padding: '16px' }}>
-                                                        <div style={{ display: 'flex', gap: '24px', fontSize: '13px' }}>
-                                                            <div><span style={{ color: 'var(--text-secondary)' }}>Date:</span> <span style={{ fontWeight: 500 }}>{new Date(h.timestamp).toLocaleString()}</span></div>
-                                                            <div><span style={{ color: 'var(--text-secondary)' }}>Supplier/Contact:</span> <span style={{ fontWeight: 500 }}>{h.contact_name || '-'}</span></div>
-                                                            <div><span style={{ color: 'var(--text-secondary)' }}>Comment:</span> <span style={{ fontWeight: 500 }}>{h.comment || '-'}</span></div>
+                                                    <td colSpan="7" style={{ padding: '0' }}>
+                                                        <div style={{ padding: '12px 16px', fontSize: '13px', color: 'var(--text-secondary)', display: 'flex', gap: '24px', borderBottom: '1px solid var(--border-color)' }}>
+                                                            <div><span>Supplier:</span> <span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{group.contact_name || '-'}</span></div>
+                                                            <div><span>Date:</span> <span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{new Date(group.timestamp).toLocaleString()}</span></div>
                                                         </div>
+                                                        <table className="data-table" style={{ marginBottom: 0 }}>
+                                                            <thead><tr><th>Item</th><th>Qty</th><th>Unit ₹</th><th>Total ₹</th><th>Comment</th><th></th></tr></thead>
+                                                            <tbody>
+                                                                {group.items.map((h, hIdx) => (
+                                                                    <tr key={hIdx}>
+                                                                        <td style={{ fontWeight: 600 }}>{h.item_name}</td>
+                                                                        <td style={{ fontWeight: 'bold' }}>{h.quantity}</td>
+                                                                        <td>{h.unit_price ? `₹${h.unit_price.toLocaleString()}` : '-'}</td>
+                                                                        <td style={{ fontWeight: 600 }}>{h.unit_price ? `₹${(h.unit_price * h.quantity).toLocaleString()}` : '-'}</td>
+                                                                        <td style={{ color: 'var(--text-secondary)' }}>{h.comment || '-'}</td>
+                                                                        <td style={{ display: 'flex', gap: '4px' }}>
+                                                                            <button onClick={(e) => { e.stopPropagation(); setEditingTransaction({ type: 'history', data: h }); }} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '4px' }}>
+                                                                                <Edit2 size={16} />
+                                                                            </button>
+                                                                            <button onClick={(e) => { e.stopPropagation(); handleDeleteHistory(h.id); }} style={{ background: 'transparent', border: 'none', color: 'var(--accent-red)', cursor: 'pointer', padding: '4px' }}>
+                                                                                <Trash2 size={16} />
+                                                                            </button>
+                                                                        </td>
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
                                                     </td>
                                                 </tr>
                                             )}
                                         </React.Fragment>
                                     ))}
-                                    {filteredHistory.length === 0 && <tr><td colSpan="7" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-secondary)' }}>No history found</td></tr>}
+                                    {groupedHistory.length === 0 && <tr><td colSpan="7" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-secondary)' }}>No history found</td></tr>}
                                 </tbody>
                             </table>
                         </div>
                         <div className="mobile-only" style={{ padding: 0 }}>
-                            {filteredHistory.map((h, idx) => (
-                                <div key={idx} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                            {groupedHistory.map((group, gIdx) => (
+                                <div key={gIdx} style={{ borderBottom: '1px solid var(--border-color)' }}>
                                     <div 
                                         style={{ padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
-                                        onClick={() => setExpandedHistory(expandedHistory === idx ? null : idx)}
+                                        onClick={() => setExpandedBill(expandedBill === gIdx ? null : gIdx)}
                                     >
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
-                                            <span style={{ fontWeight: 600, fontSize: '15px' }}>{h.item_name}</span>
+                                            <span style={{ fontWeight: 600, fontSize: '15px' }}>
+                                                {group.isSingle ? group.items[0].item_name : `${group.items.length} items`}
+                                            </span>
                                             <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>
-                                                {h.Bill_No ? `Bill No: ${h.Bill_No}` : new Date(h.timestamp).toLocaleDateString()}
+                                                {group.bill_no ? `Bill: ${group.bill_no}` : new Date(group.timestamp).toLocaleDateString()}
                                             </span>
                                         </div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
-                                                <span style={{ 
-                                                    fontWeight: 600, fontSize: '14px',
-                                                    color: h.action === 'RESTOCK' ? 'var(--accent-green)' : 'var(--accent-red)' 
-                                                }}>
-                                                    {h.action === 'RESTOCK' ? '+' : '-'}{h.quantity}
+                                                <span style={{ fontWeight: 600, fontSize: '14px', color: group.action === 'RESTOCK' ? 'var(--accent-green)' : 'var(--accent-red)' }}>
+                                                    {group.totalAmount > 0 ? `₹${group.totalAmount.toLocaleString()}` : `${group.action === 'RESTOCK' ? '+' : '-'}${group.totalQty}`}
                                                 </span>
                                             </div>
-                                            {expandedHistory === idx ? <ChevronUp size={20} color="var(--text-secondary)"/> : <ChevronDown size={20} color="var(--text-secondary)"/>}
+                                            {expandedBill === gIdx ? <ChevronUp size={20} color="var(--text-secondary)"/> : <ChevronDown size={20} color="var(--text-secondary)"/>}
                                         </div>
                                     </div>
-                                    {expandedHistory === idx && (
+                                    {expandedBill === gIdx && (
                                         <div style={{ padding: '0 16px 16px 16px', backgroundColor: 'var(--bg-elevated)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                                                <span style={{ color: 'var(--text-secondary)' }}>Date & Time</span>
-                                                <span>{new Date(h.timestamp).toLocaleString()}</span>
+                                                <span style={{ color: 'var(--text-secondary)' }}>Supplier</span>
+                                                <span>{group.contact_name || '-'}</span>
                                             </div>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                                                <span style={{ color: 'var(--text-secondary)' }}>Unit Price</span>
-                                                <span>{h.unit_price ? `₹${h.unit_price.toLocaleString()}` : '-'}</span>
+                                                <span style={{ color: 'var(--text-secondary)' }}>Date</span>
+                                                <span>{new Date(group.timestamp).toLocaleString()}</span>
                                             </div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 600 }}>
-                                                <span style={{ color: 'var(--text-primary)' }}>Total Price</span>
-                                                <span>{h.unit_price ? `₹${(h.unit_price * h.quantity).toLocaleString()}` : '-'}</span>
-                                            </div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                                                <span style={{ color: 'var(--text-secondary)' }}>Contact</span>
-                                                <span>{h.contact_name || '-'}</span>
-                                            </div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                                                <span style={{ color: 'var(--text-secondary)' }}>Comment</span>
-                                                <span>{h.comment || '-'}</span>
-                                            </div>
-                                            <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                                                <button onClick={() => setEditingTransaction({ type: 'history', data: h })} style={{ flex: 1, padding: '8px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-color)', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                                                    <Edit2 size={14} /> Edit
-                                                </button>
-                                                <button onClick={() => handleDeleteHistory(h.id)} style={{ flex: 1, padding: '8px', backgroundColor: 'var(--accent-red-dim)', color: 'var(--accent-red)', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                                                    <Trash2 size={14} /> Delete
-                                                </button>
+                                            <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '8px' }}>
+                                                {group.items.map((h, hIdx) => (
+                                                    <div key={hIdx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: hIdx < group.items.length - 1 ? '1px solid var(--border-color)' : 'none' }}>
+                                                        <div>
+                                                            <div style={{ fontWeight: 600, fontSize: '14px' }}>{h.item_name}</div>
+                                                            <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                                                                Qty: {h.quantity} {h.unit_price ? `× ₹${h.unit_price.toLocaleString()}` : ''}
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ display: 'flex', gap: '4px' }}>
+                                                            <button onClick={() => setEditingTransaction({ type: 'history', data: h })} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '4px' }}>
+                                                                <Edit2 size={14} />
+                                                            </button>
+                                                            <button onClick={() => handleDeleteHistory(h.id)} style={{ background: 'transparent', border: 'none', color: 'var(--accent-red)', cursor: 'pointer', padding: '4px' }}>
+                                                                <Trash2 size={14} />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ))}
                                             </div>
                                         </div>
                                     )}
                                 </div>
                             ))}
-                            {filteredHistory.length === 0 && <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-secondary)' }}>No history found</div>}
+                            {groupedHistory.length === 0 && <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-secondary)' }}>No history found</div>}
                         </div>
                     </>
                 )}
