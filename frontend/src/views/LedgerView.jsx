@@ -115,12 +115,6 @@ export const LedgerView = ({ token, refreshTrigger }) => {
             <div className="header" style={{ marginBottom: '24px' }}>
                 <h1 className="brand">Ledger</h1>
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                    <button className="btn-action" onClick={() => setTxModalType('income')} style={{ backgroundColor: 'var(--accent-green-dim)', color: 'var(--accent-green)', padding: '12px', borderRadius: '50%', width: '48px', height: '48px', justifyContent: 'center' }}>
-                        <PlusCircle size={24} />
-                    </button>
-                    <button className="btn-action" onClick={() => setTxModalType('expense')} style={{ backgroundColor: 'var(--accent-red-dim)', color: 'var(--accent-red)', padding: '12px', borderRadius: '50%', width: '48px', height: '48px', justifyContent: 'center' }}>
-                        <MinusCircle size={24} />
-                    </button>
                     <button className="btn-action" onClick={() => setPrintModalOpen(true)} style={{ padding: '8px 16px', borderRadius: '24px', justifyContent: 'center' }} title="Print Ledger">
                         Print
                     </button>
@@ -184,6 +178,13 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                     )}
                 </div>
                 
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <button className="btn-action" onClick={() => setTxModalType('income')} style={{ backgroundColor: 'var(--accent-green-dim)', color: 'var(--accent-green)', padding: '12px', borderRadius: '50%', width: '48px', height: '48px', justifyContent: 'center' }}>
+                        <PlusCircle size={24} />
+                    </button>
+                    <button className="btn-action" onClick={() => setTxModalType('expense')} style={{ backgroundColor: 'var(--accent-red-dim)', color: 'var(--accent-red)', padding: '12px', borderRadius: '50%', width: '48px', height: '48px', justifyContent: 'center' }}>
+                        <MinusCircle size={24} />
+                    </button>
                 </div>
             </div>
 
