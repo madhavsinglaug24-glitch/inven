@@ -10,7 +10,30 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy via SSH
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18' # Ensure the correct Node.js version
+
+      - name: Build Frontend
+        run: |
+          cd frontend
+          npm install
+          npm run build
+
+      - name: Copy built frontend to VM
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USERNAME }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          source: "frontend/dist/"
+          target: "/home/${{ secrets.VM_USERNAME }}/whatsapp-bot/"
+
+      - name: Deploy Backend via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VM_HOST }}
@@ -22,8 +45,4 @@ jobs:
             git pull origin main
             source venv/bin/activate
             pip install -r requirements.txt
-            cd frontend
-            npm install
-            npm run build
-            cd ..
             sudo -n systemctl restart sde_backend
