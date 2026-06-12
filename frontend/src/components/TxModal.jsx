@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal } from './Modal';
 import { PromptModal } from './PromptModal';
+import { ConfirmModal } from './ConfirmModal';
 import { SearchableSelect } from './SearchableSelect';
 import { API_BASE } from '../api';
 
@@ -12,6 +13,7 @@ export const TxModal = ({ isOpen, onClose, onRefresh, type, token }) => {
     const [loading, setLoading] = useState(false);
     const [merchants, setMerchants] = useState([]);
     const [promptOpen, setPromptOpen] = useState(false);
+    const [confirmDeleteMerch, setConfirmDeleteMerch] = useState(null);
 
     useEffect(() => {
         fetch(`${API_BASE}/merchants`, { headers: { 'Authorization': `Bearer ${token}` } })
@@ -63,7 +65,12 @@ export const TxModal = ({ isOpen, onClose, onRefresh, type, token }) => {
 
     const handleDeleteMerchant = async (merchObj) => {
         if (!merchObj || !merchObj.merchant_id) return;
-        if (!window.confirm(`Delete merchant "${merchObj.name}"?`)) return;
+        setConfirmDeleteMerch(merchObj);
+    };
+
+    const confirmAndDeleteMerchant = async () => {
+        if (!confirmDeleteMerch) return;
+        const merchObj = confirmDeleteMerch;
         const res = await fetch(`${API_BASE}/merchants/${merchObj.merchant_id}`, {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${token}` }
@@ -71,6 +78,7 @@ export const TxModal = ({ isOpen, onClose, onRefresh, type, token }) => {
         if(res.ok) {
             setMerchants(prev => prev.filter(m => m.merchant_id !== merchObj.merchant_id));
             if(merchant === merchObj.name) setMerchant('');
+            setConfirmDeleteMerch(null);
         }
     };
 
@@ -122,6 +130,16 @@ export const TxModal = ({ isOpen, onClose, onRefresh, type, token }) => {
                 onSubmit={(val) => {
                     handleAddMerchantSubmit(val);
                 }}
+            />
+
+            <ConfirmModal 
+                isOpen={!!confirmDeleteMerch}
+                onClose={() => setConfirmDeleteMerch(null)}
+                onConfirm={confirmAndDeleteMerchant}
+                title="Delete Merchant"
+                message={`Are you sure you want to delete the merchant "${confirmDeleteMerch?.name}"?`}
+                confirmText="Delete"
+                isDanger={true}
             />
         </Modal>
     );

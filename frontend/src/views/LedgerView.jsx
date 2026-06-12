@@ -13,7 +13,6 @@ export const LedgerView = ({ token, refreshTrigger }) => {
     const [expandedTxn, setExpandedTxn] = useState(null);
     const [confirmDelete, setConfirmDelete] = useState(null); // id of tx to delete
     const [printModalOpen, setPrintModalOpen] = useState(false);
-    const [manageMerchantsOpen, setManageMerchantsOpen] = useState(false);
     const [loading, setLoading] = useState(true);
     
     // Search & Filter State
@@ -115,6 +114,17 @@ export const LedgerView = ({ token, refreshTrigger }) => {
         <div className="fade-in">
             <div className="header" style={{ marginBottom: '24px' }}>
                 <h1 className="brand">Ledger</h1>
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <button className="btn-action" onClick={() => setTxModalType('income')} style={{ backgroundColor: 'var(--accent-green-dim)', color: 'var(--accent-green)', padding: '12px', borderRadius: '50%', width: '48px', height: '48px', justifyContent: 'center' }}>
+                        <PlusCircle size={24} />
+                    </button>
+                    <button className="btn-action" onClick={() => setTxModalType('expense')} style={{ backgroundColor: 'var(--accent-red-dim)', color: 'var(--accent-red)', padding: '12px', borderRadius: '50%', width: '48px', height: '48px', justifyContent: 'center' }}>
+                        <MinusCircle size={24} />
+                    </button>
+                    <button className="btn-action" onClick={() => setPrintModalOpen(true)} style={{ padding: '8px 16px', borderRadius: '24px', justifyContent: 'center' }} title="Print Ledger">
+                        Print
+                    </button>
+                </div>
             </div>
 
             <TxModal 
@@ -126,11 +136,6 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                 existingMerchants={existingMerchants}
             />
 
-            <ManageMerchantsModal 
-                isOpen={manageMerchantsOpen}
-                onClose={() => setManageMerchantsOpen(false)}
-                token={token}
-            />
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
                 <div style={{ display: 'flex', gap: '16px', flex: 1, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -179,19 +184,6 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                     )}
                 </div>
                 
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                    <button className="btn-action" onClick={() => setManageMerchantsOpen(true)} style={{ padding: '8px 16px', borderRadius: '24px', justifyContent: 'center' }} title="Manage Merchants">
-                        Contacts
-                    </button>
-                    <button className="btn-action" onClick={() => setPrintModalOpen(true)} style={{ padding: '8px 16px', borderRadius: '24px', justifyContent: 'center' }} title="Print Ledger">
-                        Print
-                    </button>
-                    <button className="btn-action" onClick={() => setTxModalType('income')} style={{ backgroundColor: 'var(--accent-green-dim)', color: 'var(--accent-green)', padding: '12px', borderRadius: '50%', width: '48px', height: '48px', justifyContent: 'center' }}>
-                        <PlusCircle size={24} />
-                    </button>
-                    <button className="btn-action" onClick={() => setTxModalType('expense')} style={{ backgroundColor: 'var(--accent-red-dim)', color: 'var(--accent-red)', padding: '12px', borderRadius: '50%', width: '48px', height: '48px', justifyContent: 'center' }}>
-                        <MinusCircle size={24} />
-                    </button>
                 </div>
             </div>
 

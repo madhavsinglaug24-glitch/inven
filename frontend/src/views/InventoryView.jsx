@@ -5,6 +5,7 @@ import { OperationModal } from '../components/OperationModal';
 import { AddItemModal } from '../components/AddItemModal';
 import { PrintModal } from '../components/PrintModal';
 import { EditTransactionModal } from '../components/EditTransactionModal';
+import { ConfirmModal } from '../components/ConfirmModal';
 
 export const InventoryView = ({ token, refreshTrigger }) => {
     const [items, setItems] = useState([]);
@@ -25,6 +26,7 @@ export const InventoryView = ({ token, refreshTrigger }) => {
     const [customStart, setCustomStart] = useState('');
     const [customEnd, setCustomEnd] = useState('');
     const [editingTransaction, setEditingTransaction] = useState(null);
+    const [confirmDeleteHistoryId, setConfirmDeleteHistoryId] = useState(null);
 
     const loadItems = async () => {
         const res = await fetch(`${API_BASE}/inventory`, { headers: { 'Authorization': `Bearer ${token}` } });
@@ -47,8 +49,13 @@ export const InventoryView = ({ token, refreshTrigger }) => {
         Promise.all([loadItems(), loadHistory()]).finally(() => setLoading(false));
     }, [token, refreshTrigger]);
 
-    const handleDeleteHistory = async (id) => {
-        if (!window.confirm("Are you sure you want to delete this log AND reverse its stock change?")) return;
+    const handleDeleteHistory = (id) => {
+        setConfirmDeleteHistoryId(id);
+    };
+
+    const confirmAndDeleteHistory = async () => {
+        if (!confirmDeleteHistoryId) return;
+        const id = confirmDeleteHistoryId;
         try {
             const res = await fetch(`${API_BASE}/history/${id}`, {
                 method: 'DELETE',
@@ -62,6 +69,7 @@ export const InventoryView = ({ token, refreshTrigger }) => {
                 alert(data.error || "Failed to delete");
             }
         } catch (e) { alert("Network error"); }
+        setConfirmDeleteHistoryId(null);
     };
 
     const filteredItems = useMemo(() => {
@@ -400,6 +408,16 @@ export const InventoryView = ({ token, refreshTrigger }) => {
                 columns={viewMode === 'stock' ? stockColumns : historyColumns}
                 data={viewMode === 'stock' ? filteredItems : filteredHistory}
                 title={viewMode === 'stock' ? 'Inventory Stock Report' : 'Inventory History Report'}
+            />
+
+            <ConfirmModal
+                isOpen={!!confirmDeleteHistoryId}
+                onClose={() => setConfirmDeleteHistoryId(null)}
+                onConfirm={confirmAndDeleteHistory}
+                title="Delete Log"
+                message="Are you sure you want to delete this log AND reverse its stock change?"
+                confirmText="Delete & Reverse"
+                isDanger={true}
             />
 
             <EditTransactionModal 
