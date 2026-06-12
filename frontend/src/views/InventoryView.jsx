@@ -101,30 +101,6 @@ export const InventoryView = ({ token, refreshTrigger }) => {
         return true;
     });
 
-    const exportToExcel = () => {
-        let csvContent = "Date,Item,Action,Qty,Unit ₹,Total ₹,Contact,Comment\n";
-        filteredHistory.forEach(row => {
-            const r = [
-                new Date(row.timestamp).toLocaleString(), 
-                row.item_name, 
-                row.action, 
-                row.quantity, 
-                row.unit_price || '-',
-                row.unit_price ? (row.unit_price * row.quantity) : '-',
-                row.contact_name || '-', 
-                row.comment || '-'
-            ].map(v => `"${(v||'').toString().replace(/"/g, '""')}"`).join(",");
-            csvContent += r + "\n";
-        });
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
-        link.setAttribute("download", `inventory_history.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
-
     const stockColumns = [
         { key: 'Item_ID', label: 'ID' },
         { key: 'Item_Name', label: 'Name' },
@@ -134,14 +110,12 @@ export const InventoryView = ({ token, refreshTrigger }) => {
     ];
 
     const historyColumns = [
-        { key: 'timestamp', label: 'Date', render: r => new Date(r.timestamp).toLocaleString() },
+        { key: 'Bill_No', label: 'Bill No', render: r => r.Bill_No || '-' },
         { key: 'item_name', label: 'Item' },
         { key: 'action', label: 'Action' },
         { key: 'quantity', label: 'Qty' },
         { key: 'unit_price', label: 'Unit ₹', render: r => r.unit_price ? `₹${r.unit_price.toLocaleString()}` : '-' },
-        { key: 'total', label: 'Total ₹', render: r => r.unit_price ? `₹${(r.unit_price * r.quantity).toLocaleString()}` : '-' },
-        { key: 'contact_name', label: 'Contact', render: r => r.contact_name || '-' },
-        { key: 'comment', label: 'Comment', render: r => r.comment || '-' }
+        { key: 'total', label: 'Total ₹', render: r => r.unit_price ? `₹${(r.unit_price * r.quantity).toLocaleString()}` : '-' }
     ];
 
     return (
@@ -189,9 +163,6 @@ export const InventoryView = ({ token, refreshTrigger }) => {
                             )}
                             <button className="btn-action" onClick={() => setPrintModalOpen(true)} style={{ padding: '8px 16px' }} title="Print History">
                                 Print
-                            </button>
-                            <button className="btn-action" onClick={exportToExcel} style={{ padding: '8px 16px' }} title="Download Excel">
-                                <Download size={20} style={{ marginRight: '8px' }} /> Export
                             </button>
                         </>
                     )}
@@ -254,30 +225,42 @@ export const InventoryView = ({ token, refreshTrigger }) => {
                     <>
                         <div className="desktop-only">
                             <table className="data-table">
-                                <thead><tr><th>Date</th><th>Item</th><th>Action</th><th>Qty</th><th>Unit ₹</th><th>Total ₹</th><th>Contact</th><th>Comment</th><th></th></tr></thead>
+                                <thead><tr><th>Bill No</th><th>Item</th><th>Action</th><th>Qty</th><th>Unit ₹</th><th>Total ₹</th><th></th></tr></thead>
                                 <tbody>
                                     {filteredHistory.map((h, idx) => (
-                                        <tr key={idx} className="hover-row">
-                                            <td style={{ color: 'var(--text-secondary)' }}>{new Date(h.timestamp).toLocaleString()}</td>
-                                            <td style={{ fontWeight: 600 }}>{h.item_name}</td>
-                                            <td>
-                                                <span style={{ padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 600, backgroundColor: h.action === 'RESTOCK' ? 'var(--accent-green-dim)' : 'var(--accent-red-dim)', color: h.action === 'RESTOCK' ? 'var(--accent-green)' : 'var(--accent-red)' }}>
-                                                    {h.action}
-                                                </span>
-                                            </td>
-                                            <td style={{ fontWeight: 'bold' }}>{h.quantity}</td>
-                                            <td>{h.unit_price ? `₹${h.unit_price.toLocaleString()}` : '-'}</td>
-                                            <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{h.unit_price ? `₹${(h.unit_price * h.quantity).toLocaleString()}` : '-'}</td>
-                                            <td style={{ color: 'var(--text-secondary)' }}>{h.contact_name || '-'}</td>
-                                            <td style={{ color: 'var(--text-secondary)' }}>{h.comment || '-'}</td>
-                                            <td>
-                                                <button onClick={() => handleDeleteHistory(h.id)} style={{ background: 'transparent', border: 'none', color: 'var(--accent-red)', cursor: 'pointer', padding: '4px' }}>
-                                                    <Trash2 size={16} />
-                                                </button>
-                                            </td>
-                                        </tr>
+                                        <React.Fragment key={idx}>
+                                            <tr className="hover-row" onClick={() => setExpandedHistory(expandedHistory === idx ? null : idx)} style={{ cursor: 'pointer' }}>
+                                                <td style={{ color: 'var(--text-secondary)' }}>{h.Bill_No || '-'}</td>
+                                                <td style={{ fontWeight: 600 }}>{h.item_name}</td>
+                                                <td>
+                                                    <span style={{ padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 600, backgroundColor: h.action === 'RESTOCK' ? 'var(--accent-green-dim)' : 'var(--accent-red-dim)', color: h.action === 'RESTOCK' ? 'var(--accent-green)' : 'var(--accent-red)' }}>
+                                                        {h.action}
+                                                    </span>
+                                                </td>
+                                                <td style={{ fontWeight: 'bold' }}>{h.quantity}</td>
+                                                <td>{h.unit_price ? `₹${h.unit_price.toLocaleString()}` : '-'}</td>
+                                                <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{h.unit_price ? `₹${(h.unit_price * h.quantity).toLocaleString()}` : '-'}</td>
+                                                <td style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
+                                                    {expandedHistory === idx ? <ChevronUp size={18} color="var(--text-secondary)"/> : <ChevronDown size={18} color="var(--text-secondary)"/>}
+                                                    <button onClick={(e) => { e.stopPropagation(); handleDeleteHistory(h.id); }} style={{ background: 'transparent', border: 'none', color: 'var(--accent-red)', cursor: 'pointer', padding: '4px' }}>
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                            {expandedHistory === idx && (
+                                                <tr style={{ backgroundColor: 'var(--bg-elevated)' }}>
+                                                    <td colSpan="7" style={{ padding: '16px' }}>
+                                                        <div style={{ display: 'flex', gap: '24px', fontSize: '13px' }}>
+                                                            <div><span style={{ color: 'var(--text-secondary)' }}>Date:</span> <span style={{ fontWeight: 500 }}>{new Date(h.timestamp).toLocaleString()}</span></div>
+                                                            <div><span style={{ color: 'var(--text-secondary)' }}>Supplier/Contact:</span> <span style={{ fontWeight: 500 }}>{h.contact_name || '-'}</span></div>
+                                                            <div><span style={{ color: 'var(--text-secondary)' }}>Comment:</span> <span style={{ fontWeight: 500 }}>{h.comment || '-'}</span></div>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </React.Fragment>
                                     ))}
-                                    {filteredHistory.length === 0 && <tr><td colSpan="9" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-secondary)' }}>No history found</td></tr>}
+                                    {filteredHistory.length === 0 && <tr><td colSpan="7" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-secondary)' }}>No history found</td></tr>}
                                 </tbody>
                             </table>
                         </div>
@@ -291,7 +274,7 @@ export const InventoryView = ({ token, refreshTrigger }) => {
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
                                             <span style={{ fontWeight: 600, fontSize: '15px' }}>{h.item_name}</span>
                                             <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>
-                                                {new Date(h.timestamp).toLocaleDateString()}
+                                                {h.Bill_No ? `Bill No: ${h.Bill_No}` : new Date(h.timestamp).toLocaleDateString()}
                                             </span>
                                         </div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -309,8 +292,8 @@ export const InventoryView = ({ token, refreshTrigger }) => {
                                     {expandedHistory === idx && (
                                         <div style={{ padding: '0 16px 16px 16px', backgroundColor: 'var(--bg-elevated)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                                                <span style={{ color: 'var(--text-secondary)' }}>Time</span>
-                                                <span>{new Date(h.timestamp).toLocaleTimeString()}</span>
+                                                <span style={{ color: 'var(--text-secondary)' }}>Date & Time</span>
+                                                <span>{new Date(h.timestamp).toLocaleString()}</span>
                                             </div>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
                                                 <span style={{ color: 'var(--text-secondary)' }}>Unit Price</span>

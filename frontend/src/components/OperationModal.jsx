@@ -9,6 +9,7 @@ import { Plus, Trash2 } from 'lucide-react';
 export const OperationModal = ({ isOpen, onClose, onRefresh, type, items, token, onAddNewItem }) => {
     const [rows, setRows] = useState([{ itemId: '', qty: '', price: '' }]);
     const [supplier, setSupplier] = useState('');
+    const [billNo, setBillNo] = useState('');
     const [loading, setLoading] = useState(false);
     
     const [suppliers, setSuppliers] = useState([]);
@@ -20,6 +21,7 @@ export const OperationModal = ({ isOpen, onClose, onRefresh, type, items, token,
         if(isOpen) {
             setRows([{ itemId: '', qty: '', price: '' }]);
             setSupplier('');
+            setBillNo('');
             fetch(`${API_BASE}/suppliers`, { headers: { 'Authorization': `Bearer ${token}` } })
                 .then(r=>r.json()).then(data => setSuppliers(Array.isArray(data) ? data : [])).catch(console.error);
             fetch(`${API_BASE}/consumers`, { headers: { 'Authorization': `Bearer ${token}` } })
@@ -122,6 +124,7 @@ export const OperationModal = ({ isOpen, onClose, onRefresh, type, items, token,
             const payload = {
                 type,
                 supplier,
+                bill_no: billNo,
                 items: validRows.map(r => ({
                     item_id: r.itemId,
                     qty: Number(r.qty),
@@ -180,6 +183,17 @@ export const OperationModal = ({ isOpen, onClose, onRefresh, type, items, token,
                         onDelete={type === 'restock' ? handleDeleteSupplier : handleDeleteConsumer}
                         addNewText="Add New"
                         freeText={true}
+                    />
+                </div>
+
+                <div className="form-group">
+                    <label className="form-label">Bill Number (Optional)</label>
+                    <input 
+                        type="text" 
+                        className="form-input" 
+                        value={billNo} 
+                        onChange={e => setBillNo(e.target.value)} 
+                        placeholder="e.g. INV-12345"
                     />
                 </div>
 

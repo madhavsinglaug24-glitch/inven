@@ -137,13 +137,15 @@ export const HistoryView = ({ token, refreshTrigger }) => {
                 </button>
             </div>
 
-            <div className="search-box" style={{ marginBottom: '24px' }}>
-                <Search size={20} color="var(--text-secondary)" />
+            <div style={{ position: 'relative', marginBottom: '24px' }}>
+                <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
                 <input 
                     type="text" 
+                    className="form-input"
                     placeholder="Filter by contact, item, or action..." 
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
+                    style={{ paddingLeft: '40px', width: '300px', backgroundColor: 'var(--bg-elevated)' }}
                 />
             </div>
 

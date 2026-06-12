@@ -368,7 +368,8 @@ def init_db():
                 contact_type TEXT,
                 contact_name TEXT,
                 comment TEXT,
-                txn_id TEXT
+                txn_id TEXT,
+                bill_no TEXT
             )
         """)
 
@@ -574,7 +575,7 @@ def update_approval_status(request_id: str, new_status: str):
 
 # ---- History --------------------------------------------------------------
 
-def log_history(item_id: str, item_name: str, action: str, qty: int, editor_phone: str, previous_stock: int, new_stock: int, contact_type: str = "", contact_name: str = "", comment: str = "", txn_id: str = None):
+def log_history(item_id: str, item_name: str, action: str, qty: int, editor_phone: str, previous_stock: int, new_stock: int, contact_type: str = "", contact_name: str = "", comment: str = "", txn_id: str = None, bill_no: str = ""):
     """Log an inventory change to the History tab."""
     try:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -582,8 +583,8 @@ def log_history(item_id: str, item_name: str, action: str, qty: int, editor_phon
             txn_id = f"TXN-{uuid.uuid4().hex[:6].upper()}"
         with get_db_connection() as conn:
             conn.execute(
-                "INSERT INTO history (timestamp, item_id, item_name, action, quantity, user_phone, previous_stock, new_stock, contact_type, contact_name, comment, txn_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (timestamp, item_id, item_name, action, qty, str(editor_phone).strip().lstrip("+"), previous_stock, new_stock, contact_type, contact_name, comment, txn_id)
+                "INSERT INTO history (timestamp, item_id, item_name, action, quantity, user_phone, previous_stock, new_stock, contact_type, contact_name, comment, txn_id, bill_no) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (timestamp, item_id, item_name, action, qty, str(editor_phone).strip().lstrip("+"), previous_stock, new_stock, contact_type, contact_name, comment, txn_id, bill_no)
             )
             conn.commit()
     except Exception as e:
@@ -606,7 +607,8 @@ def get_recent_history(limit=5) -> list[dict]:
                 "Contact_Type": r["contact_type"],
                 "Contact_Name": r["contact_name"],
                 "Comment": r["comment"],
-                "Txn_ID": r["txn_id"]
+                "Txn_ID": r["txn_id"],
+                "Bill_No": r["bill_no"]
             } for r in rows]
     except Exception as e:
         logger.error(f"Failed to get recent history: {e}")
@@ -1145,6 +1147,7 @@ def inventory_update_react():
         data = request.json
         action_type = data.get('type') # 'restock' or 'consume'
         supplier = data.get('supplier', 'Unknown')
+        bill_no = data.get('bill_no', '')
         items = data.get('items', [])
         
         # Legacy fallback if they pass single item
@@ -1183,10 +1186,10 @@ def inventory_update_react():
                 
                 # Log history
                 unit_price = (price / qty) if qty > 0 else 0
-                conn.execute('''INSERT INTO history (timestamp, item_id, item_name, action, quantity, previous_stock, new_stock, contact_type, contact_name, comment, unit_price)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                conn.execute('''INSERT INTO history (timestamp, item_id, item_name, action, quantity, previous_stock, new_stock, contact_type, contact_name, comment, unit_price, bill_no)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
                              (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), item_id, item['item_name'], 'RESTOCK' if action_type == 'restock' else 'CONSUME', 
-                              qty, old_stock, new_stock, 'Supplier' if action_type == 'restock' else 'System', supplier, 'Web Dashboard', unit_price))
+                              qty, old_stock, new_stock, 'Supplier' if action_type == 'restock' else 'System', supplier, 'Web Dashboard', unit_price, bill_no))
                 
                 total_price += price
                 names_for_ledger.append(f"{qty}x {item['item_name']}")

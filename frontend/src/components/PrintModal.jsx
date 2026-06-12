@@ -1,5 +1,5 @@
- import React, { useState, useEffect } from 'react';
-import { Printer, X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Printer, X, CheckSquare, Square } from 'lucide-react';
 
 export const PrintModal = ({ isOpen, onClose, columns, data, title }) => {
     const [selectedCols, setSelectedCols] = useState({});
@@ -77,25 +77,36 @@ export const PrintModal = ({ isOpen, onClose, columns, data, title }) => {
                 </div>
                 
                 <div style={{ marginBottom: '24px' }}>
-                    <p style={{ marginBottom: '12px', fontSize: '14px', color: 'var(--text-secondary)' }}>Select the columns you want to include in the print:</p>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '300px', overflowY: 'auto', padding: '4px' }}>
+                    <p style={{ marginBottom: '16px', fontSize: '14px', color: 'var(--text-secondary)' }}>Select the columns you want to include in the print:</p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '300px', overflowY: 'auto' }}>
                         {columns.map(col => (
-                            <label key={col.key} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '15px', fontWeight: 500 }}>
-                                <input 
-                                    type="checkbox" 
-                                    checked={selectedCols[col.key] || false}
-                                    onChange={(e) => setSelectedCols({...selectedCols, [col.key]: e.target.checked})}
-                                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                                />
-                                {col.label}
-                            </label>
+                            <div 
+                                key={col.key} 
+                                onClick={() => setSelectedCols({...selectedCols, [col.key]: !selectedCols[col.key]})}
+                                style={{ 
+                                    display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', 
+                                    padding: '12px 16px', borderRadius: '8px', 
+                                    backgroundColor: selectedCols[col.key] ? 'var(--accent-green-dim)' : 'transparent',
+                                    border: `1px solid ${selectedCols[col.key] ? 'var(--accent-green)' : 'var(--border-color)'}`,
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                {selectedCols[col.key] ? (
+                                    <CheckSquare size={20} color="var(--accent-green)" />
+                                ) : (
+                                    <Square size={20} color="var(--text-secondary)" />
+                                )}
+                                <span style={{ fontSize: '15px', fontWeight: 500, color: selectedCols[col.key] ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+                                    {col.label}
+                                </span>
+                            </div>
                         ))}
                     </div>
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-                    <button className="btn-secondary" onClick={onClose}>Cancel</button>
-                    <button className="btn-primary" onClick={handlePrint} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <button className="btn-action" onClick={onClose}>Cancel</button>
+                    <button className="btn-action btn-credit" onClick={handlePrint}>
                         <Printer size={16} /> Print
                     </button>
                 </div>
