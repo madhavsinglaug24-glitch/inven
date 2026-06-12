@@ -11,10 +11,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '18' # Ensure the correct Node.js version
 
@@ -34,7 +34,7 @@ jobs:
           target: "/home/${{ secrets.VM_USERNAME }}/whatsapp-bot/"
 
       - name: Deploy Backend via SSH
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.VM_HOST }}
           username: ${{ secrets.VM_USERNAME }}
@@ -45,5 +45,4 @@ jobs:
             git pull origin main
             source venv/bin/activate
             pip install -r requirements.txt
-            python update_db_bill_no.py
             sudo -n systemctl restart sde_backend
