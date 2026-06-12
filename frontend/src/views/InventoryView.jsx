@@ -166,7 +166,6 @@ export const InventoryView = ({ token, refreshTrigger }) => {
                                     <input type="date" className="form-input" value={customEnd} onChange={e => setCustomEnd(e.target.value)} min={customStart} style={{ backgroundColor: 'var(--bg-elevated)', padding: '8px 12px' }}/>
                                 </div>
                             )}
-                            )}
                             <button className="btn-action" onClick={exportToExcel} style={{ padding: '8px 16px' }} title="Download Excel">
                                 <Download size={20} style={{ marginRight: '8px' }} /> Export
                             </button>
