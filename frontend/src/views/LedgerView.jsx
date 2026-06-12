@@ -5,7 +5,6 @@ import { API_BASE } from '../api';
 import { TxModal } from '../components/TxModal';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { PrintModal } from '../components/PrintModal';
-import { ManageMerchantsModal } from '../components/ManageMerchantsModal';
 
 export const LedgerView = ({ token, refreshTrigger }) => {
     const [txs, setTxs] = useState([]);
