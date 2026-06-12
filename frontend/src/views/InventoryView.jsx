@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { PackagePlus, PackageMinus, Plus, Search, ChevronDown, ChevronUp, Trash2, Download } from 'lucide-react';
+import { PackagePlus, PackageMinus, Plus, Search, ChevronDown, ChevronUp, Trash2, Download, Edit2 } from 'lucide-react';
 import { API_BASE } from '../api';
 import { OperationModal } from '../components/OperationModal';
 import { AddItemModal } from '../components/AddItemModal';
 import { PrintModal } from '../components/PrintModal';
+import { EditTransactionModal } from '../components/EditTransactionModal';
 
 export const InventoryView = ({ token, refreshTrigger }) => {
     const [items, setItems] = useState([]);
@@ -22,6 +23,7 @@ export const InventoryView = ({ token, refreshTrigger }) => {
     const [timeFilter, setTimeFilter] = useState('all');
     const [customStart, setCustomStart] = useState('');
     const [customEnd, setCustomEnd] = useState('');
+    const [editingTransaction, setEditingTransaction] = useState(null);
 
     const loadItems = async () => {
         const res = await fetch(`${API_BASE}/inventory`, { headers: { 'Authorization': `Bearer ${token}` } });
@@ -242,6 +244,9 @@ export const InventoryView = ({ token, refreshTrigger }) => {
                                                 <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{h.unit_price ? `₹${(h.unit_price * h.quantity).toLocaleString()}` : '-'}</td>
                                                 <td style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
                                                     {expandedHistory === idx ? <ChevronUp size={18} color="var(--text-secondary)"/> : <ChevronDown size={18} color="var(--text-secondary)"/>}
+                                                    <button onClick={(e) => { e.stopPropagation(); setEditingTransaction({ type: 'history', data: h }); }} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '4px' }}>
+                                                        <Edit2 size={16} />
+                                                    </button>
                                                     <button onClick={(e) => { e.stopPropagation(); handleDeleteHistory(h.id); }} style={{ background: 'transparent', border: 'none', color: 'var(--accent-red)', cursor: 'pointer', padding: '4px' }}>
                                                         <Trash2 size={16} />
                                                     </button>
@@ -311,9 +316,14 @@ export const InventoryView = ({ token, refreshTrigger }) => {
                                                 <span style={{ color: 'var(--text-secondary)' }}>Comment</span>
                                                 <span>{h.comment || '-'}</span>
                                             </div>
-                                            <button onClick={() => handleDeleteHistory(h.id)} style={{ marginTop: '8px', padding: '8px', backgroundColor: 'var(--accent-red-dim)', color: 'var(--accent-red)', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                                                <Trash2 size={14} /> Delete & Reverse Stock
-                                            </button>
+                                            <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                                                <button onClick={() => setEditingTransaction({ type: 'history', data: h })} style={{ flex: 1, padding: '8px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-color)', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                                    <Edit2 size={14} /> Edit
+                                                </button>
+                                                <button onClick={() => handleDeleteHistory(h.id)} style={{ flex: 1, padding: '8px', backgroundColor: 'var(--accent-red-dim)', color: 'var(--accent-red)', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                                    <Trash2 size={14} /> Delete
+                                                </button>
+                                            </div>
                                         </div>
                                     )}
                                 </div>
@@ -330,6 +340,15 @@ export const InventoryView = ({ token, refreshTrigger }) => {
                 columns={viewMode === 'stock' ? stockColumns : historyColumns}
                 data={viewMode === 'stock' ? filteredItems : filteredHistory}
                 title={viewMode === 'stock' ? 'Inventory Stock Report' : 'Inventory History Report'}
+            />
+
+            <EditTransactionModal 
+                isOpen={!!editingTransaction} 
+                onClose={() => setEditingTransaction(null)} 
+                onRefresh={() => { loadItems(); loadHistory(); }} 
+                transaction={editingTransaction?.data} 
+                type={editingTransaction?.type} 
+                token={token} 
             />
         </div>
     );

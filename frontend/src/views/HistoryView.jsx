@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Download, Trash2, Search } from 'lucide-react';
+import { Download, Trash2, Search, Edit2 } from 'lucide-react';
+import { EditTransactionModal } from '../components/EditTransactionModal';
 import { API_BASE } from '../api';
 
 export const HistoryView = ({ token, refreshTrigger }) => {
@@ -8,6 +9,7 @@ export const HistoryView = ({ token, refreshTrigger }) => {
     const [ledgerHistory, setLedgerHistory] = useState([]);
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const [editingTransaction, setEditingTransaction] = useState(null);
 
     useEffect(() => {
         if (activeTab === 'inventory') {
@@ -180,7 +182,10 @@ export const HistoryView = ({ token, refreshTrigger }) => {
                                     <td>{row.unit_price ? `₹${row.unit_price.toLocaleString()}` : '-'}</td>
                                     <td style={{ color: 'var(--text-secondary)' }}>{row.contact_name || '-'}</td>
                                     <td style={{ color: 'var(--text-secondary)' }}>{row.comment || '-'}</td>
-                                    <td>
+                                    <td style={{ display: 'flex', gap: '8px' }}>
+                                        <button onClick={() => setEditingTransaction({ type: 'history', data: row })} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '4px' }}>
+                                            <Edit2 size={16} />
+                                        </button>
                                         <button onClick={() => handleDeleteHistory(row.id)} style={{ background: 'transparent', border: 'none', color: 'var(--accent-red)', cursor: 'pointer', padding: '4px' }}>
                                             <Trash2 size={16} />
                                         </button>
@@ -201,6 +206,7 @@ export const HistoryView = ({ token, refreshTrigger }) => {
                                 <th>Credit</th>
                                 <th>Debit</th>
                                 <th>Balance</th>
+                                <th></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -212,12 +218,29 @@ export const HistoryView = ({ token, refreshTrigger }) => {
                                     <td style={{ color: 'var(--accent-teal)', fontWeight: 600 }}>{row.credit > 0 ? `₹${row.credit.toLocaleString()}` : '-'}</td>
                                     <td style={{ color: 'var(--accent-red)', fontWeight: 600 }}>{row.debit > 0 ? `₹${row.debit.toLocaleString()}` : '-'}</td>
                                     <td style={{ fontWeight: 'bold' }}>₹{row.balance.toLocaleString()}</td>
+                                    <td>
+                                        <button onClick={() => setEditingTransaction({ type: 'ledger', data: row })} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '4px' }}>
+                                            <Edit2 size={16} />
+                                        </button>
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
                 )}
             </div>
+
+            <EditTransactionModal 
+                isOpen={!!editingTransaction} 
+                onClose={() => setEditingTransaction(null)} 
+                onRefresh={() => {
+                    if (editingTransaction?.type === 'history') fetchInventoryHistory();
+                    else fetchLedgerHistory();
+                }} 
+                transaction={editingTransaction?.data} 
+                type={editingTransaction?.type} 
+                token={token} 
+            />
         </div>
     );
 };
