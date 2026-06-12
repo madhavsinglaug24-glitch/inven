@@ -6,7 +6,6 @@ export const AddItemModal = ({ isOpen, onClose, onRefresh, token, initialId }) =
     const [itemId, setItemId] = useState('');
     const [name, setName] = useState('');
     const [minStock, setMinStock] = useState('10');
-    const [price, setPrice] = useState('');
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
@@ -21,12 +20,12 @@ export const AddItemModal = ({ isOpen, onClose, onRefresh, token, initialId }) =
             const res = await fetch(`${API_BASE}/inventory/add`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ id: itemId, name, min_stock: Number(minStock), cost_price: Number(price) })
+                body: JSON.stringify({ id: itemId, name, min_stock: Number(minStock) })
             });
             if (res.ok) {
                 onRefresh();
                 onClose();
-                setItemId(''); setName(''); setMinStock('10'); setPrice('');
+                setItemId(''); setName(''); setMinStock('10');
             } else {
                 const data = await res.json();
                 alert(data.error || "Failed to add item");
@@ -48,11 +47,6 @@ export const AddItemModal = ({ isOpen, onClose, onRefresh, token, initialId }) =
                     <input type="text" className="form-input" value={name} onChange={e => setName(e.target.value)} required placeholder="e.g. Sugar 1kg Packet" />
                 </div>
                 
-                <div className="form-group">
-                    <label className="form-label">Cost Price (₹)</label>
-                    <input type="number" className="form-input" value={price} onChange={e => setPrice(e.target.value)} min="0" step="0.01" />
-                </div>
-
                 <div className="form-group">
                     <label className="form-label">Min Stock Alert</label>
                     <input type="number" className="form-input" value={minStock} onChange={e => setMinStock(e.target.value)} min="0" />

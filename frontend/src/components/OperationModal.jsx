@@ -114,7 +114,7 @@ export const OperationModal = ({ isOpen, onClose, onRefresh, type, items, token,
         
         if (type === 'restock') {
             const missingPrice = validRows.some(r => !r.price || Number(r.price) < 0);
-            if (missingPrice) return alert("Total cost is mandatory for all items when restocking to calculate average price.");
+            if (missingPrice) return alert("Unit price is mandatory for all items when restocking to calculate average price.");
         }
 
         setLoading(true);
@@ -125,7 +125,7 @@ export const OperationModal = ({ isOpen, onClose, onRefresh, type, items, token,
                 items: validRows.map(r => ({
                     item_id: r.itemId,
                     qty: Number(r.qty),
-                    price: Number(r.price || 0)
+                    price: Number(r.price || 0) * Number(r.qty)
                 }))
             };
 
@@ -187,7 +187,7 @@ export const OperationModal = ({ isOpen, onClose, onRefresh, type, items, token,
                     <div className="operation-row-header">
                         <div style={{ flex: 2 }}>Item *</div>
                         <div style={{ flex: 1 }}>Qty *</div>
-                        <div style={{ flex: 1 }}>{type === 'restock' ? 'Total ₹ *' : 'Value ₹ (Opt)'}</div>
+                        <div style={{ flex: 1 }}>{type === 'restock' ? 'Unit ₹ *' : 'Unit ₹ (Opt)'}</div>
                         <div style={{ width: '32px' }}></div>
                     </div>
 
@@ -223,7 +223,7 @@ export const OperationModal = ({ isOpen, onClose, onRefresh, type, items, token,
                                     min="0" 
                                     step="0.01" 
                                     required={type === 'restock' && !!row.itemId}
-                                    placeholder={type === 'restock' ? "Total ₹ *" : "Value ₹ (Opt)"}
+                                    placeholder={type === 'restock' ? "Unit ₹ *" : "Unit ₹ (Opt)"}
                                     style={{ width: '100%' }}
                                 />
                             </div>

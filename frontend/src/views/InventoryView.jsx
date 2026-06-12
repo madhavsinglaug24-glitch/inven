@@ -47,7 +47,7 @@ export const InventoryView = ({ token, refreshTrigger }) => {
         return (
             String(i.id).toLowerCase().includes(query) ||
             String(i.Item_Name).toLowerCase().includes(query) ||
-            String(i.Cost_Price).includes(query)
+            String(i.Purchase_Price).includes(query)
         );
     });
 
@@ -170,7 +170,7 @@ export const InventoryView = ({ token, refreshTrigger }) => {
                                     <td style={{ color: i.Current_Stock <= i.Min_Stock ? 'var(--accent-red)' : 'var(--text-primary)', fontWeight: i.Current_Stock <= i.Min_Stock ? 'bold' : 'normal' }}>
                                         {i.Current_Stock}
                                     </td>
-                                    <td>₹{i.Cost_Price?.toLocaleString() || 0}</td>
+                                    <td>₹{i.Purchase_Price?.toLocaleString() || 0}</td>
                                     <td style={{ color: 'var(--text-secondary)' }}>{i.Min_Stock}</td>
                                 </tr>
                             ))}
