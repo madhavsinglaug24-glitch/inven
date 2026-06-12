@@ -9,14 +9,16 @@ export const OverviewTab = ({ token, onNavigate, refreshTrigger }) => {
     
     useEffect(() => {
         const fetchStats = async () => {
-            const statsRes = await fetch(`${API_BASE}/stats`, { headers: { 'Authorization': `Bearer ${token}` } });
-            if (statsRes.status === 401) {
+            const [statsRes, summaryRes] = await Promise.all([
+                fetch(`${API_BASE}/stats`, { headers: { 'Authorization': `Bearer ${token}` } }),
+                fetch(`${API_BASE}/summary`, { headers: { 'Authorization': `Bearer ${token}` } })
+            ]);
+            
+            if (statsRes.status === 401 || summaryRes.status === 401) {
                 localStorage.removeItem('apiToken');
                 return window.location.reload();
             }
             if (statsRes.ok) setStats(await statsRes.json());
-            
-            const summaryRes = await fetch(`${API_BASE}/summary`, { headers: { 'Authorization': `Bearer ${token}` } });
             if (summaryRes.ok) setSummary(await summaryRes.json());
         };
         fetchStats();
@@ -27,7 +29,12 @@ export const OverviewTab = ({ token, onNavigate, refreshTrigger }) => {
             localStorage.removeItem('apiToken');
             window.location.reload();
         }
-        return <div style={{ color: 'var(--text-secondary)' }}>Loading overview...</div>;
+        return (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh', color: 'var(--text-secondary)' }}>
+                <div className="spin" style={{ width: '24px', height: '24px', border: '3px solid var(--accent-green)', borderTopColor: 'transparent', borderRadius: '50%', marginRight: '12px' }}></div>
+                <span style={{ fontSize: '16px', fontWeight: 500 }}>Loading overview...</span>
+            </div>
+        );
     }
 
     return (

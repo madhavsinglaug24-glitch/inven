@@ -404,10 +404,27 @@ def init_db():
             )
         """)
         
-            conn.execute('CREATE INDEX IF NOT EXISTS idx_history_timestamp ON history (timestamp DESC)')
-            conn.execute('CREATE INDEX IF NOT EXISTS idx_ledger_timestamp ON ledger (timestamp DESC)')
-            conn.execute('CREATE INDEX IF NOT EXISTS idx_inventory_item_id ON inventory (item_id)')
-conn.commit()
+        # Consumers Table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS consumers (
+                consumer_id TEXT PRIMARY KEY,
+                name TEXT,
+                contact_number TEXT
+            )
+        """)
+
+        # Merchants Table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS merchants (
+                merchant_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT UNIQUE NOT NULL
+            )
+        """)
+        
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_history_timestamp ON history (timestamp DESC)')
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_ledger_timestamp ON ledger (timestamp DESC)')
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_inventory_item_id ON inventory (item_id)')
+        conn.commit()
 
         # Seed default admin if empty
         row = cursor.execute("SELECT COUNT(*) FROM web_users").fetchone()

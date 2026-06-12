@@ -9,6 +9,7 @@ import { EditTransactionModal } from '../components/EditTransactionModal';
 export const InventoryView = ({ token, refreshTrigger }) => {
     const [items, setItems] = useState([]);
     const [history, setHistory] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [viewMode, setViewMode] = useState('stock'); // 'stock' or 'history'
     
     const [opModalType, setOpModalType] = useState(null); // 'restock' or 'consume'
@@ -42,8 +43,8 @@ export const InventoryView = ({ token, refreshTrigger }) => {
     };
 
     useEffect(() => { 
-        loadItems(); 
-        loadHistory();
+        setLoading(true);
+        Promise.all([loadItems(), loadHistory()]).finally(() => setLoading(false));
     }, [token, refreshTrigger]);
 
     const handleDeleteHistory = async (id) => {
@@ -251,7 +252,11 @@ export const InventoryView = ({ token, refreshTrigger }) => {
                                     <td style={{ color: 'var(--text-secondary)' }}>{i.Min_Stock}</td>
                                 </tr>
                             ))}
-                            {filteredItems.length === 0 && <tr><td colSpan="5" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-secondary)' }}>No items found</td></tr>}
+                            {loading ? (
+                                    <tr><td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}><div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}><div className="spin" style={{ width: '20px', height: '20px', border: '2px solid var(--accent-green)', borderTopColor: 'transparent', borderRadius: '50%' }}></div> Loading inventory...</div></td></tr>
+                                ) : filteredItems.length === 0 ? (
+                                    <tr><td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>No items found</td></tr>
+                                ) : null}
                         </tbody>
                     </table>
                 ) : (
@@ -313,7 +318,11 @@ export const InventoryView = ({ token, refreshTrigger }) => {
                                             )}
                                         </React.Fragment>
                                     ))}
-                                    {groupedHistory.length === 0 && <tr><td colSpan="7" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-secondary)' }}>No history found</td></tr>}
+                                    {loading ? (
+                                    <tr><td colSpan="8" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}><div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}><div className="spin" style={{ width: '20px', height: '20px', border: '2px solid var(--accent-green)', borderTopColor: 'transparent', borderRadius: '50%' }}></div> Loading history...</div></td></tr>
+                                ) : filteredHistory.length === 0 ? (
+                                    <tr><td colSpan="8" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>No history found</td></tr>
+                                ) : null}
                                 </tbody>
                             </table>
                         </div>
@@ -375,7 +384,11 @@ export const InventoryView = ({ token, refreshTrigger }) => {
                                     )}
                                 </div>
                             ))}
-                            {groupedHistory.length === 0 && <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-secondary)' }}>No history found</div>}
+                            {loading ? (
+                            <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}><div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}><div className="spin" style={{ width: '20px', height: '20px', border: '2px solid var(--accent-green)', borderTopColor: 'transparent', borderRadius: '50%' }}></div> Loading...</div></div>
+                        ) : filteredItems.length === 0 ? (
+                            <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>No items found</div>
+                        ) : null}
                         </div>
                     </>
                 )}
