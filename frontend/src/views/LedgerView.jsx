@@ -91,7 +91,7 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                 );
             }
             return true;
-        });
+        }).reverse();
     }, [txs, search, timeFilter, customStart, customEnd]);
 
     const { totalFilteredBalance, totalFilteredCredit, totalFilteredDebit } = useMemo(() => {
@@ -234,10 +234,11 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                         {filteredTxs.length > 0 && (
                             <tfoot>
                                 <tr style={{ backgroundColor: 'var(--bg-elevated)', borderTop: '2px solid var(--border-color)' }}>
-                                    <td colSpan="3" style={{ textAlign: 'right', fontWeight: 'bold' }}>Total Sum:</td>
+                                    <td colSpan="3"></td>
                                     <td style={{ color: 'var(--accent-green)', fontWeight: 'bold' }}>₹{totalFilteredCredit.toLocaleString()}</td>
                                     <td style={{ color: 'var(--accent-red)', fontWeight: 'bold' }}>₹{totalFilteredDebit.toLocaleString()}</td>
-                                    <td colSpan="2"></td>
+                                    <td style={{ fontWeight: 'bold' }}>₹{totalFilteredBalance.toLocaleString()}</td>
+                                    <td></td>
                                 </tr>
                             </tfoot>
                         )}
@@ -295,9 +296,13 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                                 <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Total Credits</span>
                                 <span style={{ color: 'var(--accent-green)', fontWeight: 'bold' }}>₹{totalFilteredCredit.toLocaleString()}</span>
                             </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'right' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'center' }}>
                                 <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Total Debits</span>
                                 <span style={{ color: 'var(--accent-red)', fontWeight: 'bold' }}>₹{totalFilteredDebit.toLocaleString()}</span>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'right' }}>
+                                <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Current Balance</span>
+                                <span style={{ fontWeight: 'bold' }}>₹{totalFilteredBalance.toLocaleString()}</span>
                             </div>
                         </div>
                     )}
