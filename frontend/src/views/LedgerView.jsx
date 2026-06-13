@@ -94,8 +94,14 @@ export const LedgerView = ({ token, refreshTrigger }) => {
         });
     }, [txs, search, timeFilter, customStart, customEnd]);
 
-    const totalFilteredBalance = useMemo(() => {
-        return filteredTxs.reduce((sum, t) => sum + (t.credit || 0) - (t.debit || 0), 0);
+    const { totalFilteredBalance, totalFilteredCredit, totalFilteredDebit } = useMemo(() => {
+        let bal = 0, cred = 0, deb = 0;
+        filteredTxs.forEach(t => {
+            bal += (t.credit || 0) - (t.debit || 0);
+            cred += (t.credit || 0);
+            deb += (t.debit || 0);
+        });
+        return { totalFilteredBalance: bal, totalFilteredCredit: cred, totalFilteredDebit: deb };
     }, [filteredTxs]);
 
 
@@ -225,6 +231,16 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                                 <tr><td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>No transactions found</td></tr>
                             ) : null}
                         </tbody>
+                        {filteredTxs.length > 0 && (
+                            <tfoot>
+                                <tr style={{ backgroundColor: 'var(--bg-elevated)', borderTop: '2px solid var(--border-color)' }}>
+                                    <td colSpan="3" style={{ textAlign: 'right', fontWeight: 'bold' }}>Total Sum:</td>
+                                    <td style={{ color: 'var(--accent-green)', fontWeight: 'bold' }}>₹{totalFilteredCredit.toLocaleString()}</td>
+                                    <td style={{ color: 'var(--accent-red)', fontWeight: 'bold' }}>₹{totalFilteredDebit.toLocaleString()}</td>
+                                    <td colSpan="2"></td>
+                                </tr>
+                            </tfoot>
+                        )}
                     </table>
                 </div>
 
@@ -273,6 +289,18 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                             )}
                         </div>
                     ))}
+                    {filteredTxs.length > 0 && (
+                        <div style={{ padding: '16px', backgroundColor: 'var(--bg-elevated)', display: 'flex', justifyContent: 'space-between', borderTop: '2px solid var(--border-color)', borderBottom: '1px solid var(--border-color)' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Total Credits</span>
+                                <span style={{ color: 'var(--accent-green)', fontWeight: 'bold' }}>₹{totalFilteredCredit.toLocaleString()}</span>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'right' }}>
+                                <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Total Debits</span>
+                                <span style={{ color: 'var(--accent-red)', fontWeight: 'bold' }}>₹{totalFilteredDebit.toLocaleString()}</span>
+                            </div>
+                        </div>
+                    )}
                     {loading ? (
                         <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>
                             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
