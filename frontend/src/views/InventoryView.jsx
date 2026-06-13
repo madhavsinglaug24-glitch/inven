@@ -49,6 +49,30 @@ export const InventoryView = ({ token, refreshTrigger }) => {
         Promise.all([loadItems(), loadHistory()]).finally(() => setLoading(false));
     }, [token, refreshTrigger]);
 
+    const [confirmDeleteStockId, setConfirmDeleteStockId] = useState(null);
+
+    const handleDeleteStock = (id) => {
+        setConfirmDeleteStockId(id);
+    };
+
+    const confirmAndDeleteStock = async () => {
+        if (!confirmDeleteStockId) return;
+        const id = confirmDeleteStockId;
+        try {
+            const res = await fetch(`${API_BASE}/inventory/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                loadItems();
+            } else {
+                const data = await res.json();
+                alert(data.error || "Failed to delete");
+            }
+        } catch (e) { alert("Network error"); }
+        setConfirmDeleteStockId(null);
+    };
+
     const handleDeleteHistory = (id) => {
         setConfirmDeleteHistoryId(id);
     };
@@ -247,7 +271,7 @@ export const InventoryView = ({ token, refreshTrigger }) => {
             <div className="card table-card" style={{ padding: 0, overflowX: 'auto' }}>
                 {viewMode === 'stock' ? (
                     <table className="data-table">
-                        <thead><tr><th>ID</th><th>Name</th><th>Stock</th><th>Avg Cost</th><th>Min Stock</th></tr></thead>
+                        <thead><tr><th>ID</th><th>Name</th><th>Stock</th><th>Avg Cost</th><th>Min Stock</th><th></th></tr></thead>
                         <tbody>
                             {filteredItems.map((i, idx) => (
                                 <tr key={idx} className="hover-row">
@@ -258,6 +282,11 @@ export const InventoryView = ({ token, refreshTrigger }) => {
                                     </td>
                                     <td>₹{i.Purchase_Price?.toLocaleString() || 0}</td>
                                     <td style={{ color: 'var(--text-secondary)' }}>{i.Min_Stock}</td>
+                                    <td>
+                                        <button className="btn-action" onClick={(e) => { e.stopPropagation(); handleDeleteStock(i.Item_ID); }} style={{ padding: '8px', color: 'var(--accent-red)' }}>
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </td>
                                 </tr>
                             ))}
                             {loading ? (
@@ -417,6 +446,16 @@ export const InventoryView = ({ token, refreshTrigger }) => {
                 title="Delete Log"
                 message="Are you sure you want to delete this log AND reverse its stock change?"
                 confirmText="Delete & Reverse"
+                isDanger={true}
+            />
+
+            <ConfirmModal
+                isOpen={!!confirmDeleteStockId}
+                onClose={() => setConfirmDeleteStockId(null)}
+                onConfirm={confirmAndDeleteStock}
+                title="Delete Inventory Item"
+                message="Are you sure you want to completely delete this item from inventory? This action cannot be undone."
+                confirmText="Delete Item"
                 isDanger={true}
             />
 

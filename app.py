@@ -1166,6 +1166,17 @@ def get_history():
             return jsonify([dict(r) for r in rows]), 200
     except Exception as e:
         return jsonify({"message": str(e)}), 500
+@app.route('/api/inventory/<item_id>', methods=['DELETE'])
+def delete_inventory_item(item_id):
+    if not check_dashboard_auth(): return jsonify({"message": "Unauthorized"}), 401
+    try:
+        with get_db_connection() as conn:
+            conn.execute("DELETE FROM inventory WHERE item_id = ?", (item_id,))
+            conn.commit()
+        return jsonify({"success": True}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/api/inventory/add', methods=['POST'])
 def add_new_item():
     if not check_dashboard_auth():
