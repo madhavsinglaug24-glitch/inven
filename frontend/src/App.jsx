@@ -51,7 +51,15 @@ const FABMenu = ({ onScan, onManual }) => {
 function App() {
     const [token, setToken] = useState(localStorage.getItem('apiToken') || null);
     const [userEmail, setUserEmail] = useState(localStorage.getItem('userEmail') || '');
-    const [mode, setMode] = useState('overview');
+    const [mode, setMode] = useState(() => {
+        const hash = window.location.hash.replace('#', '');
+        return ['overview', 'inventory', 'ledger', 'export'].includes(hash) ? hash : 'overview';
+    });
+    
+    useEffect(() => {
+        window.location.hash = mode;
+    }, [mode]);
+
     const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [scannerOpen, setScannerOpen] = useState(false);
