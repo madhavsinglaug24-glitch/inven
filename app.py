@@ -970,8 +970,8 @@ def get_transactions():
         limit = int(request.args.get('limit', 1000))
         with get_db_connection() as conn:
             query = '''
-            SELECT id, txn_id, timestamp, name, amount, type, 
-            SUM(CASE WHEN type LIKE '%IN%' THEN amount ELSE -amount END) OVER (ORDER BY timestamp ASC) as balance 
+            SELECT id, txn_id, timestamp, name, amount, type, account,
+            SUM(CASE WHEN type LIKE '%IN%' THEN amount ELSE -amount END) OVER (PARTITION BY coalesce(account, 'Cash') ORDER BY timestamp ASC) as balance 
             FROM ledger 
             ORDER BY timestamp DESC LIMIT ?
             '''

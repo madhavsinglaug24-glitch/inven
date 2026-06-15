@@ -108,8 +108,7 @@ export const LedgerView = ({ token, refreshTrigger }) => {
         let cred = 0, deb = 0;
         let lastCashBal = null;
         let lastBankBal = null;
-        
-        const allTxsDesc = [...txs].reverse();
+        const allTxsDesc = txs; // txs is already DESC (newest first) from backend
         
         allTxsDesc.forEach(t => {
             const txDate = new Date(t.date);
