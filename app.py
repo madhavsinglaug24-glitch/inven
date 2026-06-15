@@ -1033,6 +1033,40 @@ def add_transaction():
     except Exception as e:
         return jsonify({"message": str(e)}), 500
 
+@app.route("/api/transfer", methods=["POST"])
+def add_transfer():
+    if not check_dashboard_auth():
+        return jsonify({"message": "Unauthorized"}), 401
+    try:
+        data = request.json
+        amount = float(data.get("amount", 0))
+        if amount <= 0: return jsonify({"error": "Amount must be strictly greater than 0"}), 400
+        
+        direction = data.get("direction") # "cash_to_bank" or "bank_to_cash"
+        if direction not in ["cash_to_bank", "bank_to_cash"]: return jsonify({"error": "Invalid direction"}), 400
+        
+        tx_date = data.get("date", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        comment = data.get("description", "Self Transfer")
+        if not comment: comment = "Self Transfer"
+        
+        with get_db_connection() as conn:
+            if direction == "cash_to_bank":
+                conn.execute('INSERT INTO ledger (timestamp, type, amount, name, comment, logged_by, account) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                             (tx_date, 'Cash OUT', amount, 'Self Transfer', comment, 'Web User', 'Cash'))
+                conn.execute('INSERT INTO ledger (timestamp, type, amount, name, comment, logged_by, account) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                             (tx_date, 'Cash IN', amount, 'Self Transfer', comment, 'Web User', 'Bank'))
+            else:
+                conn.execute('INSERT INTO ledger (timestamp, type, amount, name, comment, logged_by, account) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                             (tx_date, 'Cash OUT', amount, 'Self Transfer', comment, 'Web User', 'Bank'))
+                conn.execute('INSERT INTO ledger (timestamp, type, amount, name, comment, logged_by, account) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                             (tx_date, 'Cash IN', amount, 'Self Transfer', comment, 'Web User', 'Cash'))
+            conn.commit()
+            
+        socketio.emit("inventory_updated", {"message": "Transfer added"})
+        return jsonify({"success": True, "message": "Transfer completed."}), 200
+    except Exception as e:
+        return jsonify({"message": str(e)}), 500
+
 @app.route("/api/transactions/<id>", methods=["PUT", "DELETE"])
 def update_transaction(id):
     if not check_dashboard_auth():

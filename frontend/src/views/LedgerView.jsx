@@ -6,7 +6,8 @@ import { TxModal } from '../components/TxModal';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { PrintModal } from '../components/PrintModal';
 import { EditTransactionModal } from '../components/EditTransactionModal';
-import { Edit2 } from 'lucide-react';
+import { TransferModal } from '../components/TransferModal';
+import { Edit2, ArrowRightLeft } from 'lucide-react';
 
 export const LedgerView = ({ token, refreshTrigger }) => {
     const [txs, setTxs] = useState([]);
@@ -14,6 +15,7 @@ export const LedgerView = ({ token, refreshTrigger }) => {
     const [expandedTxn, setExpandedTxn] = useState(null);
     const [confirmDelete, setConfirmDelete] = useState(null); // id of tx to delete
     const [editTxn, setEditTxn] = useState(null); // the txn object to edit
+    const [transferModalOpen, setTransferModalOpen] = useState(false);
     const [printModalOpen, setPrintModalOpen] = useState(false);
     const [loading, setLoading] = useState(true);
     
@@ -221,6 +223,9 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                 </div>
                 
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <button className="btn-action" onClick={() => setTransferModalOpen(true)} style={{ backgroundColor: 'var(--accent-blue-dim)', color: 'var(--accent-blue)', padding: '12px', borderRadius: '50%', width: '48px', height: '48px', justifyContent: 'center' }} title="Self Transfer">
+                        <ArrowRightLeft size={24} />
+                    </button>
                     <button className="btn-action" onClick={() => setTxModalType('income')} style={{ backgroundColor: 'var(--accent-green-dim)', color: 'var(--accent-green)', padding: '12px', borderRadius: '50%', width: '48px', height: '48px', justifyContent: 'center' }}>
                         <PlusCircle size={24} />
                     </button>
@@ -389,6 +394,13 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                 onRefresh={loadTxs}
                 transaction={editTxn}
                 type="ledger"
+                token={token}
+            />
+
+            <TransferModal
+                isOpen={transferModalOpen}
+                onClose={() => setTransferModalOpen(false)}
+                onRefresh={loadTxs}
                 token={token}
             />
 
