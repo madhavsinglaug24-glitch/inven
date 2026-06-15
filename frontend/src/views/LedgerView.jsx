@@ -103,14 +103,32 @@ export const LedgerView = ({ token, refreshTrigger }) => {
     }, [txs, search, timeFilter, customStart, customEnd, accountFilter]);
 
     const { totalFilteredBalance, totalFilteredCredit, totalFilteredDebit } = useMemo(() => {
-        let bal = 0, cred = 0, deb = 0;
+        let cred = 0, deb = 0;
+        let lastCashBal = null;
+        let lastBankBal = null;
+        
         filteredTxs.forEach(t => {
-            bal += (t.credit || 0) - (t.debit || 0);
+            if (lastCashBal === null && (!t.account || t.account === 'Cash')) lastCashBal = t.balance;
+            if (lastBankBal === null && t.account === 'Bank') lastBankBal = t.balance;
+            
             cred += (t.credit || 0);
             deb += (t.debit || 0);
         });
-        return { totalFilteredBalance: bal, totalFilteredCredit: cred, totalFilteredDebit: deb };
-    }, [filteredTxs]);
+        
+        lastCashBal = lastCashBal || 0;
+        lastBankBal = lastBankBal || 0;
+        
+        let totalBal;
+        if (accountFilter === 'Cash') totalBal = lastCashBal;
+        else if (accountFilter === 'Bank') totalBal = lastBankBal;
+        else totalBal = lastCashBal + lastBankBal;
+
+        return { 
+            totalFilteredBalance: totalBal, 
+            totalFilteredCredit: cred, 
+            totalFilteredDebit: deb
+        };
+    }, [filteredTxs, accountFilter]);
 
 
 

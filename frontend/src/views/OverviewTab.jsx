@@ -45,8 +45,12 @@ export const OverviewTab = ({ token, onNavigate, refreshTrigger }) => {
             
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '24px', marginBottom: '24px' }}>
                 <div className="card hover-card card-gradient bg-grad-purple" style={{ cursor: 'pointer' }} onClick={() => onNavigate('ledger')}>
-                    <div className="metric-label">Total Cash Balance</div>
-                    <div className="metric-value">₹{summary.balance.toLocaleString()}</div>
+                    <div className="metric-label">Cash Balance</div>
+                    <div className="metric-value">₹{summary.cash_balance?.toLocaleString() || summary.balance.toLocaleString()}</div>
+                </div>
+                <div className="card hover-card card-gradient bg-grad-blue" style={{ cursor: 'pointer' }} onClick={() => onNavigate('ledger')}>
+                    <div className="metric-label">Bank Balance</div>
+                    <div className="metric-value">₹{summary.bank_balance?.toLocaleString() || 0}</div>
                 </div>
                 <div className="card hover-card card-gradient bg-grad-green" style={{ cursor: 'pointer' }} onClick={() => onNavigate('ledger')}>
                     <div className="metric-label">Total Cash IN</div>

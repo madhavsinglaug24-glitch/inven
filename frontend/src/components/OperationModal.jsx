@@ -10,7 +10,7 @@ export const OperationModal = ({ isOpen, onClose, onRefresh, type, items, token,
     const [rows, setRows] = useState([{ itemId: '', qty: '', price: '' }]);
     const [supplier, setSupplier] = useState('');
     const [billNo, setBillNo] = useState('');
-    const [txDate, setTxDate] = useState(new Date().toISOString().split('T')[0] + 'T' + new Date().toTimeString().split(' ')[0]);
+    const [txDate, setTxDate] = useState(new Date().toISOString().split('T')[0]);
     const [loading, setLoading] = useState(false);
     
     const [suppliers, setSuppliers] = useState([]);
@@ -23,7 +23,7 @@ export const OperationModal = ({ isOpen, onClose, onRefresh, type, items, token,
             setRows([{ itemId: '', qty: '', price: '' }]);
             setSupplier('');
             setBillNo('');
-            setTxDate(new Date().toISOString().split('T')[0] + 'T' + new Date().toTimeString().split(' ')[0]);
+            setTxDate(new Date().toISOString().split('T')[0]);
             fetch(`${API_BASE}/suppliers`, { headers: { 'Authorization': `Bearer ${token}` } })
                 .then(r=>r.json()).then(data => setSuppliers(Array.isArray(data) ? data : [])).catch(console.error);
             fetch(`${API_BASE}/consumers`, { headers: { 'Authorization': `Bearer ${token}` } })
@@ -189,8 +189,8 @@ export const OperationModal = ({ isOpen, onClose, onRefresh, type, items, token,
 
                 <div style={{ display: 'flex', gap: '12px' }}>
                     <div className="form-group" style={{ flex: 1 }}>
-                        <label className="form-label">Date & Time *</label>
-                        <input type="datetime-local" className="form-input" value={txDate} onChange={e => setTxDate(e.target.value)} required />
+                        <label className="form-label">Date *</label>
+                        <input type="date" className="form-input" value={txDate} onChange={e => setTxDate(e.target.value)} required />
                     </div>
                 </div>
 

@@ -120,6 +120,11 @@ select.form-input {
     background-size: 16px;
     padding-right: 36px !important;
 }
+
+select option {
+    background-color: var(--bg-surface);
+    color: var(--text-primary);
+}
 /* Hide number arrows */
 input::-webkit-outer-spin-button,
 input::-webkit-inner-spin-button {

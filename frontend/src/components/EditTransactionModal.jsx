@@ -12,7 +12,7 @@ export const EditTransactionModal = ({ isOpen, onClose, onRefresh, transaction, 
             const formatForInput = (dateStr) => {
                 if(!dateStr) return '';
                 try {
-                    return new Date(dateStr).toISOString().slice(0, 16);
+                    return new Date(dateStr).toISOString().split('T')[0];
                 } catch(e) { return ''; }
             };
 
@@ -78,8 +78,8 @@ export const EditTransactionModal = ({ isOpen, onClose, onRefresh, transaction, 
                 {type === 'history' ? (
                     <>
                         <div className="form-group">
-                            <label className="form-label">Date & Time</label>
-                            <input type="datetime-local" className="form-input" value={formData.timestamp || ''} onChange={e => setFormData({...formData, timestamp: e.target.value})} />
+                            <label className="form-label">Date</label>
+                            <input type="date" className="form-input" value={formData.timestamp || ''} onChange={e => setFormData({...formData, timestamp: e.target.value})} />
                         </div>
                         <div className="form-group">
                             <label className="form-label">Bill No</label>
@@ -108,8 +108,8 @@ export const EditTransactionModal = ({ isOpen, onClose, onRefresh, transaction, 
                     <>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                             <div className="form-group">
-                                <label className="form-label">Date & Time</label>
-                                <input type="datetime-local" className="form-input" required value={formData.timestamp || ''} onChange={e => setFormData({...formData, timestamp: e.target.value})} />
+                                <label className="form-label">Date</label>
+                                <input type="date" className="form-input" required value={formData.timestamp || ''} onChange={e => setFormData({...formData, timestamp: e.target.value})} />
                             </div>
                             <div className="form-group">
                                 <label className="form-label">Account</label>

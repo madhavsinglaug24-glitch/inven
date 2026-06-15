@@ -10,7 +10,7 @@ export const TxModal = ({ isOpen, onClose, onRefresh, type, token }) => {
     const [amount, setAmount] = useState('');
     const [merchant, setMerchant] = useState('');
     const [description, setDescription] = useState('');
-    const [txDate, setTxDate] = useState(new Date().toISOString().split('T')[0] + 'T' + new Date().toTimeString().split(' ')[0]);
+    const [txDate, setTxDate] = useState(new Date().toISOString().split('T')[0]);
     const [account, setAccount] = useState('Cash');
     const [loading, setLoading] = useState(false);
     const [merchants, setMerchants] = useState([]);
@@ -44,7 +44,7 @@ export const TxModal = ({ isOpen, onClose, onRefresh, type, token }) => {
                 setAmount('');
                 setMerchant('');
                 setDescription('');
-                setTxDate(new Date().toISOString().split('T')[0] + 'T' + new Date().toTimeString().split(' ')[0]);
+                setTxDate(new Date().toISOString().split('T')[0]);
                 setAccount('Cash');
             } else {
                 const errData = await res.json();
@@ -94,8 +94,8 @@ export const TxModal = ({ isOpen, onClose, onRefresh, type, token }) => {
             <form onSubmit={handleSubmit}>
                 <div style={{ display: 'flex', gap: '12px' }}>
                     <div className="form-group" style={{ flex: 1 }}>
-                        <label className="form-label">Date & Time *</label>
-                        <input type="datetime-local" className="form-input" value={txDate} onChange={e => setTxDate(e.target.value)} required />
+                        <label className="form-label">Date *</label>
+                        <input type="date" className="form-input" value={txDate} onChange={e => setTxDate(e.target.value)} required />
                     </div>
                     <div className="form-group" style={{ flex: 1 }}>
                         <label className="form-label">Payment Method *</label>

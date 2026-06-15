@@ -938,10 +938,26 @@ def api_summary():
             out_row = conn.execute("SELECT SUM(amount) FROM ledger WHERE type='Cash OUT'").fetchone()
             expense = out_row[0] if out_row[0] else 0.0
             
+            # Cash Balance
+            cash_in_row = conn.execute("SELECT SUM(amount) FROM ledger WHERE type='Cash IN' AND (account IS NULL OR account='Cash')").fetchone()
+            cash_in = cash_in_row[0] if cash_in_row[0] else 0.0
+            cash_out_row = conn.execute("SELECT SUM(amount) FROM ledger WHERE type='Cash OUT' AND (account IS NULL OR account='Cash')").fetchone()
+            cash_out = cash_out_row[0] if cash_out_row[0] else 0.0
+            cash_balance = cash_in - cash_out
+            
+            # Bank Balance
+            bank_in_row = conn.execute("SELECT SUM(amount) FROM ledger WHERE type='Cash IN' AND account='Bank'").fetchone()
+            bank_in = bank_in_row[0] if bank_in_row[0] else 0.0
+            bank_out_row = conn.execute("SELECT SUM(amount) FROM ledger WHERE type='Cash OUT' AND account='Bank'").fetchone()
+            bank_out = bank_out_row[0] if bank_out_row[0] else 0.0
+            bank_balance = bank_in - bank_out
+
             return jsonify({
                 "income": income,
                 "expense": expense,
-                "balance": income - expense
+                "balance": income - expense,
+                "cash_balance": cash_balance,
+                "bank_balance": bank_balance
             })
     except Exception as e:
         return jsonify({"message": str(e)}), 500
