@@ -286,17 +286,19 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                         {filteredTxs.length > 0 && (
                             <tfoot>
                                 <tr style={{ backgroundColor: 'var(--bg-elevated)', borderTop: '2px solid var(--border-color)' }}>
-                                    <td colSpan="3">
-                                        {accountFilter === 'all' && (
-                                            <div style={{ display: 'flex', gap: '16px', fontSize: '13px' }}>
-                                                <span><span style={{ color: 'var(--text-secondary)' }}>Cash:</span> <span style={{ fontWeight: 'bold' }}>₹{finalCashBalance.toLocaleString()}</span></span>
-                                                <span><span style={{ color: 'var(--text-secondary)' }}>Bank:</span> <span style={{ fontWeight: 'bold' }}>₹{finalBankBalance.toLocaleString()}</span></span>
-                                            </div>
-                                        )}
-                                    </td>
+                                    <td colSpan="3"></td>
                                     <td style={{ color: 'var(--accent-green)', fontWeight: 'bold' }}>₹{totalFilteredCredit.toLocaleString()}</td>
                                     <td style={{ color: 'var(--accent-red)', fontWeight: 'bold' }}>₹{totalFilteredDebit.toLocaleString()}</td>
-                                    <td style={{ fontWeight: 'bold' }}>₹{totalFilteredBalance.toLocaleString()}</td>
+                                    <td style={{ fontWeight: 'bold' }}>
+                                        {accountFilter === 'all' ? (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '13px' }}>
+                                                <span><span style={{ color: 'var(--text-secondary)' }}>Cash:</span> ₹{finalCashBalance.toLocaleString()}</span>
+                                                <span><span style={{ color: 'var(--text-secondary)' }}>Bank:</span> ₹{finalBankBalance.toLocaleString()}</span>
+                                            </div>
+                                        ) : (
+                                            `₹${totalFilteredBalance.toLocaleString()}`
+                                        )}
+                                    </td>
                                     <td></td>
                                 </tr>
                             </tfoot>
@@ -375,9 +377,8 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                                 <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Current Balance</span>
                                 {accountFilter === 'all' ? (
                                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
-                                        <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Cash: ₹{finalCashBalance.toLocaleString()}</span>
-                                        <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Bank: ₹{finalBankBalance.toLocaleString()}</span>
-                                        <span style={{ fontWeight: 'bold', marginTop: '2px' }}>Net: ₹{totalFilteredBalance.toLocaleString()}</span>
+                                        <span style={{ fontSize: '13px', fontWeight: 'bold' }}>Cash: ₹{finalCashBalance.toLocaleString()}</span>
+                                        <span style={{ fontSize: '13px', fontWeight: 'bold' }}>Bank: ₹{finalBankBalance.toLocaleString()}</span>
                                     </div>
                                 ) : (
                                     <span style={{ fontWeight: 'bold' }}>₹{totalFilteredBalance.toLocaleString()}</span>
