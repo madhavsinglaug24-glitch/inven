@@ -104,23 +104,45 @@ export const LedgerView = ({ token, refreshTrigger }) => {
         }).reverse();
     }, [txs, search, timeFilter, customStart, customEnd, accountFilter]);
 
-    const { totalFilteredBalance, totalFilteredCredit, totalFilteredDebit, finalCashBalance, finalBankBalance } = useMemo(() => {
+    const { totalFilteredBalance, totalFilteredCredit, totalFilteredDebit, finalCashBalance, finalBankBalance, openCashBalance, openBankBalance } = useMemo(() => {
         let cred = 0, deb = 0;
         let lastCashBal = null;
         let lastBankBal = null;
+        let startCashBal = null;
+        let startBankBal = null;
         const allTxsDesc = txs; // txs is already DESC (newest first) from backend
         
         allTxsDesc.forEach(t => {
             const txDate = new Date(t.date);
-            let isValid = true;
+            const now = new Date();
+            
+            let isValidForClosing = true;
             if (timeFilter === 'custom' && customEnd) {
                 const endD = new Date(customEnd);
                 endD.setHours(23, 59, 59, 999);
-                if (txDate > endD) isValid = false;
+                if (txDate > endD) isValidForClosing = false;
             }
-            if (isValid) {
+            if (isValidForClosing) {
                 if (lastCashBal === null && (!t.account || t.account === 'Cash')) lastCashBal = t.balance;
                 if (lastBankBal === null && t.account === 'Bank') lastBankBal = t.balance;
+            }
+
+            let isBeforePeriod = false;
+            if (timeFilter === 'month') {
+                const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+                if (txDate < startOfMonth) isBeforePeriod = true;
+            } else if (timeFilter === 'year') {
+                const startOfYear = new Date(now.getFullYear(), 0, 1);
+                if (txDate < startOfYear) isBeforePeriod = true;
+            } else if (timeFilter === 'custom' && customStart) {
+                const startD = new Date(customStart);
+                startD.setHours(0, 0, 0, 0);
+                if (txDate < startD) isBeforePeriod = true;
+            }
+
+            if (isBeforePeriod) {
+                if (startCashBal === null && (!t.account || t.account === 'Cash')) startCashBal = t.balance;
+                if (startBankBal === null && t.account === 'Bank') startBankBal = t.balance;
             }
         });
         
@@ -131,6 +153,8 @@ export const LedgerView = ({ token, refreshTrigger }) => {
         
         lastCashBal = lastCashBal || 0;
         lastBankBal = lastBankBal || 0;
+        startCashBal = startCashBal || 0;
+        startBankBal = startBankBal || 0;
         
         let totalBal;
         if (accountFilter === 'Cash') totalBal = lastCashBal;
@@ -142,9 +166,11 @@ export const LedgerView = ({ token, refreshTrigger }) => {
             totalFilteredCredit: cred, 
             totalFilteredDebit: deb,
             finalCashBalance: lastCashBal,
-            finalBankBalance: lastBankBal
+            finalBankBalance: lastBankBal,
+            openCashBalance: startCashBal,
+            openBankBalance: startBankBal
         };
-    }, [filteredTxs, accountFilter]);
+    }, [filteredTxs, accountFilter, timeFilter, customStart, customEnd, txs]);
 
 
 
@@ -259,6 +285,20 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                     <table className="data-table">
                         <thead><tr><th>ID</th><th>Date</th><th>Merchant</th><th>Credit</th><th>Debit</th><th>Balance</th><th></th></tr></thead>
                         <tbody>
+                            {timeFilter !== 'all' && (
+                                <tr style={{ backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-color)' }}>
+                                    <td colSpan="3" style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>Carry Forward (Opening Balance)</td>
+                                    <td></td>
+                                    <td></td>
+                                    <td style={{ fontWeight: 'bold' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '13px' }}>
+                                            <span><span style={{ color: 'var(--text-secondary)' }}>Cash:</span> ₹{openCashBalance.toLocaleString()}</span>
+                                            <span><span style={{ color: 'var(--text-secondary)' }}>Bank:</span> ₹{openBankBalance.toLocaleString()}</span>
+                                        </div>
+                                    </td>
+                                    <td></td>
+                                </tr>
+                            )}
                             {filteredTxs.map((tx, i) => {
                                 return (
                                     <tr key={i} className="hover-row">
@@ -308,6 +348,15 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                 </div>
 
                 <div className="mobile-only" style={{ padding: '0' }}>
+                    {timeFilter !== 'all' && (
+                        <div style={{ padding: '16px', backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ color: 'var(--text-secondary)', fontWeight: 600, fontSize: '14px' }}>Opening Balance</span>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
+                                <span style={{ fontSize: '13px', fontWeight: 'bold' }}>Cash: ₹{openCashBalance.toLocaleString()}</span>
+                                <span style={{ fontSize: '13px', fontWeight: 'bold' }}>Bank: ₹{openBankBalance.toLocaleString()}</span>
+                            </div>
+                        </div>
+                    )}
                     {filteredTxs.map((tx, i) => (
                         <div key={i} style={{ borderBottom: '1px solid var(--border-color)' }}>
                             <div 
