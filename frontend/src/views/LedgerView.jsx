@@ -290,8 +290,7 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                                 <tr><td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>No transactions found</td></tr>
                             ) : null}
                         </tbody>
-                        {filteredTxs.length > 0 && (
-                            <tfoot>
+                        <tfoot>
                                 <tr style={{ backgroundColor: 'var(--bg-elevated)', borderTop: '2px solid var(--border-color)' }}>
                                     <td colSpan="3"></td>
                                     <td style={{ color: 'var(--accent-green)', fontWeight: 'bold' }}>₹{totalFilteredCredit.toLocaleString()}</td>
@@ -309,7 +308,6 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                                     <td></td>
                                 </tr>
                             </tfoot>
-                        )}
                     </table>
                 </div>
 
@@ -370,7 +368,6 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                             )}
                         </div>
                     ))}
-                    {filteredTxs.length > 0 && (
                         <div style={{ padding: '16px', backgroundColor: 'var(--bg-elevated)', display: 'flex', justifyContent: 'space-between', borderTop: '2px solid var(--border-color)', borderBottom: '1px solid var(--border-color)' }}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                 <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Total Credits</span>
@@ -392,7 +389,6 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                                 )}
                             </div>
                         </div>
-                    )}
                     {loading ? (
                         <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>
                             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
