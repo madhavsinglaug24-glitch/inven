@@ -252,12 +252,7 @@ export const LedgerView = ({ token, refreshTrigger }) => {
             <div className="card table-card" style={{ padding: 0, overflowX: 'auto' }}>
                 <div style={{ padding: '24px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <h2 style={{ fontSize: '16px', fontWeight: 600 }}>Transactions</h2>
-                    <div style={{ fontSize: '14px', fontWeight: 600 }}>
-                        <span style={{ color: 'var(--text-secondary)' }}>Net Amount: </span>
-                        <span style={{ color: totalFilteredBalance >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>
-                            {totalFilteredBalance >= 0 ? '+' : '-'}₹{Math.abs(totalFilteredBalance).toLocaleString()}
-                        </span>
-                    </div>
+
                 </div>
                 
                 <div className="desktop-only">
