@@ -979,7 +979,7 @@ def get_transactions():
                     'credit': credit,
                     'debit': debit,
                     'balance': r['balance'],
-                    'account': r.get('account', 'Cash')
+                    'account': r['account'] if 'account' in r.keys() else 'Cash'
                 })
             return jsonify(formatted_txs), 200
     except Exception as e:
@@ -1151,7 +1151,7 @@ def update_history(id):
                     conn.execute("UPDATE inventory SET current_stock = ? WHERE item_id = ?", (new_stock, item_id))
                     
                 # Reverse ledger cash flow if there's a unit_price
-                unit_price = row.get('unit_price', 0)
+                unit_price = row['unit_price'] if 'unit_price' in row.keys() else 0
                 if unit_price and unit_price > 0:
                     amount = unit_price * qty
                     if action == 'RESTOCK':
