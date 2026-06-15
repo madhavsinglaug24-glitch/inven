@@ -46,7 +46,7 @@ export const EditTransactionModal = ({ isOpen, onClose, onRefresh, transaction, 
             const url = type === 'history' ? `${API_BASE}/history/${transaction.id}` : `${API_BASE}/transactions/${transaction.id}`;
             const payload = { ...formData };
             if(payload.timestamp) {
-                payload.timestamp = payload.timestamp.replace('T', ' ') + ':00';
+                payload.timestamp = payload.timestamp.replace('T', ' ');
             }
             if(type !== 'history' && payload.merchant) {
                 payload.name = payload.merchant;
