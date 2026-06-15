@@ -296,14 +296,10 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                                     <td style={{ color: 'var(--accent-green)', fontWeight: 'bold' }}>₹{totalFilteredCredit.toLocaleString()}</td>
                                     <td style={{ color: 'var(--accent-red)', fontWeight: 'bold' }}>₹{totalFilteredDebit.toLocaleString()}</td>
                                     <td style={{ fontWeight: 'bold' }}>
-                                        {accountFilter === 'all' ? (
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '13px' }}>
-                                                <span><span style={{ color: 'var(--text-secondary)' }}>Cash:</span> ₹{finalCashBalance.toLocaleString()}</span>
-                                                <span><span style={{ color: 'var(--text-secondary)' }}>Bank:</span> ₹{finalBankBalance.toLocaleString()}</span>
-                                            </div>
-                                        ) : (
-                                            `₹${totalFilteredBalance.toLocaleString()}`
-                                        )}
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '13px' }}>
+                                            <span><span style={{ color: 'var(--text-secondary)' }}>Cash:</span> ₹{finalCashBalance.toLocaleString()}</span>
+                                            <span><span style={{ color: 'var(--text-secondary)' }}>Bank:</span> ₹{finalBankBalance.toLocaleString()}</span>
+                                        </div>
                                     </td>
                                     <td></td>
                                 </tr>
@@ -379,14 +375,10 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'right' }}>
                                 <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Current Balance</span>
-                                {accountFilter === 'all' ? (
-                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
-                                        <span style={{ fontSize: '13px', fontWeight: 'bold' }}>Cash: ₹{finalCashBalance.toLocaleString()}</span>
-                                        <span style={{ fontSize: '13px', fontWeight: 'bold' }}>Bank: ₹{finalBankBalance.toLocaleString()}</span>
-                                    </div>
-                                ) : (
-                                    <span style={{ fontWeight: 'bold' }}>₹{totalFilteredBalance.toLocaleString()}</span>
-                                )}
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
+                                    <span style={{ fontSize: '13px', fontWeight: 'bold' }}>Cash: ₹{finalCashBalance.toLocaleString()}</span>
+                                    <span style={{ fontSize: '13px', fontWeight: 'bold' }}>Bank: ₹{finalBankBalance.toLocaleString()}</span>
+                                </div>
                             </div>
                         </div>
                     {loading ? (
