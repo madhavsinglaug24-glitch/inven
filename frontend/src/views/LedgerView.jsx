@@ -109,10 +109,23 @@ export const LedgerView = ({ token, refreshTrigger }) => {
         let lastCashBal = null;
         let lastBankBal = null;
         
+        const allTxsDesc = [...txs].reverse();
+        
+        allTxsDesc.forEach(t => {
+            const txDate = new Date(t.date);
+            let isValid = true;
+            if (timeFilter === 'custom' && customEnd) {
+                const endD = new Date(customEnd);
+                endD.setHours(23, 59, 59, 999);
+                if (txDate > endD) isValid = false;
+            }
+            if (isValid) {
+                if (lastCashBal === null && (!t.account || t.account === 'Cash')) lastCashBal = t.balance;
+                if (lastBankBal === null && t.account === 'Bank') lastBankBal = t.balance;
+            }
+        });
+        
         filteredTxs.forEach(t => {
-            if (lastCashBal === null && (!t.account || t.account === 'Cash')) lastCashBal = t.balance;
-            if (lastBankBal === null && t.account === 'Bank') lastBankBal = t.balance;
-            
             cred += (t.credit || 0);
             deb += (t.debit || 0);
         });
