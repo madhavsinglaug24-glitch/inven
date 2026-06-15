@@ -1,0 +1,25 @@
+name: Daily Database Backup
+
+on:
+  schedule:
+    # Runs at 00:00 (Midnight) UTC every day
+    - cron: '0 0 * * *'
+  workflow_dispatch: # Allows you to manually trigger the backup from the GitHub Actions tab
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger Backup Script on Azure VM via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USERNAME }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          script: |
+            cd /home/${{ secrets.VM_USERNAME }}/whatsapp-bot
+            # Activate the virtual environment
+            source venv/bin/activate
+            # Run the backup script
+            python3 backup_to_drive.py

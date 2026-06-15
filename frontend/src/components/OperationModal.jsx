@@ -10,6 +10,7 @@ export const OperationModal = ({ isOpen, onClose, onRefresh, type, items, token,
     const [rows, setRows] = useState([{ itemId: '', qty: '', price: '' }]);
     const [supplier, setSupplier] = useState('');
     const [billNo, setBillNo] = useState('');
+    const [txDate, setTxDate] = useState(new Date().toISOString().split('T')[0] + 'T' + new Date().toTimeString().split(' ')[0]);
     const [loading, setLoading] = useState(false);
     
     const [suppliers, setSuppliers] = useState([]);
@@ -22,6 +23,7 @@ export const OperationModal = ({ isOpen, onClose, onRefresh, type, items, token,
             setRows([{ itemId: '', qty: '', price: '' }]);
             setSupplier('');
             setBillNo('');
+            setTxDate(new Date().toISOString().split('T')[0] + 'T' + new Date().toTimeString().split(' ')[0]);
             fetch(`${API_BASE}/suppliers`, { headers: { 'Authorization': `Bearer ${token}` } })
                 .then(r=>r.json()).then(data => setSuppliers(Array.isArray(data) ? data : [])).catch(console.error);
             fetch(`${API_BASE}/consumers`, { headers: { 'Authorization': `Bearer ${token}` } })
@@ -125,6 +127,7 @@ export const OperationModal = ({ isOpen, onClose, onRefresh, type, items, token,
                 type,
                 supplier,
                 bill_no: billNo,
+                date: txDate.replace('T', ' '),
                 items: validRows.map(r => ({
                     item_id: r.itemId,
                     qty: Number(r.qty),
@@ -142,8 +145,8 @@ export const OperationModal = ({ isOpen, onClose, onRefresh, type, items, token,
                 onRefresh();
                 onClose();
             } else {
-                const err = await res.json();
-                alert(err.error || "Update failed");
+                const errData = await res.json();
+                alert(errData.error || "Failed to update inventory");
             }
         } catch (err) { alert("Network error"); }
         setLoading(false);
@@ -163,27 +166,32 @@ export const OperationModal = ({ isOpen, onClose, onRefresh, type, items, token,
     };
 
     const itemOptions = items.map(i => ({ value: i.Item_ID, label: `[${i.Item_ID}] ${i.Item_Name} (Qty: ${i.Current_Stock})` }));
-    
-    // For restock, show suppliers. For consume, show customers.
-    const contactOptions = type === 'restock' 
-        ? (Array.isArray(suppliers) ? suppliers : []).map(s => ({ value: s.name, label: s.name, raw: s }))
-        : (Array.isArray(consumers) ? consumers : []).map(c => ({ value: c.name, label: c.name, raw: c }));
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title={type === 'restock' ? 'Restock Items' : 'Consume Items'} width="1000px">
             <form onSubmit={handleSubmit}>
-                <div className="form-group">
-                    <label className="form-label">{type === 'restock' ? 'Supplier (Optional)' : 'Customer (Optional)'}</label>
-                    <SearchableSelect 
-                        options={contactOptions}
-                        value={supplier}
-                        onChange={setSupplier}
-                        placeholder={type === 'restock' ? "Search or Add Supplier" : "Search or Add Customer"}
-                        onAddNew={type === 'restock' ? handleAddSupplier : handleAddConsumer}
-                        onDelete={type === 'restock' ? handleDeleteSupplier : handleDeleteConsumer}
-                        addNewText="Add New"
-                        freeText={true}
-                    />
+                <div style={{ display: 'flex', gap: '12px' }}>
+                    <div className="form-group" style={{ flex: 1 }}>
+                        <label className="form-label">{type === 'restock' ? 'Supplier Name *' : 'Consumer/Site Name *'}</label>
+                        <SearchableSelect 
+                            options={type === 'restock' ? suppliers.map(s => ({ value: s.name, label: s.name, raw: s })) : consumers.map(c => ({ value: c.name, label: c.name, raw: c }))}
+                            value={supplier}
+                            onChange={setSupplier}
+                            placeholder={`Select or Search ${type === 'restock' ? 'Supplier' : 'Consumer'}`}
+                            onAddNew={type === 'restock' ? handleAddSupplier : handleAddConsumer}
+                            onDelete={type === 'restock' ? handleDeleteSupplier : handleDeleteConsumer}
+                            addNewText={`Add New ${type === 'restock' ? 'Supplier' : 'Consumer'}`}
+                            freeText={true}
+                            required={true}
+                        />
+                    </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '12px' }}>
+                    <div className="form-group" style={{ flex: 1 }}>
+                        <label className="form-label">Date & Time *</label>
+                        <input type="datetime-local" className="form-input" value={txDate} onChange={e => setTxDate(e.target.value)} required />
+                    </div>
                 </div>
 
                 <div className="form-group">

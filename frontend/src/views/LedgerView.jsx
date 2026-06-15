@@ -5,18 +5,22 @@ import { API_BASE } from '../api';
 import { TxModal } from '../components/TxModal';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { PrintModal } from '../components/PrintModal';
+import { EditTransactionModal } from '../components/EditTransactionModal';
+import { Edit2 } from 'lucide-react';
 
 export const LedgerView = ({ token, refreshTrigger }) => {
     const [txs, setTxs] = useState([]);
     const [txModalType, setTxModalType] = useState(null); // 'income' or 'expense'
     const [expandedTxn, setExpandedTxn] = useState(null);
     const [confirmDelete, setConfirmDelete] = useState(null); // id of tx to delete
+    const [editTxn, setEditTxn] = useState(null); // the txn object to edit
     const [printModalOpen, setPrintModalOpen] = useState(false);
     const [loading, setLoading] = useState(true);
     
     // Search & Filter State
     const [search, setSearch] = useState('');
     const [timeFilter, setTimeFilter] = useState('all');
+    const [accountFilter, setAccountFilter] = useState('all');
     const [customStart, setCustomStart] = useState('');
     const [customEnd, setCustomEnd] = useState('');
 
@@ -81,6 +85,10 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                     }
                 }
             }
+            if (accountFilter !== 'all') {
+                if (accountFilter === 'Cash' && t.account !== 'Cash') return false;
+                if (accountFilter === 'Bank' && t.account !== 'Bank') return false;
+            }
             if (search) {
                 const query = search.toLowerCase();
                 return (
@@ -92,7 +100,7 @@ export const LedgerView = ({ token, refreshTrigger }) => {
             }
             return true;
         }).reverse();
-    }, [txs, search, timeFilter, customStart, customEnd]);
+    }, [txs, search, timeFilter, customStart, customEnd, accountFilter]);
 
     const { totalFilteredBalance, totalFilteredCredit, totalFilteredDebit } = useMemo(() => {
         let bal = 0, cred = 0, deb = 0;
@@ -161,6 +169,17 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                         <option value="custom">Custom Range...</option>
                     </select>
 
+                    <select 
+                        className="form-input" 
+                        value={accountFilter} 
+                        onChange={e => setAccountFilter(e.target.value)}
+                        style={{ width: 'auto', backgroundColor: 'var(--bg-elevated)', cursor: 'pointer', paddingRight: '32px' }}
+                    >
+                        <option value="all">All Accounts</option>
+                        <option value="Cash">Cash Only</option>
+                        <option value="Bank">Bank Only</option>
+                    </select>
+
                     {timeFilter === 'custom' && (
                         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                             <input 
@@ -213,11 +232,19 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                                     <tr key={i} className="hover-row">
                                         <td style={{ color: 'var(--text-secondary)' }}>{tx.id}</td>
                                         <td style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{tx.date}</td>
-                                        <td style={{ fontWeight: 600 }}>{tx.merchant}</td>
+                                        <td style={{ fontWeight: 600 }}>
+                                            {tx.merchant} 
+                                            <span style={{ marginLeft: '8px', fontSize: '12px', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'var(--bg-default)', color: 'var(--text-secondary)', fontWeight: 'normal' }}>
+                                                {tx.account === 'Bank' ? '🏦 Bank' : '💵 Cash'}
+                                            </span>
+                                        </td>
                                         <td style={{ color: 'var(--accent-green)', fontWeight: 600 }}>{tx.credit > 0 ? `₹${tx.credit.toLocaleString()}` : '-'}</td>
                                         <td style={{ color: 'var(--accent-red)', fontWeight: 600 }}>{tx.debit > 0 ? `₹${tx.debit.toLocaleString()}` : '-'}</td>
                                         <td style={{ fontWeight: 'bold' }}>₹{tx.balance.toLocaleString()}</td>
-                                        <td>
+                                        <td style={{ display: 'flex', gap: '4px' }}>
+                                            <button className="btn-action" onClick={(e) => { e.stopPropagation(); setEditTxn(tx); }} style={{ padding: '8px', color: 'var(--accent-teal)' }}>
+                                                <Edit2 size={16} />
+                                            </button>
                                             <button className="btn-action" onClick={(e) => handleDeleteClick(tx.id, e)} style={{ padding: '8px', color: 'var(--accent-red)' }}>
                                                 <Trash2 size={16} />
                                             </button>
@@ -253,7 +280,12 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                                 onClick={() => setExpandedTxn(expandedTxn === i ? null : i)}
                             >
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    <span style={{ fontWeight: 600, fontSize: '15px' }}>{tx.merchant}</span>
+                                    <span style={{ fontWeight: 600, fontSize: '15px' }}>
+                                        {tx.merchant}
+                                        <span style={{ marginLeft: '8px', fontSize: '12px', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'var(--bg-default)', color: 'var(--text-secondary)', fontWeight: 'normal' }}>
+                                            {tx.account === 'Bank' ? '🏦 Bank' : '💵 Cash'}
+                                        </span>
+                                    </span>
                                     <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>ID: {tx.id}</span>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -277,7 +309,14 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                                         <span style={{ color: 'var(--text-secondary)' }}>Balance After</span>
                                         <span style={{ fontWeight: 'bold' }}>₹{tx.balance.toLocaleString()}</span>
                                     </div>
-                                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px', gap: '8px' }}>
+                                        <button 
+                                            className="btn-action" 
+                                            onClick={(e) => { e.stopPropagation(); setEditTxn(tx); }}
+                                            style={{ backgroundColor: 'var(--accent-teal-dim)', color: 'var(--accent-teal)', padding: '8px 16px', fontSize: '13px', borderRadius: '8px' }}
+                                        >
+                                            <Edit2 size={14} style={{ marginRight: '6px' }} /> Edit
+                                        </button>
                                         <button 
                                             className="btn-action" 
                                             onClick={(e) => handleDeleteClick(tx.id, e)}
@@ -324,6 +363,15 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                 title="Delete Transaction"
                 message="Are you sure you want to delete this transaction from the ledger?"
                 onConfirm={confirmAndDeleteTxn}
+            />
+
+            <EditTransactionModal
+                isOpen={!!editTxn}
+                onClose={() => setEditTxn(null)}
+                onRefresh={loadTxs}
+                transaction={editTxn}
+                type="ledger"
+                token={token}
             />
 
             <PrintModal

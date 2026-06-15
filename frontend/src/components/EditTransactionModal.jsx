@@ -9,8 +9,16 @@ export const EditTransactionModal = ({ isOpen, onClose, onRefresh, transaction, 
 
     useEffect(() => {
         if (transaction) {
+            const formatForInput = (dateStr) => {
+                if(!dateStr) return '';
+                try {
+                    return new Date(dateStr).toISOString().slice(0, 16);
+                } catch(e) { return ''; }
+            };
+
             if (type === 'history') {
                 setFormData({
+                    timestamp: formatForInput(transaction.timestamp),
                     bill_no: transaction.bill_no || '',
                     contact_name: transaction.contact_name || '',
                     comment: transaction.comment || '',
@@ -19,7 +27,9 @@ export const EditTransactionModal = ({ isOpen, onClose, onRefresh, transaction, 
                 });
             } else {
                 setFormData({
+                    timestamp: formatForInput(transaction.date),
                     merchant: transaction.merchant || '',
+                    account: transaction.account || 'Cash',
                     comment: transaction.comment || '',
                     amount: transaction.credit > 0 ? transaction.credit : transaction.debit
                 });
@@ -34,10 +44,19 @@ export const EditTransactionModal = ({ isOpen, onClose, onRefresh, transaction, 
         setLoading(true);
         try {
             const url = type === 'history' ? `${API_BASE}/history/${transaction.id}` : `${API_BASE}/transactions/${transaction.id}`;
+            const payload = { ...formData };
+            if(payload.timestamp) {
+                payload.timestamp = payload.timestamp.replace('T', ' ') + ':00';
+            }
+            if(type !== 'history' && payload.merchant) {
+                payload.name = payload.merchant;
+                delete payload.merchant;
+            }
+
             const res = await fetch(url, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify(formData)
+                body: JSON.stringify(payload)
             });
 
             if (res.ok) {
@@ -58,6 +77,10 @@ export const EditTransactionModal = ({ isOpen, onClose, onRefresh, transaction, 
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 {type === 'history' ? (
                     <>
+                        <div className="form-group">
+                            <label className="form-label">Date & Time</label>
+                            <input type="datetime-local" className="form-input" value={formData.timestamp || ''} onChange={e => setFormData({...formData, timestamp: e.target.value})} />
+                        </div>
                         <div className="form-group">
                             <label className="form-label">Bill No</label>
                             <input type="text" className="form-input" value={formData.bill_no} onChange={e => setFormData({...formData, bill_no: e.target.value})} />
@@ -83,6 +106,19 @@ export const EditTransactionModal = ({ isOpen, onClose, onRefresh, transaction, 
                     </>
                 ) : (
                     <>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                            <div className="form-group">
+                                <label className="form-label">Date & Time</label>
+                                <input type="datetime-local" className="form-input" required value={formData.timestamp || ''} onChange={e => setFormData({...formData, timestamp: e.target.value})} />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Account</label>
+                                <select className="form-input" value={formData.account || 'Cash'} onChange={e => setFormData({...formData, account: e.target.value})}>
+                                    <option value="Cash">Cash</option>
+                                    <option value="Bank">Bank</option>
+                                </select>
+                            </div>
+                        </div>
                         <div className="form-group">
                             <label className="form-label">Merchant / Name</label>
                             <input type="text" className="form-input" required value={formData.merchant} onChange={e => setFormData({...formData, merchant: e.target.value})} />

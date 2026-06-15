@@ -443,6 +443,12 @@ def init_db():
             conn.commit()
         except Exception:
             pass
+            
+        try:
+            cursor.execute("ALTER TABLE ledger ADD COLUMN account TEXT DEFAULT 'Cash'")
+            conn.commit()
+        except Exception:
+            pass
 
 
 # Self-initialize database tables on app load
@@ -972,7 +978,8 @@ def get_transactions():
                     'merchant': r['name'] or 'Unknown',
                     'credit': credit,
                     'debit': debit,
-                    'balance': r['balance']
+                    'balance': r['balance'],
+                    'account': r.get('account', 'Cash')
                 })
             return jsonify(formatted_txs), 200
     except Exception as e:
@@ -985,36 +992,55 @@ def add_transaction():
     try:
         data = request.json
         amount = float(data.get("amount", 0))
+        if amount <= 0: return jsonify({"error": "Amount must be strictly greater than 0"}), 400
+        
         merchant = data.get("merchant", "Manual Entry")
+        if not merchant: return jsonify({"error": "Merchant is required"}), 400
+        
         description = data.get("description", "")
         comment = description if description else 'Added from Web Dashboard'
         tx_type = data.get("type", "expense") # "income" or "expense"
+        tx_date = data.get("date", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        account = data.get("account", "Cash")
         
-        if tx_type == "expense" and amount > 0:
+        if tx_type == "expense":
             ledger_type = 'Cash OUT'
         else:
             ledger_type = 'Cash IN'
-            amount = abs(amount)
         
         with get_db_connection() as conn:
-            conn.execute('INSERT INTO ledger (timestamp, type, amount, name, comment, logged_by) VALUES (?, ?, ?, ?, ?, ?)',
-                         (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), ledger_type, abs(amount), merchant, comment, 'Web User'))
+            conn.execute('INSERT INTO ledger (timestamp, type, amount, name, comment, logged_by, account) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                         (tx_date, ledger_type, amount, merchant, comment, 'Web User', account))
             conn.commit()
         socketio.emit("inventory_updated", {"message": "Transaction added"})
         return jsonify({"success": True, "message": "Transaction added."}), 200
     except Exception as e:
         return jsonify({"message": str(e)}), 500
 
-@app.route("/api/transactions/<txn_id>", methods=["DELETE"])
-def delete_transaction(txn_id):
+@app.route("/api/transactions/<id>", methods=["PUT", "DELETE"])
+def update_transaction(id):
     if not check_dashboard_auth():
         return jsonify({"message": "Unauthorized"}), 401
     try:
         with get_db_connection() as conn:
-            conn.execute("DELETE FROM ledger WHERE id = ?", (txn_id,))
-            conn.commit()
-        socketio.emit("inventory_updated", {"message": "Transaction deleted"})
-        return jsonify({"success": True}), 200
+            if request.method == "DELETE":
+                conn.execute("DELETE FROM ledger WHERE id = ?", (id,))
+                conn.commit()
+                return jsonify({"success": True}), 200
+            elif request.method == "PUT":
+                data = request.json
+                if 'amount' in data and float(data['amount']) < 0: return jsonify({"error": "Amount cannot be negative"}), 400
+                updates = []
+                params = []
+                for field in ['amount', 'name', 'comment', 'timestamp', 'account']:
+                    if field in data:
+                        updates.append(f"{field} = ?")
+                        params.append(data[field])
+                if not updates: return jsonify({"error": "No updates provided"}), 400
+                params.append(id)
+                conn.execute(f"UPDATE ledger SET {', '.join(updates)} WHERE id = ?", params)
+                conn.commit()
+                return jsonify({"success": True}), 200
     except Exception as e:
         return jsonify({"message": str(e)}), 500
 
@@ -1081,46 +1107,65 @@ def delete_consumer(consumer_id):
     except Exception as e:
         return jsonify({"message": str(e)}), 500
 
-@app.route("/api/history/<id>", methods=["DELETE"])
-def delete_history(id):
+@app.route("/api/history/<id>", methods=["PUT", "DELETE"])
+def update_history(id):
     if not check_dashboard_auth(): return jsonify({"message": "Unauthorized"}), 401
     try:
         with get_db_connection() as conn:
-            # Get the history row
-            row = conn.execute("SELECT * FROM history WHERE id = ?", (id,)).fetchone()
-            if not row:
-                return jsonify({"error": "History log not found"}), 404
-            
-            # Reverse the stock change in inventory
-            item_id = row['item_id']
-            qty = row['quantity']
-            action = row['action']
-            
-            inventory_item = conn.execute("SELECT current_stock FROM inventory WHERE item_id = ?", (item_id,)).fetchone()
-            if inventory_item:
-                current_stock = inventory_item['current_stock']
-                if action == 'RESTOCK':
-                    new_stock = current_stock - qty
-                else: # CONSUME
-                    new_stock = current_stock + qty
+            if request.method == "PUT":
+                data = request.json
+                updates = []
+                params = []
+                for field in ['quantity', 'unit_price', 'contact_name', 'comment', 'timestamp']:
+                    if field in data:
+                        if field in ['quantity', 'unit_price'] and float(data[field]) < 0:
+                            return jsonify({"error": f"{field} cannot be negative"}), 400
+                        updates.append(f"{field} = ?")
+                        params.append(data[field])
+                if not updates: return jsonify({"error": "No updates provided"}), 400
+                params.append(id)
+                conn.execute(f"UPDATE history SET {', '.join(updates)} WHERE id = ?", params)
+                conn.commit()
+                return jsonify({"success": True}), 200
                 
-                # Update inventory
-                conn.execute("UPDATE inventory SET current_stock = ? WHERE item_id = ?", (new_stock, item_id))
+            elif request.method == "DELETE":
+                # Get the history row
+                row = conn.execute("SELECT * FROM history WHERE id = ?", (id,)).fetchone()
+                if not row:
+                    return jsonify({"error": "History log not found"}), 404
                 
-            # Reverse ledger cash flow if there's a unit_price
-            unit_price = row.get('unit_price', 0)
-            if unit_price and unit_price > 0:
-                amount = unit_price * qty
-                if action == 'RESTOCK':
-                    conn.execute('INSERT INTO ledger (timestamp, type, amount, name, comment, logged_by) VALUES (?, ?, ?, ?, ?, ?)',
-                                 (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), 'Cash IN', amount, 'System', f'Reversal of Restock: {qty}x {row["item_name"]}', 'System'))
-                elif action == 'CONSUME':
-                    conn.execute('INSERT INTO ledger (timestamp, type, amount, name, comment, logged_by) VALUES (?, ?, ?, ?, ?, ?)',
-                                 (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), 'Cash OUT', amount, 'System', f'Reversal of Sale: {qty}x {row["item_name"]}', 'System'))
-            
-            # Delete the history row
-            conn.execute("DELETE FROM history WHERE id = ?", (id,))
-            conn.commit()
+                # Reverse the stock change in inventory
+                item_id = row['item_id']
+                qty = row['quantity']
+                action = row['action']
+                
+                inventory_item = conn.execute("SELECT current_stock FROM inventory WHERE item_id = ?", (item_id,)).fetchone()
+                if inventory_item:
+                    current_stock = inventory_item['current_stock']
+                    if action == 'RESTOCK':
+                        new_stock = current_stock - qty
+                    else: # CONSUME
+                        new_stock = current_stock + qty
+                    
+                    # Update inventory
+                    conn.execute("UPDATE inventory SET current_stock = ? WHERE item_id = ?", (new_stock, item_id))
+                    
+                # Reverse ledger cash flow if there's a unit_price
+                unit_price = row.get('unit_price', 0)
+                if unit_price and unit_price > 0:
+                    amount = unit_price * qty
+                    if action == 'RESTOCK':
+                        conn.execute('INSERT INTO ledger (timestamp, type, amount, name, comment, logged_by, account) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                                     (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), 'Cash IN', amount, 'System', f'Reversal of Restock: {qty}x {row["item_name"]}', 'System', 'Cash'))
+                    elif action == 'CONSUME':
+                        conn.execute('INSERT INTO ledger (timestamp, type, amount, name, comment, logged_by, account) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                                     (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), 'Cash OUT', amount, 'System', f'Reversal of Sale: {qty}x {row["item_name"]}', 'System', 'Cash'))
+                
+                # Delete the history row
+                conn.execute("DELETE FROM history WHERE id = ?", (id,))
+                conn.commit()
+                
+            return jsonify({"success": True}), 200
             
         return jsonify({"success": True}), 200
     except Exception as e:

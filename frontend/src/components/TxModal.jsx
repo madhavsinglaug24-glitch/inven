@@ -10,6 +10,8 @@ export const TxModal = ({ isOpen, onClose, onRefresh, type, token }) => {
     const [amount, setAmount] = useState('');
     const [merchant, setMerchant] = useState('');
     const [description, setDescription] = useState('');
+    const [txDate, setTxDate] = useState(new Date().toISOString().split('T')[0] + 'T' + new Date().toTimeString().split(' ')[0]);
+    const [account, setAccount] = useState('Cash');
     const [loading, setLoading] = useState(false);
     const [merchants, setMerchants] = useState([]);
     const [promptOpen, setPromptOpen] = useState(false);
@@ -34,7 +36,7 @@ export const TxModal = ({ isOpen, onClose, onRefresh, type, token }) => {
             const res = await fetch(`${API_BASE}/transactions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ amount: Number(amount), merchant, description, type })
+                body: JSON.stringify({ amount: Number(amount), merchant, description, type, date: txDate.replace('T', ' '), account })
             });
             if (res.ok) {
                 onRefresh();
@@ -42,7 +44,12 @@ export const TxModal = ({ isOpen, onClose, onRefresh, type, token }) => {
                 setAmount('');
                 setMerchant('');
                 setDescription('');
-            } else alert("Failed to add transaction");
+                setTxDate(new Date().toISOString().split('T')[0] + 'T' + new Date().toTimeString().split(' ')[0]);
+                setAccount('Cash');
+            } else {
+                const errData = await res.json();
+                alert(errData.error || "Failed to add transaction");
+            }
         } catch (err) { alert("Network error"); }
         setLoading(false);
     };
@@ -85,6 +92,20 @@ export const TxModal = ({ isOpen, onClose, onRefresh, type, token }) => {
     return (
         <Modal isOpen={isOpen} onClose={onClose} title={`Add ${type === 'income' ? 'Cash IN' : 'Cash OUT'}`}>
             <form onSubmit={handleSubmit}>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                    <div className="form-group" style={{ flex: 1 }}>
+                        <label className="form-label">Date & Time *</label>
+                        <input type="datetime-local" className="form-input" value={txDate} onChange={e => setTxDate(e.target.value)} required />
+                    </div>
+                    <div className="form-group" style={{ flex: 1 }}>
+                        <label className="form-label">Payment Method *</label>
+                        <select className="form-input" value={account} onChange={e => setAccount(e.target.value)} required>
+                            <option value="Cash">Cash</option>
+                            <option value="Bank">Bank</option>
+                        </select>
+                    </div>
+                </div>
+
                 <div className="form-group">
                     <label className="form-label">Amount (₹) *</label>
                     <input type="number" className="form-input" value={amount} onChange={e => setAmount(e.target.value)} required min="0" step="0.01" />
