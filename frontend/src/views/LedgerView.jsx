@@ -51,7 +51,8 @@ export const LedgerView = ({ token, refreshTrigger }) => {
         try {
             const res = await fetch(`${API_BASE}/transactions/${id}`, {
                 method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ confirmed: true })
             });
             if (res.ok) {
                 setConfirmDelete(null);
