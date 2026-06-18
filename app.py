@@ -47,8 +47,8 @@ app.config["SECRET_KEY"] = os.urandom(24)
 # Initialize SocketIO
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='gevent')
 
-DASHBOARD_PASSWORD = os.environ.get("DASHBOARD_PASSWORD", "admin123")
-ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
+DASHBOARD_PASSWORD = os.environ.get("DASHBOARD_PASSWORD", "InvenVault2026!")
+ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "Manager")
 
 logger = logging.getLogger(__name__)
 
@@ -190,8 +190,8 @@ def init_db():
         if row and row[0] == 0:
             import os
             from werkzeug.security import generate_password_hash
-            default_user = os.environ.get("ADMIN_USERNAME", "admin")
-            default_pass = os.environ.get("DASHBOARD_PASSWORD", "admin123")
+            default_user = os.environ.get("ADMIN_USERNAME", "Manager")
+            default_pass = os.environ.get("DASHBOARD_PASSWORD", "InvenVault2026!")
             cursor.execute("INSERT INTO web_users (username, password_hash, role) VALUES (?, ?, ?)",
                            (default_user, generate_password_hash(default_pass), "admin"))
             conn.commit()
@@ -398,8 +398,8 @@ def standard_login():
     if not username or not password:
         return jsonify({"message": "Username and password required"}), 400
         
-    env_user = os.environ.get("ADMIN_USERNAME", "admin123")
-    env_pass = os.environ.get("DASHBOARD_PASSWORD", "admin123")
+    env_user = os.environ.get("ADMIN_USERNAME", "Manager")
+    env_pass = os.environ.get("DASHBOARD_PASSWORD", "InvenVault2026!")
     
     role = None
     if username == env_user and password == env_pass:
