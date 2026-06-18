@@ -398,7 +398,7 @@ def standard_login():
     if not username or not password:
         return jsonify({"message": "Username and password required"}), 400
         
-    env_user = os.environ.get("ADMIN_USERNAME", "admin")
+    env_user = os.environ.get("ADMIN_USERNAME", "admin123")
     env_pass = os.environ.get("DASHBOARD_PASSWORD", "admin123")
     
     role = None
