@@ -516,8 +516,10 @@ def api_summary():
     if not check_dashboard_auth():
         return jsonify({"message": "Unauthorized"}), 401
     try:
+        start = request.args.get("start") or None
+        end = request.args.get("end") or None
         with get_db_connection() as conn:
-            return jsonify(fetch_summary(conn))
+            return jsonify(fetch_summary(conn, start=start, end=end))
     except Exception as e:
         return jsonify({"message": str(e)}), 500
 
@@ -547,7 +549,8 @@ def get_transactions():
                     'merchant': r['name'] or 'Unknown',
                     'credit': credit,
                     'debit': debit,
-                    'balance': r['balance'],
+                    'balance': r['net_balance'],
+                    'acct_balance': r['acct_balance'],
                     'account': r['account'] if 'account' in r.keys() else 'Cash'
                 })
             return jsonify(formatted_txs), 200

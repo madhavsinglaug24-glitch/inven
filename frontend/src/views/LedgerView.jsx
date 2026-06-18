@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { PlusCircle, MinusCircle, Search, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 import { API_BASE } from '../api';
 import { formatMoney, formatSignedMoney } from '../utils/money';
-import { getPreviousMonthRange } from '../utils/dateFilters';
+import { getFilterRange } from '../utils/dateFilters';
 import { TxModal } from '../components/TxModal';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { PrintModal } from '../components/PrintModal';
@@ -71,18 +71,55 @@ export const LedgerView = ({ token, refreshTrigger }) => {
 
     const existingMerchants = [...new Set(txs.map(t => t.merchant))].filter(Boolean);
 
-    const { rangeStart, rangeEnd } = useMemo(() => {
-        if (timeFilter === 'last_month') {
-            return getPreviousMonthRange();
+    const { start: rangeStart, end: rangeEnd } = useMemo(
+        () => getFilterRange(timeFilter, customStart, customEnd),
+        [timeFilter, customStart, customEnd]
+    );
+
+    const rowBalance = (tx) => {
+        if (accountFilter === 'Cash' || accountFilter === 'Bank') return tx.acct_balance ?? tx.balance ?? 0;
+        return tx.balance ?? 0;
+    };
+
+    const txPassesEndFilter = (t) => {
+        if (timeFilter === 'all') return true;
+        const txDate = new Date(t.date);
+        let endCutoff = null;
+        if (timeFilter === 'month') {
+            const now = new Date();
+            endCutoff = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+        } else if (timeFilter === 'year') {
+            endCutoff = new Date(new Date().getFullYear(), 11, 31, 23, 59, 59, 999);
+        } else if ((timeFilter === 'custom' || timeFilter === 'last_month') && rangeEnd) {
+            endCutoff = new Date(rangeEnd);
+            endCutoff.setHours(23, 59, 59, 999);
         }
-        if (timeFilter !== 'custom' || !customStart || !customEnd) {
-            return { rangeStart: customStart, rangeEnd: customEnd };
+        if (!endCutoff) return true;
+        return txDate <= endCutoff;
+    };
+
+    const txBeforePeriod = (t) => {
+        const txDate = new Date(t.date);
+        const now = new Date();
+        if (timeFilter === 'month') {
+            return txDate < new Date(now.getFullYear(), now.getMonth(), 1);
         }
-        if (customStart > customEnd) {
-            return { rangeStart: customEnd, rangeEnd: customStart };
+        if (timeFilter === 'year') {
+            return txDate < new Date(now.getFullYear(), 0, 1);
         }
-        return { rangeStart: customStart, rangeEnd: customEnd };
-    }, [timeFilter, customStart, customEnd]);
+        if ((timeFilter === 'custom' || timeFilter === 'last_month') && rangeStart) {
+            const startD = new Date(rangeStart);
+            startD.setHours(0, 0, 0, 0);
+            return txDate < startD;
+        }
+        return false;
+    };
+
+    const matchesAccount = (t) => {
+        if (accountFilter === 'all') return true;
+        if (accountFilter === 'Cash') return !t.account || t.account === 'Cash';
+        return t.account === 'Bank';
+    };
 
     // Filter Logic
     const filteredTxs = useMemo(() => {
@@ -108,7 +145,7 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                 }
             }
             if (accountFilter !== 'all') {
-                if (accountFilter === 'Cash' && t.account !== 'Cash') return false;
+                if (accountFilter === 'Cash' && t.account && t.account !== 'Cash') return false;
                 if (accountFilter === 'Bank' && t.account !== 'Bank') return false;
             }
             if (search) {
@@ -124,71 +161,34 @@ export const LedgerView = ({ token, refreshTrigger }) => {
         }).reverse();
     }, [txs, search, timeFilter, rangeStart, rangeEnd, accountFilter]);
 
-    const { totalFilteredBalance, totalFilteredCredit, totalFilteredDebit, finalCashBalance, finalBankBalance, openCashBalance, openBankBalance } = useMemo(() => {
+    const { totalFilteredBalance, totalFilteredCredit, totalFilteredDebit, openingBalance } = useMemo(() => {
         let cred = 0, deb = 0;
-        let lastCashBal = null;
-        let lastBankBal = null;
-        let startCashBal = null;
-        let startBankBal = null;
-        const allTxsDesc = txs; // txs is already DESC (newest first) from backend
-        
-        allTxsDesc.forEach(t => {
-            const txDate = new Date(t.date);
-            const now = new Date();
-            
-            let isValidForClosing = true;
-            if ((timeFilter === 'custom' || timeFilter === 'last_month') && rangeEnd) {
-                const endD = new Date(rangeEnd);
-                endD.setHours(23, 59, 59, 999);
-                if (txDate > endD) isValidForClosing = false;
-            }
-            if (isValidForClosing) {
-                if (lastCashBal === null && (!t.account || t.account === 'Cash')) lastCashBal = t.balance;
-                if (lastBankBal === null && t.account === 'Bank') lastBankBal = t.balance;
-            }
-
-            let isBeforePeriod = false;
-            if (timeFilter === 'month') {
-                const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-                if (txDate < startOfMonth) isBeforePeriod = true;
-            } else if (timeFilter === 'year') {
-                const startOfYear = new Date(now.getFullYear(), 0, 1);
-                if (txDate < startOfYear) isBeforePeriod = true;
-            } else if ((timeFilter === 'custom' || timeFilter === 'last_month') && rangeStart) {
-                const startD = new Date(rangeStart);
-                startD.setHours(0, 0, 0, 0);
-                if (txDate < startD) isBeforePeriod = true;
-            }
-
-            if (isBeforePeriod) {
-                if (startCashBal === null && (!t.account || t.account === 'Cash')) startCashBal = t.balance;
-                if (startBankBal === null && t.account === 'Bank') startBankBal = t.balance;
-            }
-        });
-        
         filteredTxs.forEach(t => {
             cred += (t.credit || 0);
             deb += (t.debit || 0);
         });
-        
-        lastCashBal = lastCashBal || 0;
-        lastBankBal = lastBankBal || 0;
-        startCashBal = startCashBal || 0;
-        startBankBal = startBankBal || 0;
-        
-        let totalBal;
-        if (accountFilter === 'Cash') totalBal = lastCashBal;
-        else if (accountFilter === 'Bank') totalBal = lastBankBal;
-        else totalBal = lastCashBal + lastBankBal;
 
-        return { 
-            totalFilteredBalance: totalBal, 
-            totalFilteredCredit: cred, 
+        let closingBal = 0;
+        for (const t of txs) {
+            if (!txPassesEndFilter(t) || !matchesAccount(t)) continue;
+            closingBal = rowBalance(t);
+            break;
+        }
+
+        let openBal = 0;
+        if (timeFilter !== 'all') {
+            const chronological = [...txs].reverse();
+            for (const t of chronological) {
+                if (!txBeforePeriod(t) || !matchesAccount(t)) continue;
+                openBal = rowBalance(t);
+            }
+        }
+
+        return {
+            totalFilteredBalance: closingBal,
+            totalFilteredCredit: cred,
             totalFilteredDebit: deb,
-            finalCashBalance: lastCashBal,
-            finalBankBalance: lastBankBal,
-            openCashBalance: startCashBal,
-            openBankBalance: startBankBal
+            openingBalance: openBal,
         };
     }, [filteredTxs, accountFilter, timeFilter, rangeStart, rangeEnd, txs]);
 
@@ -306,19 +306,14 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                 
                 <div className="desktop-only">
                     <table className="data-table">
-                        <thead><tr><th>ID</th><th>Date</th><th>Merchant</th><th>Credit</th><th>Debit</th><th title="Running balance for that row's account (Cash or Bank), not combined total">Acct. Balance</th><th></th></tr></thead>
+                        <thead><tr><th>ID</th><th>Date</th><th>Merchant</th><th>Credit</th><th>Debit</th><th title="Combined cash + bank balance after this transaction">Balance</th><th></th></tr></thead>
                         <tbody>
                             {timeFilter !== 'all' && (
                                 <tr style={{ backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-color)' }}>
-                                    <td colSpan="3" style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>Carry Forward (Opening Balance)</td>
+                                    <td colSpan="3" style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>Opening Balance</td>
                                     <td></td>
                                     <td></td>
-                                    <td style={{ fontWeight: 'bold' }}>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '13px' }}>
-                                            <span><span style={{ color: 'var(--text-secondary)' }}>Cash:</span> {formatMoney(openCashBalance)}</span>
-                                            <span><span style={{ color: 'var(--text-secondary)' }}>Bank:</span> {formatMoney(openBankBalance)}</span>
-                                        </div>
-                                    </td>
+                                    <td style={{ fontWeight: 'bold' }}>{formatMoney(openingBalance)}</td>
                                     <td></td>
                                 </tr>
                             )}
@@ -335,7 +330,7 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                                         </td>
                                         <td style={{ color: 'var(--accent-green)', fontWeight: 600 }}>{tx.credit > 0 ? formatMoney(tx.credit) : '-'}</td>
                                         <td style={{ color: 'var(--accent-red)', fontWeight: 600 }}>{tx.debit > 0 ? formatMoney(tx.debit) : '-'}</td>
-                                        <td style={{ fontWeight: 'bold' }}>{formatMoney(tx.balance)}</td>
+                                        <td style={{ fontWeight: 'bold' }}>{formatMoney(rowBalance(tx))}</td>
                                         <td style={{ display: 'flex', gap: '4px' }}>
                                             <button className="btn-action" onClick={(e) => { e.stopPropagation(); setEditTxn(tx); }} style={{ padding: '8px', color: 'var(--accent-teal)' }}>
                                                 <Edit2 size={16} />
@@ -358,15 +353,7 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                                     <td colSpan="3"></td>
                                     <td style={{ color: 'var(--accent-green)', fontWeight: 'bold' }}>{formatMoney(totalFilteredCredit)}</td>
                                     <td style={{ color: 'var(--accent-red)', fontWeight: 'bold' }}>{formatMoney(totalFilteredDebit)}</td>
-                                    <td style={{ fontWeight: 'bold' }}>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '13px' }}>
-                                            <span><span style={{ color: 'var(--text-secondary)' }}>Cash:</span> {formatMoney(finalCashBalance)}</span>
-                                            <span><span style={{ color: 'var(--text-secondary)' }}>Bank:</span> {formatMoney(finalBankBalance)}</span>
-                                            <span style={{ borderTop: '1px solid var(--border-color)', paddingTop: '4px', marginTop: '2px' }}>
-                                                <span style={{ color: 'var(--text-secondary)' }}>Net:</span> {formatMoney(totalFilteredBalance)}
-                                            </span>
-                                        </div>
-                                    </td>
+                                    <td style={{ fontWeight: 'bold' }}>{formatMoney(totalFilteredBalance)}</td>
                                     <td></td>
                                 </tr>
                             </tfoot>
@@ -377,10 +364,7 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                     {timeFilter !== 'all' && (
                         <div style={{ padding: '16px', backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span style={{ color: 'var(--text-secondary)', fontWeight: 600, fontSize: '14px' }}>Opening Balance</span>
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
-                                <span style={{ fontSize: '13px', fontWeight: 'bold' }}>Cash: {formatMoney(openCashBalance)}</span>
-                                <span style={{ fontSize: '13px', fontWeight: 'bold' }}>Bank: {formatMoney(openBankBalance)}</span>
-                            </div>
+                            <span style={{ fontSize: '15px', fontWeight: 'bold' }}>{formatMoney(openingBalance)}</span>
                         </div>
                     )}
                     {filteredTxs.map((tx, i) => (
@@ -417,7 +401,7 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                                     </div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
                                         <span style={{ color: 'var(--text-secondary)' }}>Balance After</span>
-                                        <span style={{ fontWeight: 'bold' }}>{formatMoney(tx.balance)}</span>
+                                        <span style={{ fontWeight: 'bold' }}>{formatMoney(rowBalance(tx))}</span>
                                     </div>
                                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px', gap: '8px' }}>
                                         <button 
@@ -449,12 +433,8 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                                 <span style={{ color: 'var(--accent-red)', fontWeight: 'bold' }}>{formatMoney(totalFilteredDebit)}</span>
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'right' }}>
-                                <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Current Balance</span>
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
-                                    <span style={{ fontSize: '13px', fontWeight: 'bold' }}>Cash: {formatMoney(finalCashBalance)}</span>
-                                    <span style={{ fontSize: '13px', fontWeight: 'bold' }}>Bank: {formatMoney(finalBankBalance)}</span>
-                                    <span style={{ fontSize: '13px', fontWeight: 'bold', marginTop: '4px' }}>Net: {formatMoney(totalFilteredBalance)}</span>
-                                </div>
+                                <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Balance</span>
+                                <span style={{ fontSize: '15px', fontWeight: 'bold' }}>{formatMoney(totalFilteredBalance)}</span>
                             </div>
                         </div>
                     {loading ? (

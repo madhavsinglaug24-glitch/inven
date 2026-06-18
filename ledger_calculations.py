@@ -1,38 +1,75 @@
 """Shared ledger balance and summary calculations for the web dashboard."""
 
 
-def fetch_summary(conn) -> dict:
-    """Compute income, expense, and per-account balances from the ledger."""
+def _ts_start(date_str: str) -> str:
+    return date_str if " " in date_str else f"{date_str} 00:00:00"
+
+
+def _ts_end(date_str: str) -> str:
+    return date_str if " " in date_str else f"{date_str} 23:59:59"
+
+
+def fetch_summary(conn, start: str | None = None, end: str | None = None) -> dict:
+    """Compute income, expense, and balances. Optional start/end filter period totals; balances are as-of end (or latest)."""
+    in_where = "type = 'Cash IN'"
+    out_where = "type = 'Cash OUT'"
+    params_in: list = []
+    params_out: list = []
+
+    if start:
+        in_where += " AND timestamp >= ?"
+        out_where += " AND timestamp >= ?"
+        params_in.append(_ts_start(start))
+        params_out.append(_ts_start(start))
+    if end:
+        in_where += " AND timestamp <= ?"
+        out_where += " AND timestamp <= ?"
+        params_in.append(_ts_end(end))
+        params_out.append(_ts_end(end))
+
     income = float(conn.execute(
-        "SELECT COALESCE(SUM(amount), 0) FROM ledger WHERE type = 'Cash IN'"
+        f"SELECT COALESCE(SUM(amount), 0) FROM ledger WHERE {in_where}", params_in
     ).fetchone()[0])
     expense = float(conn.execute(
-        "SELECT COALESCE(SUM(amount), 0) FROM ledger WHERE type = 'Cash OUT'"
+        f"SELECT COALESCE(SUM(amount), 0) FROM ledger WHERE {out_where}", params_out
     ).fetchone()[0])
 
-    cash_in = float(conn.execute(
-        "SELECT COALESCE(SUM(amount), 0) FROM ledger WHERE type = 'Cash IN' AND COALESCE(account, 'Cash') = 'Cash'"
-    ).fetchone()[0])
-    cash_out = float(conn.execute(
-        "SELECT COALESCE(SUM(amount), 0) FROM ledger WHERE type = 'Cash OUT' AND COALESCE(account, 'Cash') = 'Cash'"
-    ).fetchone()[0])
-    bank_in = float(conn.execute(
-        "SELECT COALESCE(SUM(amount), 0) FROM ledger WHERE type = 'Cash IN' AND account = 'Bank'"
-    ).fetchone()[0])
-    bank_out = float(conn.execute(
-        "SELECT COALESCE(SUM(amount), 0) FROM ledger WHERE type = 'Cash OUT' AND account = 'Bank'"
-    ).fetchone()[0])
-
-    cash_balance = cash_in - cash_out
-    bank_balance = bank_in - bank_out
+    cash_balance, bank_balance = balances_at_cutoff(conn, end)
 
     return {
         "income": round(income, 2),
         "expense": round(expense, 2),
-        "balance": round(income - expense, 2),
+        "balance": round(cash_balance + bank_balance, 2),
         "cash_balance": round(cash_balance, 2),
         "bank_balance": round(bank_balance, 2),
     }
+
+
+def balances_at_cutoff(conn, cutoff: str | None = None) -> tuple[float, float]:
+    """Per-account balances including only rows on or before cutoff (latest row if cutoff omitted)."""
+    if cutoff is None:
+        latest = latest_balances_by_account(conn)
+        return latest.get("Cash", 0.0), latest.get("Bank", 0.0)
+
+    rows = conn.execute("""
+        SELECT COALESCE(account, 'Cash') AS account, balance FROM (
+            SELECT account, balance,
+                ROW_NUMBER() OVER (
+                    PARTITION BY COALESCE(account, 'Cash')
+                    ORDER BY timestamp DESC, id DESC
+                ) AS rn
+            FROM (
+                SELECT account, timestamp, id,
+                    SUM(CASE WHEN type LIKE '%IN%' THEN amount ELSE -amount END)
+                        OVER (PARTITION BY COALESCE(account, 'Cash') ORDER BY timestamp ASC, id ASC) AS balance
+                FROM ledger
+                WHERE timestamp <= ?
+            )
+        )
+        WHERE rn = 1
+    """, (_ts_end(cutoff),)).fetchall()
+    latest = {row["account"]: float(row["balance"]) for row in rows}
+    return latest.get("Cash", 0.0), latest.get("Bank", 0.0)
 
 
 def fetch_month_stats(conn, month_str: str) -> tuple[float, float]:
@@ -49,10 +86,12 @@ def fetch_month_stats(conn, month_str: str) -> tuple[float, float]:
 
 
 TRANSACTIONS_WITH_BALANCE_SQL = """
-SELECT id, txn_id, timestamp, name, amount, type, account, balance FROM (
+SELECT id, txn_id, timestamp, name, amount, type, account, acct_balance, net_balance FROM (
     SELECT id, txn_id, timestamp, name, amount, type, account,
         SUM(CASE WHEN type LIKE '%IN%' THEN amount ELSE -amount END)
-            OVER (PARTITION BY COALESCE(account, 'Cash') ORDER BY timestamp ASC, id ASC) AS balance
+            OVER (PARTITION BY COALESCE(account, 'Cash') ORDER BY timestamp ASC, id ASC) AS acct_balance,
+        SUM(CASE WHEN type LIKE '%IN%' THEN amount ELSE -amount END)
+            OVER (ORDER BY timestamp ASC, id ASC) AS net_balance
     FROM ledger
 )
 ORDER BY timestamp DESC, id DESC

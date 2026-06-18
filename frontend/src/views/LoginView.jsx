@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, ArrowRight, User } from 'lucide-react';
+import { ArrowRight, User } from 'lucide-react';
 import { API_BASE } from '../api';
 
 export const LoginView = ({ onLoginSuccess }) => {
@@ -50,13 +50,7 @@ export const LoginView = ({ onLoginSuccess }) => {
         }}>
             <div className="card" style={{ maxWidth: '400px', width: '100%', padding: '40px 30px' }}>
                 <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
-                    <div style={{ 
-                        width: '60px', height: '60px', borderRadius: '16px', 
-                        backgroundColor: 'var(--accent-teal-dim)', display: 'flex', 
-                        alignItems: 'center', justifyContent: 'center', color: 'var(--accent-teal)' 
-                    }}>
-                        <Lock size={32} />
-                    </div>
+                    <img src="/sde-logo.svg" alt="Inven" style={{ width: '60px', height: '60px', borderRadius: '16px' }} />
                 </div>
                 
                 <h1 style={{ textAlign: 'center', marginBottom: '10px', fontSize: '24px', color: 'var(--text-primary)' }}>

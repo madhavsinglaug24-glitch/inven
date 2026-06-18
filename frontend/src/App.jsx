@@ -122,8 +122,8 @@ function App() {
         <div id="root">
             <div className="mobile-header">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <img src="/sde-logo.svg" alt="SDE Logo" style={{ height: '32px', borderRadius: '6px' }} />
-                    <span className="brand-name" style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, letterSpacing: '3px', fontSize: '22px', textTransform: 'uppercase' }}>SDE</span>
+                    <img src="/sde-logo.svg" alt="Inven" style={{ height: '32px', borderRadius: '6px' }} />
+                    <span className="brand-name" style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, letterSpacing: '3px', fontSize: '22px', textTransform: 'uppercase' }}>Inven</span>
                 </div>
                 <button className="btn-action" onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} style={{ padding: '8px' }}>
                     {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
@@ -135,6 +135,12 @@ function App() {
                     <button onClick={() => setSidebarOpen(!sidebarOpen)} style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}>
                         <Menu style={{ width: '28px', height: '28px' }} />
                     </button>
+                    {sidebarOpen && (
+                        <>
+                            <img src="/sde-logo.svg" alt="Inven" style={{ height: '32px', borderRadius: '8px' }} />
+                            <span className="brand-name" style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, letterSpacing: '2px', fontSize: '18px' }}>Inven</span>
+                        </>
+                    )}
                 </div>
                 <nav>
                     <ul className="nav-menu">
