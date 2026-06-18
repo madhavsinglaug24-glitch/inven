@@ -786,17 +786,6 @@ def update_history(id):
                     # Update inventory
                     conn.execute("UPDATE inventory SET current_stock = ? WHERE item_id = ?", (new_stock, item_id))
                     
-                # Reverse ledger cash flow if there's a unit_price
-                unit_price = row['unit_price'] if 'unit_price' in row.keys() else 0
-                if unit_price and unit_price > 0:
-                    amount = unit_price * qty
-                    if action == 'RESTOCK':
-                        conn.execute('INSERT INTO ledger (timestamp, type, amount, name, comment, logged_by, account) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                                     (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), 'Cash IN', amount, 'System', f'Reversal of Restock: {qty}x {row["item_name"]}', 'System', 'Cash'))
-                    elif action == 'CONSUME':
-                        conn.execute('INSERT INTO ledger (timestamp, type, amount, name, comment, logged_by, account) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                                     (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), 'Cash OUT', amount, 'System', f'Reversal of Sale: {qty}x {row["item_name"]}', 'System', 'Cash'))
-                
                 # Delete the history row
                 conn.execute("DELETE FROM history WHERE id = ?", (id,))
                 conn.commit()
