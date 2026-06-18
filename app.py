@@ -1,6 +1,6 @@
 """
-SDE Inventory & Ledger Web Dashboard
-====================================
+Inven — Inventory & Ledger Web Dashboard
+========================================
 Flask backend serving the React dashboard for inventory and ledger management.
 
 Environment variables (see .env.example):
