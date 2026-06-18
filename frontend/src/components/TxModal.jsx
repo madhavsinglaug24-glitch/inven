@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Modal } from './Modal';
 import { PromptModal } from './PromptModal';
@@ -30,13 +29,18 @@ export const TxModal = ({ isOpen, onClose, onRefresh, type, token }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!amount || !merchant) return alert("Amount and Merchant are mandatory!");
+        if (loading) return;
+        const parsedAmount = Number(amount);
+        if (!parsedAmount || parsedAmount <= 0) {
+            return alert("Amount must be greater than 0");
+        }
+        if (!merchant) return alert("Amount and Merchant are mandatory!");
         setLoading(true);
         try {
             const res = await fetch(`${API_BASE}/transactions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ amount: Number(amount), merchant, description, type, date: txDate.replace('T', ' '), account })
+                body: JSON.stringify({ amount: parsedAmount, merchant, description, type, date: txDate.replace('T', ' '), account })
             });
             if (res.ok) {
                 onRefresh();
@@ -108,7 +112,7 @@ export const TxModal = ({ isOpen, onClose, onRefresh, type, token }) => {
 
                 <div className="form-group">
                     <label className="form-label">Amount (₹) *</label>
-                    <input type="number" className="form-input" value={amount} onChange={e => setAmount(e.target.value)} required min="0" step="0.01" />
+                    <input type="number" className="form-input" value={amount} onChange={e => setAmount(e.target.value)} required min="0.01" step="0.01" />
                 </div>
                 
                 <div className="form-group">

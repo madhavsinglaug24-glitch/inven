@@ -44,7 +44,11 @@ export const PrintModal = ({ isOpen, onClose, columns, data, title }) => {
                     <style>
                         body { font-family: Arial, sans-serif; padding: 20px; color: #333; }
                         h1 { text-align: center; margin-bottom: 20px; }
-                        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px; }
+                        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px; table-layout: auto; word-break: break-word; }
+                        @media (max-width: 480px) {
+                            body { padding: 8px; }
+                            table { font-size: 11px; display: block; overflow-x: auto; }
+                        }
                         th { font-weight: bold; }
                     </style>
                 </head>

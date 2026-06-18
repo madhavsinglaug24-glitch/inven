@@ -1,7 +1,7 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
-import { PlusCircle, MinusCircle, Search, ChevronDown, ChevronUp, Trash2, Download } from 'lucide-react';
+import { PlusCircle, MinusCircle, Search, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 import { API_BASE } from '../api';
+import { formatMoney, formatSignedMoney } from '../utils/money';
 import { TxModal } from '../components/TxModal';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { PrintModal } from '../components/PrintModal';
@@ -55,6 +55,7 @@ export const LedgerView = ({ token, refreshTrigger }) => {
             });
             if (res.ok) {
                 setConfirmDelete(null);
+                if (editTxn?.id === id) setEditTxn(null);
                 loadTxs();
             } else {
                 alert("Failed to delete transaction");
@@ -68,6 +69,16 @@ export const LedgerView = ({ token, refreshTrigger }) => {
 
     const existingMerchants = [...new Set(txs.map(t => t.merchant))].filter(Boolean);
 
+    const { rangeStart, rangeEnd } = useMemo(() => {
+        if (timeFilter !== 'custom' || !customStart || !customEnd) {
+            return { rangeStart: customStart, rangeEnd: customEnd };
+        }
+        if (customStart > customEnd) {
+            return { rangeStart: customEnd, rangeEnd: customStart };
+        }
+        return { rangeStart: customStart, rangeEnd: customEnd };
+    }, [timeFilter, customStart, customEnd]);
+
     // Filter Logic
     const filteredTxs = useMemo(() => {
         return txs.filter(t => {
@@ -79,11 +90,15 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                 } else if (timeFilter === 'year') {
                     if (txDate.getFullYear() !== now.getFullYear()) return false;
                 } else if (timeFilter === 'custom') {
-                    if (customStart && new Date(t.date) < new Date(customStart)) return false;
-                    if (customEnd) {
-                        const endD = new Date(customEnd);
+                    if (rangeStart) {
+                        const startD = new Date(rangeStart);
+                        startD.setHours(0, 0, 0, 0);
+                        if (txDate < startD) return false;
+                    }
+                    if (rangeEnd) {
+                        const endD = new Date(rangeEnd);
                         endD.setHours(23, 59, 59, 999);
-                        if (new Date(t.date) > endD) return false;
+                        if (txDate > endD) return false;
                     }
                 }
             }
@@ -102,7 +117,7 @@ export const LedgerView = ({ token, refreshTrigger }) => {
             }
             return true;
         }).reverse();
-    }, [txs, search, timeFilter, customStart, customEnd, accountFilter]);
+    }, [txs, search, timeFilter, rangeStart, rangeEnd, accountFilter]);
 
     const { totalFilteredBalance, totalFilteredCredit, totalFilteredDebit, finalCashBalance, finalBankBalance, openCashBalance, openBankBalance } = useMemo(() => {
         let cred = 0, deb = 0;
@@ -117,8 +132,8 @@ export const LedgerView = ({ token, refreshTrigger }) => {
             const now = new Date();
             
             let isValidForClosing = true;
-            if (timeFilter === 'custom' && customEnd) {
-                const endD = new Date(customEnd);
+            if (timeFilter === 'custom' && rangeEnd) {
+                const endD = new Date(rangeEnd);
                 endD.setHours(23, 59, 59, 999);
                 if (txDate > endD) isValidForClosing = false;
             }
@@ -134,8 +149,8 @@ export const LedgerView = ({ token, refreshTrigger }) => {
             } else if (timeFilter === 'year') {
                 const startOfYear = new Date(now.getFullYear(), 0, 1);
                 if (txDate < startOfYear) isBeforePeriod = true;
-            } else if (timeFilter === 'custom' && customStart) {
-                const startD = new Date(customStart);
+            } else if (timeFilter === 'custom' && rangeStart) {
+                const startD = new Date(rangeStart);
                 startD.setHours(0, 0, 0, 0);
                 if (txDate < startD) isBeforePeriod = true;
             }
@@ -170,7 +185,7 @@ export const LedgerView = ({ token, refreshTrigger }) => {
             openCashBalance: startCashBal,
             openBankBalance: startBankBal
         };
-    }, [filteredTxs, accountFilter, timeFilter, customStart, customEnd, txs]);
+    }, [filteredTxs, accountFilter, timeFilter, rangeStart, rangeEnd, txs]);
 
 
 
@@ -178,9 +193,9 @@ export const LedgerView = ({ token, refreshTrigger }) => {
         { key: 'id', label: 'ID' },
         { key: 'date', label: 'Date' },
         { key: 'merchant', label: 'Merchant' },
-        { key: 'credit', label: 'Credit', render: r => r.credit > 0 ? `₹${r.credit.toLocaleString()}` : '-' },
-        { key: 'debit', label: 'Debit', render: r => r.debit > 0 ? `₹${r.debit.toLocaleString()}` : '-' },
-        { key: 'balance', label: 'Balance', render: r => `₹${r.balance.toLocaleString()}` }
+        { key: 'credit', label: 'Credit', render: r => r.credit > 0 ? formatMoney(r.credit) : '-' },
+        { key: 'debit', label: 'Debit', render: r => r.debit > 0 ? formatMoney(r.debit) : '-' },
+        { key: 'balance', label: 'Balance', render: r => formatMoney(r.balance) }
     ];
 
     return (
@@ -240,6 +255,9 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                         <option value="Bank">Bank Only</option>
                     </select>
 
+                    {timeFilter === 'custom' && customStart && customEnd && customStart > customEnd && (
+                        <span style={{ color: 'var(--accent-red)', fontSize: '12px' }}>Dates swapped (From was after To)</span>
+                    )}
                     {timeFilter === 'custom' && (
                         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                             <input 
@@ -255,7 +273,6 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                                 className="form-input" 
                                 value={customEnd} 
                                 onChange={e => setCustomEnd(e.target.value)} 
-                                min={customStart}
                                 style={{ backgroundColor: 'var(--bg-elevated)', padding: '8px 12px' }}
                             />
                         </div>
@@ -292,8 +309,8 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                                     <td></td>
                                     <td style={{ fontWeight: 'bold' }}>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '13px' }}>
-                                            <span><span style={{ color: 'var(--text-secondary)' }}>Cash:</span> ₹{openCashBalance.toLocaleString()}</span>
-                                            <span><span style={{ color: 'var(--text-secondary)' }}>Bank:</span> ₹{openBankBalance.toLocaleString()}</span>
+                                            <span><span style={{ color: 'var(--text-secondary)' }}>Cash:</span> {formatMoney(openCashBalance)}</span>
+                                            <span><span style={{ color: 'var(--text-secondary)' }}>Bank:</span> {formatMoney(openBankBalance)}</span>
                                         </div>
                                     </td>
                                     <td></td>
@@ -310,9 +327,9 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                                                 {tx.account === 'Bank' ? '🏦 Bank' : '💵 Cash'}
                                             </span>
                                         </td>
-                                        <td style={{ color: 'var(--accent-green)', fontWeight: 600 }}>{tx.credit > 0 ? `₹${tx.credit.toLocaleString()}` : '-'}</td>
-                                        <td style={{ color: 'var(--accent-red)', fontWeight: 600 }}>{tx.debit > 0 ? `₹${tx.debit.toLocaleString()}` : '-'}</td>
-                                        <td style={{ fontWeight: 'bold' }}>₹{tx.balance.toLocaleString()}</td>
+                                        <td style={{ color: 'var(--accent-green)', fontWeight: 600 }}>{tx.credit > 0 ? formatMoney(tx.credit) : '-'}</td>
+                                        <td style={{ color: 'var(--accent-red)', fontWeight: 600 }}>{tx.debit > 0 ? formatMoney(tx.debit) : '-'}</td>
+                                        <td style={{ fontWeight: 'bold' }}>{formatMoney(tx.balance)}</td>
                                         <td style={{ display: 'flex', gap: '4px' }}>
                                             <button className="btn-action" onClick={(e) => { e.stopPropagation(); setEditTxn(tx); }} style={{ padding: '8px', color: 'var(--accent-teal)' }}>
                                                 <Edit2 size={16} />
@@ -333,12 +350,12 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                         <tfoot>
                                 <tr style={{ backgroundColor: 'var(--bg-elevated)', borderTop: '2px solid var(--border-color)' }}>
                                     <td colSpan="3"></td>
-                                    <td style={{ color: 'var(--accent-green)', fontWeight: 'bold' }}>₹{totalFilteredCredit.toLocaleString()}</td>
-                                    <td style={{ color: 'var(--accent-red)', fontWeight: 'bold' }}>₹{totalFilteredDebit.toLocaleString()}</td>
+                                    <td style={{ color: 'var(--accent-green)', fontWeight: 'bold' }}>{formatMoney(totalFilteredCredit)}</td>
+                                    <td style={{ color: 'var(--accent-red)', fontWeight: 'bold' }}>{formatMoney(totalFilteredDebit)}</td>
                                     <td style={{ fontWeight: 'bold' }}>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '13px' }}>
-                                            <span><span style={{ color: 'var(--text-secondary)' }}>Cash:</span> ₹{finalCashBalance.toLocaleString()}</span>
-                                            <span><span style={{ color: 'var(--text-secondary)' }}>Bank:</span> ₹{finalBankBalance.toLocaleString()}</span>
+                                            <span><span style={{ color: 'var(--text-secondary)' }}>Cash:</span> {formatMoney(finalCashBalance)}</span>
+                                            <span><span style={{ color: 'var(--text-secondary)' }}>Bank:</span> {formatMoney(finalBankBalance)}</span>
                                         </div>
                                     </td>
                                     <td></td>
@@ -352,8 +369,8 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                         <div style={{ padding: '16px', backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span style={{ color: 'var(--text-secondary)', fontWeight: 600, fontSize: '14px' }}>Opening Balance</span>
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
-                                <span style={{ fontSize: '13px', fontWeight: 'bold' }}>Cash: ₹{openCashBalance.toLocaleString()}</span>
-                                <span style={{ fontSize: '13px', fontWeight: 'bold' }}>Bank: ₹{openBankBalance.toLocaleString()}</span>
+                                <span style={{ fontSize: '13px', fontWeight: 'bold' }}>Cash: {formatMoney(openCashBalance)}</span>
+                                <span style={{ fontSize: '13px', fontWeight: 'bold' }}>Bank: {formatMoney(openBankBalance)}</span>
                             </div>
                         </div>
                     )}
@@ -377,7 +394,7 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                                         fontWeight: 600, 
                                         color: tx.credit > 0 ? 'var(--accent-green)' : 'var(--accent-red)' 
                                     }}>
-                                        {tx.credit > 0 ? `+₹${tx.credit.toLocaleString()}` : `-₹${tx.debit.toLocaleString()}`}
+                                        {tx.credit > 0 ? formatSignedMoney(tx.credit, '+') : formatSignedMoney(tx.debit, '-')}
                                     </span>
                                     {expandedTxn === i ? <ChevronUp size={20} color="var(--text-secondary)"/> : <ChevronDown size={20} color="var(--text-secondary)"/>}
                                 </div>
@@ -391,7 +408,7 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                                     </div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
                                         <span style={{ color: 'var(--text-secondary)' }}>Balance After</span>
-                                        <span style={{ fontWeight: 'bold' }}>₹{tx.balance.toLocaleString()}</span>
+                                        <span style={{ fontWeight: 'bold' }}>{formatMoney(tx.balance)}</span>
                                     </div>
                                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px', gap: '8px' }}>
                                         <button 
@@ -416,17 +433,17 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                         <div style={{ padding: '16px', backgroundColor: 'var(--bg-elevated)', display: 'flex', justifyContent: 'space-between', borderTop: '2px solid var(--border-color)', borderBottom: '1px solid var(--border-color)' }}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                 <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Total Credits</span>
-                                <span style={{ color: 'var(--accent-green)', fontWeight: 'bold' }}>₹{totalFilteredCredit.toLocaleString()}</span>
+                                <span style={{ color: 'var(--accent-green)', fontWeight: 'bold' }}>{formatMoney(totalFilteredCredit)}</span>
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'center' }}>
                                 <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Total Debits</span>
-                                <span style={{ color: 'var(--accent-red)', fontWeight: 'bold' }}>₹{totalFilteredDebit.toLocaleString()}</span>
+                                <span style={{ color: 'var(--accent-red)', fontWeight: 'bold' }}>{formatMoney(totalFilteredDebit)}</span>
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'right' }}>
                                 <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Current Balance</span>
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
-                                    <span style={{ fontSize: '13px', fontWeight: 'bold' }}>Cash: ₹{finalCashBalance.toLocaleString()}</span>
-                                    <span style={{ fontSize: '13px', fontWeight: 'bold' }}>Bank: ₹{finalBankBalance.toLocaleString()}</span>
+                                    <span style={{ fontSize: '13px', fontWeight: 'bold' }}>Cash: {formatMoney(finalCashBalance)}</span>
+                                    <span style={{ fontSize: '13px', fontWeight: 'bold' }}>Bank: {formatMoney(finalBankBalance)}</span>
                                 </div>
                             </div>
                         </div>

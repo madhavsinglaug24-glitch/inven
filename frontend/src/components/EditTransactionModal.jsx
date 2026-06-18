@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
 import { API_BASE } from '../api';
 import { Modal } from './Modal';
 
@@ -41,6 +40,13 @@ export const EditTransactionModal = ({ isOpen, onClose, onRefresh, transaction, 
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (loading) return;
+        if (type !== 'history') {
+            const parsedAmount = Number(formData.amount);
+            if (!parsedAmount || parsedAmount <= 0) {
+                return alert("Amount must be greater than 0");
+            }
+        }
         setLoading(true);
         try {
             const url = type === 'history' ? `${API_BASE}/history/${transaction.id}` : `${API_BASE}/transactions/${transaction.id}`;
@@ -125,7 +131,7 @@ export const EditTransactionModal = ({ isOpen, onClose, onRefresh, transaction, 
                         </div>
                         <div className="form-group">
                             <label className="form-label">Amount ₹</label>
-                            <input type="number" className="form-input" min="0" step="0.01" required value={formData.amount} onChange={e => setFormData({...formData, amount: e.target.value})} />
+                            <input type="number" className="form-input" min="0.01" step="0.01" required value={formData.amount} onChange={e => setFormData({...formData, amount: e.target.value})} />
                         </div>
                         <div className="form-group">
                             <label className="form-label">Comment</label>

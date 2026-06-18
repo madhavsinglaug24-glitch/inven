@@ -53,8 +53,6 @@ logger = logging.getLogger(__name__)
 USER_PREFS_FILE = "user_prefs.json"
 
 def _load_user_prefs() -> dict:
-    import json
-    import os
     if os.path.exists(USER_PREFS_FILE):
         try:
             with open(USER_PREFS_FILE, "r", encoding="utf-8") as f:
@@ -64,8 +62,6 @@ def _load_user_prefs() -> dict:
     return {}
 
 def _save_user_prefs(prefs: dict):
-    import json
-    import os
     try:
         with open(USER_PREFS_FILE, "w", encoding="utf-8") as f:
             json.dump(prefs, f)
@@ -226,8 +222,6 @@ STRINGS = {
 TRANSLATION_CACHE_FILE = "translation_cache.json"
 
 def _load_translation_cache() -> dict:
-    import json
-    import os
     if os.path.exists(TRANSLATION_CACHE_FILE):
         try:
             with open(TRANSLATION_CACHE_FILE, "r", encoding="utf-8") as f:
@@ -237,8 +231,6 @@ def _load_translation_cache() -> dict:
     return {}
 
 def _save_translation_cache(cache: dict):
-    import json
-    import os
     try:
         with open(TRANSLATION_CACHE_FILE, "w", encoding="utf-8") as f:
             json.dump(cache, f)
@@ -787,10 +779,25 @@ def check_dashboard_auth():
         return True
     except Exception as e:
         logger.error(f"JWT Verification failed: {e}")
+        return False
+
+
+def normalize_amount(raw) -> float:
+    """Round monetary values to 2 decimal places."""
+    return round(float(raw), 2)
+
+
+def validate_positive_amount(amount: float) -> str | None:
+    """Return an error message if amount is invalid, else None."""
+    if amount <= 0:
+        return "Amount must be greater than 0"
+    return None
+
+
 @app.route("/api/auth/login", methods=["POST"])
 def standard_login():
     import jwt
-    from datetime import datetime, timedelta
+    from datetime import timedelta
     
     data = request.get_json() or {}
     username = data.get("username", "").strip()
@@ -800,7 +807,7 @@ def standard_login():
         return jsonify({"message": "Username and password required"}), 400
         
     with get_db_connection() as conn:
-        user = conn.execute("SELECT * FROM web_users WHERE username = ?".replace("'", ""), (username,)).fetchone()
+        user = conn.execute("SELECT * FROM web_users WHERE username = ?", (username,)).fetchone()
         
     if not user or not check_password_hash(user["password_hash"], password):
         return jsonify({"message": "Invalid username or password"}), 401
@@ -1007,8 +1014,10 @@ def add_transaction():
         return jsonify({"message": "Unauthorized"}), 401
     try:
         data = request.json
-        amount = float(data.get("amount", 0))
-        if amount <= 0: return jsonify({"error": "Amount must be strictly greater than 0"}), 400
+        amount = normalize_amount(data.get("amount", 0))
+        amount_err = validate_positive_amount(amount)
+        if amount_err:
+            return jsonify({"error": amount_err}), 400
         
         merchant = data.get("merchant", "Manual Entry")
         if not merchant: return jsonify({"error": "Merchant is required"}), 400
@@ -1039,8 +1048,10 @@ def add_transfer():
         return jsonify({"message": "Unauthorized"}), 401
     try:
         data = request.json
-        amount = float(data.get("amount", 0))
-        if amount <= 0: return jsonify({"error": "Amount must be strictly greater than 0"}), 400
+        amount = normalize_amount(data.get("amount", 0))
+        amount_err = validate_positive_amount(amount)
+        if amount_err:
+            return jsonify({"error": amount_err}), 400
         
         direction = data.get("direction") # "cash_to_bank" or "bank_to_cash"
         if direction not in ["cash_to_bank", "bank_to_cash"]: return jsonify({"error": "Invalid direction"}), 400
@@ -1074,21 +1085,35 @@ def update_transaction(id):
     try:
         with get_db_connection() as conn:
             if request.method == "DELETE":
+                existing = conn.execute("SELECT id FROM ledger WHERE id = ?", (id,)).fetchone()
+                if not existing:
+                    return jsonify({"error": "Transaction not found"}), 404
                 conn.execute("DELETE FROM ledger WHERE id = ?", (id,))
                 conn.commit()
                 return jsonify({"success": True}), 200
             elif request.method == "PUT":
+                existing = conn.execute("SELECT id FROM ledger WHERE id = ?", (id,)).fetchone()
+                if not existing:
+                    return jsonify({"error": "Transaction not found"}), 404
                 data = request.json
-                if 'amount' in data and float(data['amount']) < 0: return jsonify({"error": "Amount cannot be negative"}), 400
+                if 'amount' in data:
+                    amount = normalize_amount(data['amount'])
+                    amount_err = validate_positive_amount(amount)
+                    if amount_err:
+                        return jsonify({"error": amount_err}), 400
+                    data = {**data, 'amount': amount}
                 updates = []
                 params = []
                 for field in ['amount', 'name', 'comment', 'timestamp', 'account']:
                     if field in data:
                         updates.append(f"{field} = ?")
                         params.append(data[field])
-                if not updates: return jsonify({"error": "No updates provided"}), 400
+                if not updates:
+                    return jsonify({"error": "No updates provided"}), 400
                 params.append(id)
-                conn.execute(f"UPDATE ledger SET {', '.join(updates)} WHERE id = ?", params)
+                cursor = conn.execute(f"UPDATE ledger SET {', '.join(updates)} WHERE id = ?", params)
+                if cursor.rowcount == 0:
+                    return jsonify({"error": "Transaction not found"}), 404
                 conn.commit()
                 return jsonify({"success": True}), 200
     except Exception as e:
@@ -1493,6 +1518,19 @@ def scan_receipt_api():
         return jsonify({"error": f"Could not parse AI response: {ai_text[:200]}"}), 400
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/parse_message", methods=["POST"])
+def parse_message_api():
+    """Parse a WhatsApp-style expense message (used by webhook integrations)."""
+    if not check_dashboard_auth():
+        return jsonify({"message": "Unauthorized"}), 401
+    data = request.get_json(silent=True) or {}
+    text = data.get("text") or data.get("Body") or data.get("message", "")
+    from message_parser import parse_expense_message
+    result = parse_expense_message(text)
+    status = 200 if not result.get("needs_clarification") else 422
+    return jsonify(result), status
 
 
 @app.route("/api/backup", methods=["GET"])

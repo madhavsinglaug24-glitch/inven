@@ -11,13 +11,15 @@ export const TransferModal = ({ isOpen, onClose, onRefresh, token }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!amount || amount <= 0) return alert("Amount must be greater than 0");
+        if (loading) return;
+        const parsedAmount = Number(amount);
+        if (!parsedAmount || parsedAmount <= 0) return alert("Amount must be greater than 0");
         setLoading(true);
         try {
             const res = await fetch(`${API_BASE}/transfer`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ amount: Number(amount), direction, description, date: txDate })
+                body: JSON.stringify({ amount: parsedAmount, direction, description, date: txDate })
             });
             if (res.ok) {
                 onRefresh();
