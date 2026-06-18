@@ -22,7 +22,7 @@ export const LedgerView = ({ token, refreshTrigger }) => {
     
     // Search & Filter State
     const [search, setSearch] = useState('');
-    const [timeFilter, setTimeFilter] = useState('last_month');
+    const [timeFilter, setTimeFilter] = useState('all');
     const [accountFilter, setAccountFilter] = useState('all');
     const [customStart, setCustomStart] = useState('');
     const [customEnd, setCustomEnd] = useState('');
@@ -306,7 +306,7 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                 
                 <div className="desktop-only">
                     <table className="data-table">
-                        <thead><tr><th>ID</th><th>Date</th><th>Merchant</th><th>Credit</th><th>Debit</th><th>Balance</th><th></th></tr></thead>
+                        <thead><tr><th>ID</th><th>Date</th><th>Merchant</th><th>Credit</th><th>Debit</th><th title="Running balance for that row's account (Cash or Bank), not combined total">Acct. Balance</th><th></th></tr></thead>
                         <tbody>
                             {timeFilter !== 'all' && (
                                 <tr style={{ backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-color)' }}>
@@ -362,6 +362,9 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '13px' }}>
                                             <span><span style={{ color: 'var(--text-secondary)' }}>Cash:</span> {formatMoney(finalCashBalance)}</span>
                                             <span><span style={{ color: 'var(--text-secondary)' }}>Bank:</span> {formatMoney(finalBankBalance)}</span>
+                                            <span style={{ borderTop: '1px solid var(--border-color)', paddingTop: '4px', marginTop: '2px' }}>
+                                                <span style={{ color: 'var(--text-secondary)' }}>Net:</span> {formatMoney(totalFilteredBalance)}
+                                            </span>
                                         </div>
                                     </td>
                                     <td></td>
@@ -450,6 +453,7 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
                                     <span style={{ fontSize: '13px', fontWeight: 'bold' }}>Cash: {formatMoney(finalCashBalance)}</span>
                                     <span style={{ fontSize: '13px', fontWeight: 'bold' }}>Bank: {formatMoney(finalBankBalance)}</span>
+                                    <span style={{ fontSize: '13px', fontWeight: 'bold', marginTop: '4px' }}>Net: {formatMoney(totalFilteredBalance)}</span>
                                 </div>
                             </div>
                         </div>

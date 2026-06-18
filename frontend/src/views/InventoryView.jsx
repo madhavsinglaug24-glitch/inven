@@ -6,6 +6,7 @@ import { AddItemModal } from '../components/AddItemModal';
 import { PrintModal } from '../components/PrintModal';
 import { EditTransactionModal } from '../components/EditTransactionModal';
 import { ConfirmModal } from '../components/ConfirmModal';
+import { getPreviousMonthRange, matchesTimeFilter } from '../utils/dateFilters';
 
 export const InventoryView = ({ token, refreshTrigger }) => {
     const [items, setItems] = useState([]);
@@ -27,6 +28,19 @@ export const InventoryView = ({ token, refreshTrigger }) => {
     const [customEnd, setCustomEnd] = useState('');
     const [editingTransaction, setEditingTransaction] = useState(null);
     const [confirmDeleteHistoryId, setConfirmDeleteHistoryId] = useState(null);
+
+    const { rangeStart, rangeEnd } = useMemo(() => {
+        if (timeFilter === 'last_month') {
+            return getPreviousMonthRange();
+        }
+        if (timeFilter !== 'custom' || !customStart || !customEnd) {
+            return { rangeStart: customStart, rangeEnd: customEnd };
+        }
+        if (customStart > customEnd) {
+            return { rangeStart: customEnd, rangeEnd: customStart };
+        }
+        return { rangeStart: customStart, rangeEnd: customEnd };
+    }, [timeFilter, customStart, customEnd]);
 
     const loadItems = async () => {
         const res = await fetch(`${API_BASE}/inventory`, { headers: { 'Authorization': `Bearer ${token}` } });
@@ -109,22 +123,7 @@ export const InventoryView = ({ token, refreshTrigger }) => {
 
     const filteredHistory = useMemo(() => {
         return history.filter(h => {
-            if (timeFilter !== 'all') {
-                const hDate = new Date(h.timestamp);
-                const now = new Date();
-                if (timeFilter === 'month') {
-                    if (hDate.getMonth() !== now.getMonth() || hDate.getFullYear() !== now.getFullYear()) return false;
-                } else if (timeFilter === 'year') {
-                    if (hDate.getFullYear() !== now.getFullYear()) return false;
-                } else if (timeFilter === 'custom') {
-                    if (customStart && new Date(h.timestamp) < new Date(customStart)) return false;
-                    if (customEnd) {
-                        const endD = new Date(customEnd);
-                        endD.setHours(23, 59, 59, 999);
-                        if (new Date(h.timestamp) > endD) return false;
-                    }
-                }
-            }
+            if (!matchesTimeFilter(h.timestamp, timeFilter, rangeStart, rangeEnd)) return false;
             if (search) {
                 const query = search.toLowerCase();
                 return (
@@ -136,7 +135,7 @@ export const InventoryView = ({ token, refreshTrigger }) => {
             }
             return true;
         });
-    }, [history, search, timeFilter, customStart, customEnd]);
+    }, [history, search, timeFilter, rangeStart, rangeEnd]);
 
     // Group filtered history by bill_no for collapsible view
     const groupedHistory = useMemo(() => {
@@ -215,6 +214,7 @@ export const InventoryView = ({ token, refreshTrigger }) => {
                                 style={{ width: 'auto', backgroundColor: 'var(--bg-elevated)', cursor: 'pointer', paddingRight: '32px' }}
                             >
                                 <option value="all">All Time</option>
+                                <option value="last_month">Last Month</option>
                                 <option value="month">This Month</option>
                                 <option value="year">This Year</option>
                                 <option value="custom">Custom Range...</option>

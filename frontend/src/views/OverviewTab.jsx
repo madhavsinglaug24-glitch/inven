@@ -1,7 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import { Database } from 'lucide-react';
 import { API_BASE } from '../api';
+import { formatMoney } from '../utils/money';
 
 export const OverviewTab = ({ token, onNavigate, refreshTrigger }) => {
     const [stats, setStats] = useState(null);
@@ -45,20 +45,20 @@ export const OverviewTab = ({ token, onNavigate, refreshTrigger }) => {
             
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '24px', marginBottom: '24px' }}>
                 <div className="card hover-card card-gradient bg-grad-purple" style={{ cursor: 'pointer' }} onClick={() => onNavigate('ledger')}>
-                    <div className="metric-label">Cash Balance</div>
-                    <div className="metric-value">₹{summary.cash_balance?.toLocaleString() || summary.balance.toLocaleString()}</div>
+                    <div className="metric-label">Cash Balance (All Time)</div>
+                    <div className="metric-value">{formatMoney(summary.cash_balance ?? summary.balance ?? 0)}</div>
                 </div>
                 <div className="card hover-card card-gradient bg-grad-blue" style={{ cursor: 'pointer' }} onClick={() => onNavigate('ledger')}>
-                    <div className="metric-label">Bank Balance</div>
-                    <div className="metric-value">₹{summary.bank_balance?.toLocaleString() || 0}</div>
+                    <div className="metric-label">Bank Balance (All Time)</div>
+                    <div className="metric-value">{formatMoney(summary.bank_balance ?? 0)}</div>
                 </div>
                 <div className="card hover-card card-gradient bg-grad-green" style={{ cursor: 'pointer' }} onClick={() => onNavigate('ledger')}>
-                    <div className="metric-label">Total Cash IN</div>
-                    <div className="metric-value">₹{summary.income.toLocaleString()}</div>
+                    <div className="metric-label">Total Cash IN (All Time)</div>
+                    <div className="metric-value">{formatMoney(summary.income ?? 0)}</div>
                 </div>
                 <div className="card hover-card card-gradient bg-grad-red" style={{ cursor: 'pointer' }} onClick={() => onNavigate('ledger')}>
-                    <div className="metric-label">Total Cash OUT</div>
-                    <div className="metric-value">₹{summary.expense.toLocaleString()}</div>
+                    <div className="metric-label">Total Cash OUT (All Time)</div>
+                    <div className="metric-value">{formatMoney(summary.expense ?? 0)}</div>
                 </div>
             </div>
 
