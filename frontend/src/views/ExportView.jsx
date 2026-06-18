@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Download, Search } from 'lucide-react';
 import { API_BASE } from '../api';
+import { getPreviousMonthRange, matchesTimeFilter } from '../utils/dateFilters';
 
 export const ExportView = ({ token, refreshTrigger }) => {
     const [activeTab, setActiveTab] = useState('inventory');
@@ -8,6 +9,22 @@ export const ExportView = ({ token, refreshTrigger }) => {
     const [ledgerHistory, setLedgerHistory] = useState([]);
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const [timeFilter, setTimeFilter] = useState('last_month');
+    const [customStart, setCustomStart] = useState('');
+    const [customEnd, setCustomEnd] = useState('');
+
+    const { rangeStart, rangeEnd } = useMemo(() => {
+        if (timeFilter === 'last_month') {
+            return getPreviousMonthRange();
+        }
+        if (timeFilter !== 'custom' || !customStart || !customEnd) {
+            return { rangeStart: customStart, rangeEnd: customEnd };
+        }
+        if (customStart > customEnd) {
+            return { rangeStart: customEnd, rangeEnd: customStart };
+        }
+        return { rangeStart: customStart, rangeEnd: customEnd };
+    }, [timeFilter, customStart, customEnd]);
 
     const fetchInventoryHistory = async () => {
         setLoading(true);
@@ -29,24 +46,30 @@ export const ExportView = ({ token, refreshTrigger }) => {
     }, [activeTab, token, refreshTrigger]);
 
     const filteredInventory = useMemo(() => {
-        if (!searchQuery) return inventoryHistory;
-        const q = searchQuery.toLowerCase();
-        return inventoryHistory.filter(r =>
-            String(r.item_name).toLowerCase().includes(q) ||
-            String(r.action).toLowerCase().includes(q) ||
-            String(r.contact_name).toLowerCase().includes(q) ||
-            String(r.bill_no).toLowerCase().includes(q)
-        );
-    }, [inventoryHistory, searchQuery]);
+        return inventoryHistory.filter(r => {
+            if (!matchesTimeFilter(r.timestamp, timeFilter, rangeStart, rangeEnd)) return false;
+            if (!searchQuery) return true;
+            const q = searchQuery.toLowerCase();
+            return (
+                String(r.item_name).toLowerCase().includes(q) ||
+                String(r.action).toLowerCase().includes(q) ||
+                String(r.contact_name).toLowerCase().includes(q) ||
+                String(r.bill_no).toLowerCase().includes(q)
+            );
+        });
+    }, [inventoryHistory, searchQuery, timeFilter, rangeStart, rangeEnd]);
 
     const filteredLedger = useMemo(() => {
-        if (!searchQuery) return ledgerHistory;
-        const q = searchQuery.toLowerCase();
-        return ledgerHistory.filter(r =>
-            String(r.merchant).toLowerCase().includes(q) ||
-            String(r.txn_id).toLowerCase().includes(q)
-        );
-    }, [ledgerHistory, searchQuery]);
+        return ledgerHistory.filter(r => {
+            if (!matchesTimeFilter(r.date, timeFilter, rangeStart, rangeEnd)) return false;
+            if (!searchQuery) return true;
+            const q = searchQuery.toLowerCase();
+            return (
+                String(r.merchant).toLowerCase().includes(q) ||
+                String(r.txn_id).toLowerCase().includes(q)
+            );
+        });
+    }, [ledgerHistory, searchQuery, timeFilter, rangeStart, rangeEnd]);
 
     const exportInventoryCSV = () => {
         let csv = "Date,Bill No,Item,Action,Qty,Unit Price,Total,Contact,Comment\n";
@@ -123,6 +146,40 @@ export const ExportView = ({ token, refreshTrigger }) => {
                         style={{ paddingLeft: '40px', backgroundColor: 'var(--bg-elevated)', width: '100%' }}
                     />
                 </div>
+                <select
+                    className="form-input"
+                    value={timeFilter}
+                    onChange={e => setTimeFilter(e.target.value)}
+                    style={{ width: 'auto', backgroundColor: 'var(--bg-elevated)', cursor: 'pointer', paddingRight: '32px' }}
+                >
+                    <option value="all">All Time</option>
+                    <option value="last_month">Last Month</option>
+                    <option value="month">This Month</option>
+                    <option value="year">This Year</option>
+                    <option value="custom">Custom Range...</option>
+                </select>
+                {timeFilter === 'custom' && customStart && customEnd && customStart > customEnd && (
+                    <span style={{ color: 'var(--accent-red)', fontSize: '12px' }}>Dates swapped (From was after To)</span>
+                )}
+                {timeFilter === 'custom' && (
+                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                        <input
+                            type="date"
+                            className="form-input"
+                            value={customStart}
+                            onChange={e => setCustomStart(e.target.value)}
+                            style={{ backgroundColor: 'var(--bg-elevated)', padding: '8px 12px' }}
+                        />
+                        <span style={{ color: 'var(--text-secondary)' }}>to</span>
+                        <input
+                            type="date"
+                            className="form-input"
+                            value={customEnd}
+                            onChange={e => setCustomEnd(e.target.value)}
+                            style={{ backgroundColor: 'var(--bg-elevated)', padding: '8px 12px' }}
+                        />
+                    </div>
+                )}
                 <button
                     className="btn-action btn-credit"
                     onClick={activeTab === 'inventory' ? exportInventoryCSV : exportLedgerCSV}

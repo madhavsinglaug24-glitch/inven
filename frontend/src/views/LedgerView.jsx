@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { PlusCircle, MinusCircle, Search, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 import { API_BASE } from '../api';
 import { formatMoney, formatSignedMoney } from '../utils/money';
+import { getPreviousMonthRange } from '../utils/dateFilters';
 import { TxModal } from '../components/TxModal';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { PrintModal } from '../components/PrintModal';
@@ -21,7 +22,7 @@ export const LedgerView = ({ token, refreshTrigger }) => {
     
     // Search & Filter State
     const [search, setSearch] = useState('');
-    const [timeFilter, setTimeFilter] = useState('all');
+    const [timeFilter, setTimeFilter] = useState('last_month');
     const [accountFilter, setAccountFilter] = useState('all');
     const [customStart, setCustomStart] = useState('');
     const [customEnd, setCustomEnd] = useState('');
@@ -71,6 +72,9 @@ export const LedgerView = ({ token, refreshTrigger }) => {
     const existingMerchants = [...new Set(txs.map(t => t.merchant))].filter(Boolean);
 
     const { rangeStart, rangeEnd } = useMemo(() => {
+        if (timeFilter === 'last_month') {
+            return getPreviousMonthRange();
+        }
         if (timeFilter !== 'custom' || !customStart || !customEnd) {
             return { rangeStart: customStart, rangeEnd: customEnd };
         }
@@ -90,7 +94,7 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                     if (txDate.getMonth() !== now.getMonth() || txDate.getFullYear() !== now.getFullYear()) return false;
                 } else if (timeFilter === 'year') {
                     if (txDate.getFullYear() !== now.getFullYear()) return false;
-                } else if (timeFilter === 'custom') {
+                } else if (timeFilter === 'custom' || timeFilter === 'last_month') {
                     if (rangeStart) {
                         const startD = new Date(rangeStart);
                         startD.setHours(0, 0, 0, 0);
@@ -133,7 +137,7 @@ export const LedgerView = ({ token, refreshTrigger }) => {
             const now = new Date();
             
             let isValidForClosing = true;
-            if (timeFilter === 'custom' && rangeEnd) {
+            if ((timeFilter === 'custom' || timeFilter === 'last_month') && rangeEnd) {
                 const endD = new Date(rangeEnd);
                 endD.setHours(23, 59, 59, 999);
                 if (txDate > endD) isValidForClosing = false;
@@ -150,7 +154,7 @@ export const LedgerView = ({ token, refreshTrigger }) => {
             } else if (timeFilter === 'year') {
                 const startOfYear = new Date(now.getFullYear(), 0, 1);
                 if (txDate < startOfYear) isBeforePeriod = true;
-            } else if (timeFilter === 'custom' && rangeStart) {
+            } else if ((timeFilter === 'custom' || timeFilter === 'last_month') && rangeStart) {
                 const startD = new Date(rangeStart);
                 startD.setHours(0, 0, 0, 0);
                 if (txDate < startD) isBeforePeriod = true;
@@ -240,6 +244,7 @@ export const LedgerView = ({ token, refreshTrigger }) => {
                         style={{ width: 'auto', backgroundColor: 'var(--bg-elevated)', cursor: 'pointer', paddingRight: '32px' }}
                     >
                         <option value="all">All Time</option>
+                        <option value="last_month">Last Month</option>
                         <option value="month">This Month</option>
                         <option value="year">This Year</option>
                         <option value="custom">Custom Range...</option>
