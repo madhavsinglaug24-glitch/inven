@@ -196,14 +196,6 @@ def init_db():
                            (default_user, generate_password_hash(default_pass), "admin"))
             conn.commit()
 
-        # Always ensure admin123/admin123 exists as requested
-        try:
-            from werkzeug.security import generate_password_hash
-            cursor.execute("INSERT OR IGNORE INTO web_users (username, password_hash, role) VALUES (?, ?, ?)",
-                           ("admin123", generate_password_hash("admin123"), "admin"))
-            conn.commit()
-        except Exception:
-            pass
 
         # Database migrations
         try:
@@ -406,22 +398,30 @@ def standard_login():
     if not username or not password:
         return jsonify({"message": "Username and password required"}), 400
         
-    with get_db_connection() as conn:
-        user = conn.execute("SELECT * FROM web_users WHERE username = ?", (username,)).fetchone()
-        
-    if not user or not check_password_hash(user["password_hash"], password):
-        return jsonify({"message": "Invalid username or password"}), 401
+    env_user = os.environ.get("ADMIN_USERNAME", "admin")
+    env_pass = os.environ.get("DASHBOARD_PASSWORD", "admin123")
+    
+    role = None
+    if username == env_user and password == env_pass:
+        role = "admin"
+    else:
+        with get_db_connection() as conn:
+            user = conn.execute("SELECT * FROM web_users WHERE username = ?", (username,)).fetchone()
+            
+        if not user or not check_password_hash(user["password_hash"], password):
+            return jsonify({"message": "Invalid username or password"}), 401
+        role = user["role"]
         
     # Create persistent session token (valid for 30 days)
     payload = {
         "username": username,
-        "role": user["role"],
+        "role": role,
         "exp": datetime.utcnow() + timedelta(days=30)
     }
     secret = os.environ.get("FLASK_SECRET_KEY", "default-sde-secret-key-123")
     session_token = jwt.encode(payload, secret, algorithm="HS256")
     
-    return jsonify({"token": session_token, "username": username, "role": user["role"]}), 200
+    return jsonify({"token": session_token, "username": username, "role": role}), 200
 
 
 
