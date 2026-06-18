@@ -929,17 +929,7 @@ def inventory_update_react():
                 total_price += price
                 names_for_ledger.append(f"{qty}x {item['item_name']}")
                 
-            # Log single ledger entry for the total bulk transaction if there's money involved
-            if total_price > 0:
-                summary_text = ", ".join(names_for_ledger)
-                if len(summary_text) > 50: summary_text = summary_text[:47] + "..."
-                
-                if action_type == 'restock':
-                    conn.execute('INSERT INTO ledger (timestamp, type, amount, name, comment, logged_by) VALUES (?, ?, ?, ?, ?, ?)',
-                                 (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), 'Cash OUT', total_price, supplier, f'Restock: {summary_text}', 'Web User'))
-                elif action_type == 'consume':
-                    conn.execute('INSERT INTO ledger (timestamp, type, amount, name, comment, logged_by) VALUES (?, ?, ?, ?, ?, ?)',
-                                 (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), 'Cash IN', total_price, supplier, f'Sale: {summary_text}', 'Web User'))
+
             
             conn.commit()
             return jsonify({"success": True}), 200
