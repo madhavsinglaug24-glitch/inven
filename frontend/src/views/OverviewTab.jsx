@@ -6,7 +6,7 @@ import { getFilterRange } from '../utils/dateFilters';
 export const OverviewTab = ({ token, onNavigate, refreshTrigger }) => {
     const [stats, setStats] = useState(null);
     const [summary, setSummary] = useState(null);
-    const [timeFilter, setTimeFilter] = useState('last_month');
+    const [timeFilter, setTimeFilter] = useState('month');
     const [customStart, setCustomStart] = useState('');
     const [customEnd, setCustomEnd] = useState('');
 

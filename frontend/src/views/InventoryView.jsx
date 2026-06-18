@@ -23,7 +23,7 @@ export const InventoryView = ({ token, refreshTrigger }) => {
     
     // Filters
     const [search, setSearch] = useState('');
-    const [timeFilter, setTimeFilter] = useState('last_month');
+    const [timeFilter, setTimeFilter] = useState('month');
     const [customStart, setCustomStart] = useState('');
     const [customEnd, setCustomEnd] = useState('');
     const [editingTransaction, setEditingTransaction] = useState(null);

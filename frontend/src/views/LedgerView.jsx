@@ -22,7 +22,7 @@ export const LedgerView = ({ token, refreshTrigger }) => {
     
     // Search & Filter State
     const [search, setSearch] = useState('');
-    const [timeFilter, setTimeFilter] = useState('last_month');
+    const [timeFilter, setTimeFilter] = useState('month');
     const [accountFilter, setAccountFilter] = useState('all');
     const [customStart, setCustomStart] = useState('');
     const [customEnd, setCustomEnd] = useState('');
