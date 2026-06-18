@@ -2,6 +2,8 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
+const API_TARGET = process.env.VITE_API_PROXY || 'http://127.0.0.1:5000'
+
 export default defineConfig({
   plugins: [
     react(),
@@ -9,8 +11,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
-        name: 'SDE Inventory App',
-        short_name: 'SDE App',
+        name: 'Inven',
+        short_name: 'Inven',
         description: 'Inventory and Ledger Management',
         theme_color: '#0D9488',
         background_color: '#111111',
@@ -36,4 +38,12 @@ export default defineConfig({
       }
     })
   ],
+  server: {
+    proxy: {
+      '/api': { target: API_TARGET, changeOrigin: true },
+      '/dashboard': { target: API_TARGET, changeOrigin: true },
+      '/health': { target: API_TARGET, changeOrigin: true },
+      '/socket.io': { target: API_TARGET, ws: true, changeOrigin: true },
+    },
+  },
 })

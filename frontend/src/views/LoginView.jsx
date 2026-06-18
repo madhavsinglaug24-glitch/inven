@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Lock, ArrowRight, User } from 'lucide-react';
-
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
+import { API_BASE } from '../api';
 
 export const LoginView = ({ onLoginSuccess }) => {
     const [username, setUsername] = useState('');
