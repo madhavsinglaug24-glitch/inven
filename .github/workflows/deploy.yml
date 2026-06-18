@@ -18,7 +18,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18' # Ensure the correct Node.js version
+          node-version: '20' # Ensure the correct Node.js version
 
       - name: Build Frontend
         run: |
@@ -32,8 +32,8 @@ jobs:
           host: ${{ secrets.VM_HOST }}
           username: ${{ secrets.VM_USERNAME }}
           key: ${{ secrets.VM_SSH_KEY }}
-          source: "frontend/dist/*"
-          target: "/home/${{ secrets.VM_USERNAME }}/inven/frontend/dist"
+          source: "frontend/dist"
+          target: "/home/${{ secrets.VM_USERNAME }}/inven"
 
       - name: Deploy Backend via SSH
         uses: appleboy/ssh-action@master
@@ -47,5 +47,5 @@ jobs:
             git pull origin main
             source venv/bin/activate
             pip install -r requirements.txt
-            cd frontend && npm install && npm run build && cd ..
+
             sudo -n systemctl restart sde_backend
