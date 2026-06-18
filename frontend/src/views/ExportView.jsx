@@ -9,7 +9,7 @@ export const ExportView = ({ token, refreshTrigger }) => {
     const [ledgerHistory, setLedgerHistory] = useState([]);
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
-    const [timeFilter, setTimeFilter] = useState('all');
+    const [timeFilter, setTimeFilter] = useState('last_month');
     const [customStart, setCustomStart] = useState('');
     const [customEnd, setCustomEnd] = useState('');
 
