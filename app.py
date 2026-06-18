@@ -196,6 +196,15 @@ def init_db():
                            (default_user, generate_password_hash(default_pass), "admin"))
             conn.commit()
 
+        # Always ensure admin123/admin123 exists as requested
+        try:
+            from werkzeug.security import generate_password_hash
+            cursor.execute("INSERT OR IGNORE INTO web_users (username, password_hash, role) VALUES (?, ?, ?)",
+                           ("admin123", generate_password_hash("admin123"), "admin"))
+            conn.commit()
+        except Exception:
+            pass
+
         # Database migrations
         try:
             cursor.execute("ALTER TABLE history ADD COLUMN unit_price REAL DEFAULT 0")
