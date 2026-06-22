@@ -1111,44 +1111,56 @@ def parse_text_api():
             "Example: {\"amount\": 150.00, \"merchant\": \"Big Bazaar\", \"quantity\": 10, \"item_id\": 5}"
         )
 
-        payload = {
-            "model": "google/gemini-2.0-flash-lite-preview-02-05:free",
-            "messages": [
-                {"role": "system", "content": prompt},
-                {"role": "user", "content": text}
-            ],
-            "max_tokens": 300,
-            "temperature": 0.1
-        }
+        models_to_try = [
+            "google/gemini-2.0-flash-lite-preview-02-05:free",
+            "google/gemini-2.0-flash-exp:free",
+            "meta-llama/llama-3.2-11b-vision-instruct:free",
+            "qwen/qwen-2-vl-7b-instruct:free"
+        ]
         
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-            "HTTP-Referer": "https://sde-dashboard.com",
-            "X-Title": "SDE App"
-        }
-        
-        resp = http_requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload, timeout=30)
-        if not resp.ok:
-            return jsonify({"error": "AI Error"}), 400
+        for model in models_to_try:
+            payload = {
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": prompt},
+                    {"role": "user", "content": text}
+                ],
+                "max_tokens": 300,
+                "temperature": 0.1
+            }
             
-        resp_json = resp.json()
-        ai_text = resp_json["choices"][0]["message"]["content"].strip()
-        
-        if ai_text.startswith("```json"): ai_text = ai_text[7:]
-        if ai_text.startswith("```"): ai_text = ai_text[3:]
-        if ai_text.endswith("```"): ai_text = ai_text[:-3]
-        ai_text = ai_text.strip()
-        
-        try:
-            parsed = json.loads(ai_text)
-            return jsonify(parsed), 200
-        except:
-            json_match = re.search(r'\{[^{}]*\}', ai_text)
-            if json_match:
-                return jsonify(json.loads(json_match.group())), 200
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+                "HTTP-Referer": "https://sde-dashboard.com",
+                "X-Title": "SDE App"
+            }
+            
+            try:
+                resp = http_requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload, timeout=30)
+                if not resp.ok:
+                    continue # Try next model
                 
-        return jsonify({"error": "Could not parse AI response"}), 400
+                resp_json = resp.json()
+                ai_text = resp_json["choices"][0]["message"]["content"].strip()
+                
+                if ai_text.startswith("```json"): ai_text = ai_text[7:]
+                if ai_text.startswith("```"): ai_text = ai_text[3:]
+                if ai_text.endswith("```"): ai_text = ai_text[:-3]
+                ai_text = ai_text.strip()
+                
+                try:
+                    parsed = json.loads(ai_text)
+                    return jsonify(parsed), 200
+                except:
+                    json_match = re.search(r'\{[^{}]*\}', ai_text)
+                    if json_match:
+                        return jsonify(json.loads(json_match.group())), 200
+            except Exception:
+                continue # Try next model
+                
+        # If all models failed
+        return jsonify({"error": "All AI models failed. Please try again later."}), 503
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
