@@ -5,11 +5,20 @@ export function setupMockApi() {
 
     const originalFetch = window.fetch;
     window.fetch = async (input, init) => {
-        const url = typeof input === 'string' ? input : input.url;
+        let url = '';
+        if (typeof input === 'string') {
+            url = input;
+        } else if (input instanceof URL) {
+            url = input.href;
+        } else if (input && input.url) {
+            url = input.url;
+        } else {
+            url = String(input);
+        }
 
         // Pass through non-API calls
-        if (!url.startsWith('/api/') && !url.includes('/api/')) {
-            return originalFetch(input, init);
+        if (!url || (!url.startsWith('/api/') && !url.includes('/api/'))) {
+            return originalFetch.call(window, input, init);
         }
 
         // Simulate network delay for realism
