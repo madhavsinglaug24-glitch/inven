@@ -109,16 +109,9 @@ export const OverviewTab = ({ token, onNavigate, refreshTrigger }) => {
                     <div className="metric-label">Cash OUT ({periodLabel})</div>
                     <div className="metric-value" style={{ marginBottom: 0 }}>{formatMoney(summary.expense ?? 0)}</div>
                 </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '24px' }}>
-                <div className="card hover-card card-gradient bg-grad-blue" style={{ cursor: 'pointer' }} onClick={() => onNavigate('inventory')}>
-                    <div className="metric-label">Total Inventory Items</div>
-                    <div className="metric-value">{stats.total_items}</div>
-                </div>
-                <div className="card hover-card card-gradient bg-grad-red" style={{ cursor: 'pointer' }} onClick={() => onNavigate('inventory')}>
+                <div className="card hover-card card-gradient bg-grad-blue" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', justifyContent: 'center' }} onClick={() => onNavigate('inventory')}>
                     <div className="metric-label">Low Stock Alerts</div>
-                    <div className="metric-value">{stats.low_stock_count}</div>
+                    <div className="metric-value" style={{ marginBottom: 0 }}>{stats.low_stock_count}</div>
                 </div>
             </div>
         </div>
