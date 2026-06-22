@@ -964,10 +964,11 @@ def scan_receipt_api():
         )
 
         models_to_try = [
-            "google/gemini-2.0-flash-lite-preview-02-05:free",
-            "google/gemini-2.0-flash-exp:free",
+            "openrouter/auto",
+            "google/gemma-3-12b-it:free",
             "meta-llama/llama-3.2-11b-vision-instruct:free",
-            "qwen/qwen-2-vl-7b-instruct:free"
+            "mistralai/mistral-7b-instruct:free",
+            "deepseek/deepseek-chat-v3-0324:free"
         ]
 
         for model in models_to_try:
@@ -1116,10 +1117,11 @@ def parse_text_api():
         )
 
         models_to_try = [
-            "google/gemini-2.0-flash-lite-preview-02-05:free",
-            "google/gemini-2.0-flash-exp:free",
+            "openrouter/auto",
+            "google/gemma-3-12b-it:free",
             "meta-llama/llama-3.2-11b-vision-instruct:free",
-            "qwen/qwen-2-vl-7b-instruct:free"
+            "mistralai/mistral-7b-instruct:free",
+            "deepseek/deepseek-chat-v3-0324:free"
         ]
         
         for model in models_to_try:
@@ -1143,7 +1145,8 @@ def parse_text_api():
             try:
                 resp = http_requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload, timeout=30)
                 if not resp.ok:
-                    continue # Try next model
+                    logger.warning(f"Text model {model} failed: {resp.status_code} {resp.text[:200]}")
+                    continue
                 
                 resp_json = resp.json()
                 ai_text = resp_json["choices"][0]["message"]["content"].strip()
