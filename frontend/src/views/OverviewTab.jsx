@@ -94,20 +94,20 @@ export const OverviewTab = ({ token, onNavigate, refreshTrigger }) => {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '24px', marginBottom: '24px' }}>
-                <div className="card hover-card card-gradient bg-grad-purple" style={{ cursor: 'pointer' }} onClick={() => onNavigate('ledger')}>
+                <div className="card hover-card card-gradient bg-grad-purple" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', justifyContent: 'center' }} onClick={() => onNavigate('ledger')}>
                     <div className="metric-label">Total Cash ({periodLabel})</div>
                     <div className="metric-value">{formatMoney(totalCash)}</div>
                     <div style={{ marginTop: '8px', fontSize: '13px', color: 'rgba(255,255,255,0.75)' }}>
                         Cash {formatMoney(cashPart)} · Bank {formatMoney(bankPart)}
                     </div>
                 </div>
-                <div className="card hover-card card-gradient bg-grad-green" style={{ cursor: 'pointer' }} onClick={() => onNavigate('ledger')}>
+                <div className="card hover-card card-gradient bg-grad-green" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', justifyContent: 'center' }} onClick={() => onNavigate('ledger')}>
                     <div className="metric-label">Cash IN ({periodLabel})</div>
-                    <div className="metric-value">{formatMoney(summary.income ?? 0)}</div>
+                    <div className="metric-value" style={{ marginBottom: 0 }}>{formatMoney(summary.income ?? 0)}</div>
                 </div>
-                <div className="card hover-card card-gradient bg-grad-red" style={{ cursor: 'pointer' }} onClick={() => onNavigate('ledger')}>
+                <div className="card hover-card card-gradient bg-grad-red" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', justifyContent: 'center' }} onClick={() => onNavigate('ledger')}>
                     <div className="metric-label">Cash OUT ({periodLabel})</div>
-                    <div className="metric-value">{formatMoney(summary.expense ?? 0)}</div>
+                    <div className="metric-value" style={{ marginBottom: 0 }}>{formatMoney(summary.expense ?? 0)}</div>
                 </div>
             </div>
 

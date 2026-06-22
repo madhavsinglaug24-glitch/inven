@@ -185,12 +185,14 @@ export const InventoryView = ({ token, refreshTrigger }) => {
 
     return (
         <div className="fade-in">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
-                <h1 className="page-title" style={{ margin: 0 }}>Inventory</h1>
-                
-                <div style={{ display: 'flex', gap: '8px', backgroundColor: 'var(--bg-elevated)', padding: '4px', borderRadius: '8px' }}>
-                    <button className={`btn-action ${viewMode === 'stock' ? 'active' : ''}`} style={{ borderColor: viewMode === 'stock' ? 'var(--accent-blue)' : 'transparent' }} onClick={() => setViewMode('stock')}>Current Stock</button>
-                    <button className={`btn-action ${viewMode === 'history' ? 'active' : ''}`} style={{ borderColor: viewMode === 'history' ? 'var(--accent-blue)' : 'transparent' }} onClick={() => setViewMode('history')}>History</button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+                    <h1 className="page-title" style={{ margin: 0 }}>Inventory</h1>
+                    
+                    <div style={{ display: 'flex', gap: '8px', backgroundColor: 'var(--bg-elevated)', padding: '4px', borderRadius: '8px' }}>
+                        <button className={`btn-action ${viewMode === 'stock' ? 'active' : ''}`} style={{ borderColor: viewMode === 'stock' ? 'var(--accent-blue)' : 'transparent' }} onClick={() => setViewMode('stock')}>Stock</button>
+                        <button className={`btn-action ${viewMode === 'history' ? 'active' : ''}`} style={{ borderColor: viewMode === 'history' ? 'var(--accent-blue)' : 'transparent' }} onClick={() => setViewMode('history')}>History</button>
+                    </div>
                 </div>
 
                 <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
