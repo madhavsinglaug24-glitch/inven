@@ -109,7 +109,7 @@ function App() {
         localStorage.setItem('theme', theme);
     }, [theme]);
 
-    const isGitHubPages = import.meta.env.BASE_URL === '/inven/';
+    const isGitHubPages = window.location.hostname.includes('github.io');
 
     if (!token && !isGitHubPages) {
         return (
