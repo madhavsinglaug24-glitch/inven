@@ -47,11 +47,9 @@ export function setupMockApi() {
 
         // Mock Stats Data
         if (url.includes('/stats')) {
-            const totalItems = mockInventory.length;
             const lowStockCount = mockInventory.filter(item => item.Current_Stock <= item.Min_Stock).length;
             
             return new Response(JSON.stringify({
-                total_items: totalItems,
                 low_stock_count: lowStockCount
             }), { status: 200, headers: { 'Content-Type': 'application/json' } });
         }
