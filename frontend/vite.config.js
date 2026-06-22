@@ -5,6 +5,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 const API_TARGET = process.env.VITE_API_PROXY || 'http://127.0.0.1:5000'
 
 export default defineConfig({
+  base: process.env.VITE_BASE_PATH || '/',
   plugins: [
     react(),
     VitePWA({
