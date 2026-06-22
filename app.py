@@ -500,7 +500,7 @@ def api_stats():
         return jsonify({"message": "Unauthorized"}), 401
     try:
         inventory = get_all_inventory()
-        total_items = sum(int(item.get("Current_Stock", 0)) for item in inventory)
+        total_items = len(inventory)
         low_stock_count = sum(1 for item in inventory if int(item.get("Current_Stock", 0)) < int(item.get("Min_Stock", 0)))
         
         with get_db_connection() as conn:

@@ -47,7 +47,7 @@ export function setupMockApi() {
 
         // Mock Stats Data
         if (url.includes('/stats')) {
-            const totalItems = mockInventory.reduce((sum, item) => sum + item.Current_Stock, 0);
+            const totalItems = mockInventory.length;
             const lowStockCount = mockInventory.filter(item => item.Current_Stock <= item.Min_Stock).length;
             
             return new Response(JSON.stringify({
