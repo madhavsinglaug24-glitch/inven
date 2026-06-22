@@ -944,9 +944,9 @@ def scan_receipt_api():
     
     file = request.files["receipt"]
     try:
-        api_key = os.environ.get("OPENAI_API_KEY")
+        api_key = os.environ.get("GROQ_API_KEY")
         if not api_key:
-            return jsonify({"error": "AI scanning offline (API Key missing in .env)"}), 503
+            return jsonify({"error": "AI scanning offline (Groq API Key missing in .env)"}), 503
 
         import base64
         import requests as http_requests
@@ -964,7 +964,7 @@ def scan_receipt_api():
         )
 
         payload = {
-            "model": "meta-llama/llama-3.2-11b-vision-instruct:free",
+            "model": "llama-3.2-11b-vision-preview",
             "messages": [
                 {
                     "role": "user",
@@ -985,7 +985,7 @@ def scan_receipt_api():
             "X-Title": "SDE App"
         }
         
-        resp = http_requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload, timeout=30)
+        resp = http_requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload, timeout=30)
         if not resp.ok:
             error_body = resp.text
             try:
@@ -1070,8 +1070,7 @@ def parse_text_api():
     available_items = data.get("items", [])
     
     try:
-        api_key = os.environ.get("OPENAI_API_KEY")
-        api_key = os.environ.get("OPENAI_API_KEY")
+        api_key = os.environ.get("GROQ_API_KEY")
         if not api_key:
             # Fallback regex parsing if API key is missing
             import re
@@ -1113,7 +1112,7 @@ def parse_text_api():
         )
 
         payload = {
-            "model": "meta-llama/llama-3.2-11b-vision-instruct:free",
+            "model": "llama-3.3-70b-versatile",
             "messages": [
                 {"role": "system", "content": prompt},
                 {"role": "user", "content": text}
@@ -1129,7 +1128,7 @@ def parse_text_api():
             "X-Title": "SDE App"
         }
         
-        resp = http_requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload, timeout=30)
+        resp = http_requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload, timeout=30)
         if not resp.ok:
             return jsonify({"error": "AI Error"}), 400
             
