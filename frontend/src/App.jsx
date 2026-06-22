@@ -124,7 +124,7 @@ function App() {
         <div id="root">
             <div className="mobile-header">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <img src="/sde-logo.svg" alt="Inven" style={{ height: '32px', borderRadius: '6px' }} />
+                    <img src={`${import.meta.env.BASE_URL}sde-logo.svg`} alt="Inven" style={{ height: '32px', borderRadius: '6px' }} />
                     <span className="brand-name" style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, letterSpacing: '3px', fontSize: '22px', textTransform: 'uppercase' }}>Inven</span>
                 </div>
                 <button className="btn-action" onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} style={{ padding: '8px' }}>
@@ -139,7 +139,7 @@ function App() {
                     </button>
                     {sidebarOpen && (
                         <>
-                            <img src="/sde-logo.svg" alt="Inven" style={{ height: '32px', borderRadius: '8px' }} />
+                            <img src={`${import.meta.env.BASE_URL}sde-logo.svg`} alt="Inven" style={{ height: '32px', borderRadius: '8px' }} />
                             <span className="brand-name" style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, letterSpacing: '2px', fontSize: '18px' }}>Inven</span>
                         </>
                     )}

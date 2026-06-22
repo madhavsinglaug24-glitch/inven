@@ -50,7 +50,7 @@ export const LoginView = ({ onLoginSuccess }) => {
         }}>
             <div className="card" style={{ maxWidth: '400px', width: '100%', padding: '40px 30px' }}>
                 <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
-                    <img src="/sde-logo.svg" alt="Inven" style={{ width: '60px', height: '60px', borderRadius: '16px' }} />
+                    <img src={`${import.meta.env.BASE_URL}sde-logo.svg`} alt="Inven" style={{ width: '60px', height: '60px', borderRadius: '16px' }} />
                 </div>
                 
                 <h1 style={{ textAlign: 'center', marginBottom: '10px', fontSize: '24px', color: 'var(--text-primary)' }}>
