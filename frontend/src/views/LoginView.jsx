@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowRight, User } from 'lucide-react';
+import { ArrowRight, User, Lock } from 'lucide-react';
 import { API_BASE } from '../api';
 
 export const LoginView = ({ onLoginSuccess }) => {
