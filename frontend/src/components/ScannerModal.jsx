@@ -11,6 +11,7 @@ export const ScannerModal = ({ isOpen, onClose, token, items, onRefresh, mode })
     const [error, setError] = useState('');
     const [step, setStep] = useState('upload'); // 'upload' | 'manual' | 'scanned' | 'confirm'
     const [stockType, setStockType] = useState(null); // 'restock' | 'consume'
+    const [rawText, setRawText] = useState('');
     // Editable transaction fields
     const [merchant, setMerchant] = useState('');
     const [amount, setAmount] = useState('');
@@ -36,6 +37,7 @@ export const ScannerModal = ({ isOpen, onClose, token, items, onRefresh, mode })
         setAmount('');
         setSelectedItem('');
         setQty('1');
+        setRawText('');
         setSaving(false);
     };
 
@@ -100,6 +102,32 @@ export const ScannerModal = ({ isOpen, onClose, token, items, onRefresh, mode })
         setLoading(false);
     };
 
+    const parseText = async () => {
+        if (!rawText.trim()) return;
+        setLoading(true);
+        setError('');
+        try {
+            const res = await fetch(`${API_BASE}/parse_text`, { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ text: rawText, items: items })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setMerchant(data.merchant || '');
+                setAmount(String(data.amount || ''));
+                if (data.quantity) setQty(String(data.quantity));
+                if (data.item_id) setSelectedItem(String(data.item_id));
+                setStep('scanned');
+            } else {
+                setError(data.error || 'Parsing failed. Please try again.');
+            }
+        } catch (e) { 
+            setError('Network error. Please check your connection.'); 
+        }
+        setLoading(false);
+    };
+
     const handleStockSubmit = async (overrideType) => {
         const typeToUse = (typeof overrideType === 'string') ? overrideType : stockType;
         if (!typeToUse || !selectedItem || !qty) return;
@@ -134,7 +162,7 @@ export const ScannerModal = ({ isOpen, onClose, token, items, onRefresh, mode })
         setSaving(false);
     };
 
-    const modalTitle = step === 'manual' ? 'Enter Transaction' : step === 'confirm' ? (stockType === 'restock' ? 'Stock IN' : 'Stock OUT') : 'Scan Receipt';
+    const modalTitle = step === 'manual' ? 'Enter with AI Text' : step === 'confirm' ? (stockType === 'restock' ? 'Stock IN' : 'Stock OUT') : 'Scan Receipt';
 
     const ErrorBox = () => error ? (
         <div style={{ color: 'var(--accent-red)', marginBottom: '16px', fontSize: '14px', textAlign: 'center', padding: '12px', backgroundColor: 'var(--accent-red-dim)', borderRadius: '8px' }}>{error}</div>
@@ -216,37 +244,40 @@ export const ScannerModal = ({ isOpen, onClose, token, items, onRefresh, mode })
                 </div>
             )}
 
-            {/* STEP: Manual Entry */}
+            {/* STEP: Manual Entry (AI Text parsing) */}
             {step === 'manual' && (
                 <div>
                     <ErrorBox />
-                    <EditableFields showHeading={false} />
+                    <div style={{ marginBottom: '16px' }}>
+                        <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '12px' }}>
+                            Describe the transaction naturally. AI will extract the item, quantity, amount, and merchant.
+                        </p>
+                        <textarea 
+                            className="form-input" 
+                            rows="4" 
+                            placeholder="e.g., Bought 10 bags of cement for 1500 from Big Bazaar"
+                            value={rawText}
+                            onChange={e => setRawText(e.target.value)}
+                            style={{ width: '100%', backgroundColor: 'var(--bg-elevated)', resize: 'vertical' }}
+                        />
+                    </div>
                     <div style={{ display: 'flex', gap: '12px' }}>
-                        <button 
-                            className="btn-action" 
-                            onClick={() => { if (!merchant.trim() || !amount || !selectedItem || !qty) { setError('Please fill all required fields.'); return; } setStockType('restock'); setError(''); handleStockSubmit('restock'); }}
-                            disabled={saving}
-                            style={{ flex: 1, justifyContent: 'center', display: 'flex', alignItems: 'center', gap: '8px', padding: '14px',
-                                backgroundColor: 'var(--accent-green-dim)', color: 'var(--accent-green)', borderColor: 'var(--accent-green)',
-                                fontWeight: 600 }}
-                        >
-                            <PackagePlus size={20} /> {saving ? 'Saving...' : 'Stock IN'}
+                        <button className="btn-action" style={{ flex: 1, justifyContent: 'center' }} onClick={() => { setStep('scanned'); setError(''); }}>
+                            Skip AI
                         </button>
                         <button 
-                            className="btn-action"
-                            onClick={() => { if (!merchant.trim() || !amount || !selectedItem || !qty) { setError('Please fill all required fields.'); return; } setStockType('consume'); setError(''); handleStockSubmit('consume'); }}
-                            disabled={saving}
-                            style={{ flex: 1, justifyContent: 'center', display: 'flex', alignItems: 'center', gap: '8px', padding: '14px',
-                                backgroundColor: 'var(--accent-red-dim)', color: 'var(--accent-red)', borderColor: 'var(--accent-red)',
-                                fontWeight: 600 }}
+                            className="btn-action btn-credit" 
+                            style={{ flex: 2, justifyContent: 'center', display: 'flex', alignItems: 'center', gap: '8px' }} 
+                            onClick={parseText} 
+                            disabled={loading || !rawText.trim()}
                         >
-                            <PackageMinus size={20} /> {saving ? 'Saving...' : 'Stock OUT'}
+                            {loading ? <><Loader size={18} className="spin" /> Parsing...</> : 'Parse Text'}
                         </button>
                     </div>
                 </div>
             )}
 
-            {/* STEP: Scanned Result - editable fields + Stock IN/OUT */}
+            {/* STEP: Scanned/Parsed Result - editable fields + Stock IN/OUT */}
             {step === 'scanned' && (
                 <div>
                     {preview && <img src={preview} alt="Receipt" style={{ width: '100%', maxHeight: '120px', objectFit: 'contain', borderRadius: '8px', marginBottom: '16px', backgroundColor: '#000' }} />}

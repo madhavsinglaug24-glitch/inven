@@ -1057,6 +1057,79 @@ def scan_receipt_api():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/parse_text', methods=['POST'])
+def parse_text_api():
+    if not check_dashboard_auth():
+        return jsonify({"message": "Unauthorized"}), 401
+    
+    data = request.get_json()
+    if not data or "text" not in data:
+        return jsonify({"error": "No text provided"}), 400
+        
+    text = data["text"]
+    available_items = data.get("items", [])
+    
+    try:
+        api_key = os.environ.get("OPENAI_API_KEY")
+        if not api_key:
+            return jsonify({"error": "AI parsing offline (API Key missing in .env)"}), 503
+
+        import requests as http_requests
+        import json
+        import re
+
+        items_str = ", ".join([f"ID {i.get('Item_ID')}: {i.get('Item_Name')}" for i in available_items])
+        
+        prompt = (
+            "You are an assistant that extracts transaction details from a user's natural language input. "
+            "Extract the total amount (number), merchant/store name (string), quantity (number), and the best matching item_id from the available items list based on the user's text. "
+            "If no amount or merchant is found, leave them blank or 0. If no quantity is found, default to 1. "
+            f"Available items: [{items_str}]. "
+            "You MUST respond with ONLY a raw JSON object, no markdown, no explanation. "
+            "Example: {\"amount\": 150.00, \"merchant\": \"Big Bazaar\", \"quantity\": 10, \"item_id\": 5}"
+        )
+
+        payload = {
+            "model": "meta-llama/llama-3.2-11b-vision-instruct:free",
+            "messages": [
+                {"role": "system", "content": prompt},
+                {"role": "user", "content": text}
+            ],
+            "max_tokens": 300,
+            "temperature": 0.1
+        }
+        
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://sde-dashboard.com",
+            "X-Title": "SDE App"
+        }
+        
+        resp = http_requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload, timeout=30)
+        if not resp.ok:
+            return jsonify({"error": "AI Error"}), 400
+            
+        resp_json = resp.json()
+        ai_text = resp_json["choices"][0]["message"]["content"].strip()
+        
+        if ai_text.startswith("```json"): ai_text = ai_text[7:]
+        if ai_text.startswith("```"): ai_text = ai_text[3:]
+        if ai_text.endswith("```"): ai_text = ai_text[:-3]
+        ai_text = ai_text.strip()
+        
+        try:
+            parsed = json.loads(ai_text)
+            return jsonify(parsed), 200
+        except:
+            json_match = re.search(r'\{[^{}]*\}', ai_text)
+            if json_match:
+                return jsonify(json.loads(json_match.group())), 200
+                
+        return jsonify({"error": "Could not parse AI response"}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route("/api/ledger/integrity", methods=["GET"])
 def ledger_integrity():
