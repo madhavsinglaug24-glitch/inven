@@ -46,12 +46,12 @@ export function setupMockApi() {
         // Mock Inventory Data
         if (url.includes('/inventory')) {
             return new Response(JSON.stringify([
-                { item_id: 'ITM001', item_name: 'Premium Wireless Headphones', current_stock: 45, min_stock: 10, purchase_price: 120.00, supplier_id: 'SUP01' },
-                { item_id: 'ITM002', item_name: 'Mechanical Keyboard (Red Switches)', current_stock: 12, min_stock: 15, purchase_price: 85.50, supplier_id: 'SUP02' },
-                { item_id: 'ITM003', item_name: 'Ergonomic Office Chair', current_stock: 5, min_stock: 8, purchase_price: 250.00, supplier_id: 'SUP01' },
-                { item_id: 'ITM004', item_name: '27" 4K Monitor', current_stock: 22, min_stock: 5, purchase_price: 320.00, supplier_id: 'SUP03' },
-                { item_id: 'ITM005', item_name: 'USB-C Hub (7-in-1)', current_stock: 105, min_stock: 20, purchase_price: 25.00, supplier_id: 'SUP02' },
-                { item_id: 'ITM006', item_name: 'Wireless Mouse', current_stock: 8, min_stock: 10, purchase_price: 45.00, supplier_id: 'SUP03' }
+                { Item_ID: 'ITM001', Item_Name: 'Premium Wireless Headphones', Current_Stock: 45, Min_Stock: 10, Purchase_Price: 120.00, Supplier_ID: 'SUP01' },
+                { Item_ID: 'ITM002', Item_Name: 'Mechanical Keyboard (Red Switches)', Current_Stock: 12, Min_Stock: 15, Purchase_Price: 85.50, Supplier_ID: 'SUP02' },
+                { Item_ID: 'ITM003', Item_Name: 'Ergonomic Office Chair', Current_Stock: 5, Min_Stock: 8, Purchase_Price: 250.00, Supplier_ID: 'SUP01' },
+                { Item_ID: 'ITM004', Item_Name: '27" 4K Monitor', Current_Stock: 22, Min_Stock: 5, Purchase_Price: 320.00, Supplier_ID: 'SUP03' },
+                { Item_ID: 'ITM005', Item_Name: 'USB-C Hub (7-in-1)', Current_Stock: 105, Min_Stock: 20, Purchase_Price: 25.00, Supplier_ID: 'SUP02' },
+                { Item_ID: 'ITM006', Item_Name: 'Wireless Mouse', Current_Stock: 8, Min_Stock: 10, Purchase_Price: 45.00, Supplier_ID: 'SUP03' }
             ]), { status: 200, headers: { 'Content-Type': 'application/json' } });
         }
 
