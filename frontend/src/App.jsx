@@ -109,9 +109,9 @@ function App() {
         localStorage.setItem('theme', theme);
     }, [theme]);
 
-    const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true';
+    const isGitHubPages = import.meta.env.BASE_URL === '/inven/';
 
-    if (!token && !isDemoMode) {
+    if (!token && !isGitHubPages) {
         return (
             <LoginView onLoginSuccess={(newToken) => {
                 setToken(newToken);
