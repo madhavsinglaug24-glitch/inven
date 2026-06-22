@@ -963,97 +963,99 @@ def scan_receipt_api():
             "Example: {\"amount\": 150.00, \"merchant\": \"Big Bazaar\"}"
         )
 
-        payload = {
-            "model": "google/gemini-2.0-flash-lite-preview-02-05:free",
-            "messages": [
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": prompt},
-                        {"type": "image_url", "image_url": {"url": f"data:{mime_type};base64,{b64_img}"}}
-                    ]
-                }
-            ],
-            "max_tokens": 300,
-            "temperature": 0.1
-        }
-        
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-            "HTTP-Referer": "https://sde-dashboard.com",
-            "X-Title": "SDE App"
-        }
-        
-        resp = http_requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload, timeout=30)
-        if not resp.ok:
-            error_body = resp.text
-            try:
-                err_json = json.loads(error_body)
-                error_msg = err_json.get("error", {}).get("message", error_body)
-            except Exception:
-                error_msg = error_body
-            return jsonify({"error": f"AI Error: {error_msg}"}), 400
-        
-        resp_json = resp.json()
-        msg_content = None
-        try:
-            msg_content = resp_json["choices"][0]["message"]["content"]
-        except (KeyError, IndexError, TypeError):
-            pass
-        
-        if not msg_content:
-            return jsonify({"error": "AI returned an empty response. Please try again."}), 400
+        models_to_try = [
+            "google/gemini-2.0-flash-lite-preview-02-05:free",
+            "google/gemini-2.0-flash-exp:free",
+            "meta-llama/llama-3.2-11b-vision-instruct:free",
+            "qwen/qwen-2-vl-7b-instruct:free"
+        ]
+
+        for model in models_to_try:
+            payload = {
+                "model": model,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt},
+                            {"type": "image_url", "image_url": {"url": f"data:{mime_type};base64,{b64_img}"}}
+                        ]
+                    }
+                ],
+                "max_tokens": 300,
+                "temperature": 0.1
+            }
             
-        ai_text = msg_content.strip()
-        
-        # Strip markdown code fences
-        if ai_text.startswith("```json"):
-            ai_text = ai_text[7:]
-        if ai_text.startswith("```"):
-            ai_text = ai_text[3:]
-        if ai_text.endswith("```"):
-            ai_text = ai_text[:-3]
-        ai_text = ai_text.strip()
-        
-        # Try direct JSON parse first
-        try:
-            parsed = json.loads(ai_text)
-            amount = float(parsed.get("amount", 0))
-            merchant = str(parsed.get("merchant", "Unknown"))
-            return jsonify({"amount": amount, "merchant": merchant}), 200
-        except (json.JSONDecodeError, ValueError):
-            pass
-        
-        # Fallback: find JSON object in the text using regex
-        json_match = re.search(r'\{[^{}]*\}', ai_text)
-        if json_match:
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+                "HTTP-Referer": "https://sde-dashboard.com",
+                "X-Title": "SDE App"
+            }
+            
             try:
-                parsed = json.loads(json_match.group())
-                amount = float(parsed.get("amount", 0))
-                merchant = str(parsed.get("merchant", "Unknown"))
-                return jsonify({"amount": amount, "merchant": merchant}), 200
-            except (json.JSONDecodeError, ValueError):
-                pass
+                resp = http_requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload, timeout=30)
+                if not resp.ok:
+                    continue
                 
-        # Fallback 3: Regex extraction for partial/broken text
-        amount = 0.0
-        merchant = ""
-        amt_match = re.search(r'"amount"\s*:\s*([\d\.]+)', ai_text)
-        if amt_match:
-            try:
-                amount = float(amt_match.group(1))
-            except:
-                pass
-        
-        merch_match = re.search(r'"merchant"\s*:\s*"([^"]+)"', ai_text)
-        if merch_match:
-            merchant = merch_match.group(1)
-            
-        if amount > 0 or merchant:
-            return jsonify({"amount": amount, "merchant": merchant or "Unknown"}), 200
-        
-        return jsonify({"error": f"Could not parse AI response: {ai_text[:200]}"}), 400
+                resp_json = resp.json()
+                msg_content = None
+                try:
+                    msg_content = resp_json["choices"][0]["message"]["content"]
+                except (KeyError, IndexError, TypeError):
+                    continue
+                
+                if not msg_content:
+                    continue
+                    
+                ai_text = msg_content.strip()
+                
+                # Strip markdown code fences
+                if ai_text.startswith("```json"): ai_text = ai_text[7:]
+                if ai_text.startswith("```"): ai_text = ai_text[3:]
+                if ai_text.endswith("```"): ai_text = ai_text[:-3]
+                ai_text = ai_text.strip()
+                
+                # Try direct JSON parse first
+                try:
+                    parsed = json.loads(ai_text)
+                    amount = float(parsed.get("amount", 0))
+                    merchant = str(parsed.get("merchant", "Unknown"))
+                    return jsonify({"amount": amount, "merchant": merchant}), 200
+                except (json.JSONDecodeError, ValueError):
+                    pass
+                
+                # Fallback: find JSON object in the text using regex
+                json_match = re.search(r'\{[^{}]*\}', ai_text)
+                if json_match:
+                    try:
+                        parsed = json.loads(json_match.group())
+                        amount = float(parsed.get("amount", 0))
+                        merchant = str(parsed.get("merchant", "Unknown"))
+                        return jsonify({"amount": amount, "merchant": merchant}), 200
+                    except (json.JSONDecodeError, ValueError):
+                        pass
+                        
+                # Fallback 3: Regex extraction for partial/broken text
+                amount = 0.0
+                merchant = ""
+                amt_match = re.search(r'"amount"\s*:\s*([\d\.]+)', ai_text)
+                if amt_match:
+                    try:
+                        amount = float(amt_match.group(1))
+                    except:
+                        pass
+                
+                merch_match = re.search(r'"merchant"\s*:\s*"([^"]+)"', ai_text)
+                if merch_match:
+                    merchant = merch_match.group(1)
+                    
+                if amount > 0 or merchant:
+                    return jsonify({"amount": amount, "merchant": merchant or "Unknown"}), 200
+            except Exception:
+                continue
+
+        return jsonify({"error": "All AI models failed to process the image. Please try again later."}), 400
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
