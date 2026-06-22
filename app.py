@@ -958,9 +958,9 @@ def scan_receipt_api():
 
         prompt = (
             "You are analyzing a receipt or invoice image. "
-            "Extract the total amount (as a number) and the merchant/store name (as a string). "
+            "Extract the total amount (as a number), the merchant/store name (as a string), and the date of the transaction (as a string in YYYY-MM-DD format if visible). "
             "You MUST respond with ONLY a raw JSON object, no markdown, no explanation. "
-            "Example: {\"amount\": 150.00, \"merchant\": \"Big Bazaar\"}"
+            "Example: {\"amount\": 150.00, \"merchant\": \"Big Bazaar\", \"date\": \"2023-10-15\"}"
         )
 
         models_to_try = [
@@ -1021,7 +1021,8 @@ def scan_receipt_api():
                     parsed = json.loads(ai_text)
                     amount = float(parsed.get("amount", 0))
                     merchant = str(parsed.get("merchant", "Unknown"))
-                    return jsonify({"amount": amount, "merchant": merchant}), 200
+                    date_val = str(parsed.get("date", ""))
+                    return jsonify({"amount": amount, "merchant": merchant, "date": date_val}), 200
                 except (json.JSONDecodeError, ValueError):
                     pass
                 
@@ -1032,7 +1033,8 @@ def scan_receipt_api():
                         parsed = json.loads(json_match.group())
                         amount = float(parsed.get("amount", 0))
                         merchant = str(parsed.get("merchant", "Unknown"))
-                        return jsonify({"amount": amount, "merchant": merchant}), 200
+                        date_val = str(parsed.get("date", ""))
+                        return jsonify({"amount": amount, "merchant": merchant, "date": date_val}), 200
                     except (json.JSONDecodeError, ValueError):
                         pass
                         
@@ -1051,7 +1053,7 @@ def scan_receipt_api():
                     merchant = merch_match.group(1)
                     
                 if amount > 0 or merchant:
-                    return jsonify({"amount": amount, "merchant": merchant or "Unknown"}), 200
+                    return jsonify({"amount": amount, "merchant": merchant or "Unknown", "date": ""}), 200
             except Exception:
                 continue
 
@@ -1106,11 +1108,11 @@ def parse_text_api():
         
         prompt = (
             "You are an assistant that extracts transaction details from a user's natural language input. "
-            "Extract the total amount (number), merchant/store name (string), quantity (number), and the best matching item_id from the available items list based on the user's text. "
-            "If no amount or merchant is found, leave them blank or 0. If no quantity is found, default to 1. "
+            "Extract the total amount (number), merchant/store name (string), transaction date (string YYYY-MM-DD), quantity (number), and the best matching item_id from the available items list based on the user's text. "
+            "If no amount or merchant is found, leave them blank or 0. If no quantity is found, default to 1. If no date is found, omit the date field. "
             f"Available items: [{items_str}]. "
             "You MUST respond with ONLY a raw JSON object, no markdown, no explanation. "
-            "Example: {\"amount\": 150.00, \"merchant\": \"Big Bazaar\", \"quantity\": 10, \"item_id\": 5}"
+            "Example: {\"amount\": 150.00, \"merchant\": \"Big Bazaar\", \"date\": \"2023-10-15\", \"quantity\": 10, \"item_id\": 5}"
         )
 
         models_to_try = [

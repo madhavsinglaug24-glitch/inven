@@ -15,6 +15,7 @@ export const ScannerModal = ({ isOpen, onClose, token, items, onRefresh, mode })
     // Editable transaction fields
     const [merchant, setMerchant] = useState('');
     const [amount, setAmount] = useState('');
+    const [date, setDate] = useState('');
     const [selectedItem, setSelectedItem] = useState('');
     const [qty, setQty] = useState('1');
     const [saving, setSaving] = useState(false);
@@ -35,6 +36,7 @@ export const ScannerModal = ({ isOpen, onClose, token, items, onRefresh, mode })
         setStockType(null);
         setMerchant('');
         setAmount('');
+        setDate('');
         setSelectedItem('');
         setQty('1');
         setRawText('');
@@ -92,6 +94,7 @@ export const ScannerModal = ({ isOpen, onClose, token, items, onRefresh, mode })
             if (res.ok && data.amount !== undefined) {
                 setMerchant(data.merchant || '');
                 setAmount(String(data.amount || ''));
+                if (data.date) setDate(data.date);
                 setStep('scanned');
             } else {
                 setError(data.error || 'Scan failed. Please try again.');
@@ -116,6 +119,7 @@ export const ScannerModal = ({ isOpen, onClose, token, items, onRefresh, mode })
             if (res.ok) {
                 setMerchant(data.merchant || '');
                 setAmount(String(data.amount || ''));
+                if (data.date) setDate(data.date);
                 if (data.quantity) setQty(String(data.quantity));
                 if (data.item_id) setSelectedItem(String(data.item_id));
                 setStep('scanned');
@@ -137,6 +141,7 @@ export const ScannerModal = ({ isOpen, onClose, token, items, onRefresh, mode })
             const payload = {
                 type: typeToUse,
                 supplier: merchant || 'Manual Entry',
+                date: date || undefined,
                 items: [{
                     item_id: selectedItem,
                     qty: Number(qty),
@@ -185,6 +190,13 @@ export const ScannerModal = ({ isOpen, onClose, token, items, onRefresh, mode })
                 <input 
                     type="number" className="form-input" value={amount} onChange={e => setAmount(e.target.value)}
                     placeholder="e.g. 1500" min="0" step="0.01"
+                    style={{ width: '100%', backgroundColor: 'var(--bg-elevated)' }}
+                />
+            </div>
+            <div style={{ marginBottom: '12px' }}>
+                <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 500 }}>Transaction Date</label>
+                <input 
+                    type="date" className="form-input" value={date} onChange={e => setDate(e.target.value)}
                     style={{ width: '100%', backgroundColor: 'var(--bg-elevated)' }}
                 />
             </div>
@@ -250,7 +262,7 @@ export const ScannerModal = ({ isOpen, onClose, token, items, onRefresh, mode })
                     <ErrorBox />
                     <div style={{ marginBottom: '16px' }}>
                         <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '12px' }}>
-                            Describe the transaction naturally. AI will extract the item, quantity, amount, and merchant.
+                            Type what you bought — item, quantity, amount & store. AI will auto-fill the form for you.
                         </p>
                         <textarea 
                             className="form-input" 
