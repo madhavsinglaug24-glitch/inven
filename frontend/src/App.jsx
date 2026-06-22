@@ -109,7 +109,9 @@ function App() {
         localStorage.setItem('theme', theme);
     }, [theme]);
 
-    if (!token) {
+    const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true';
+
+    if (!token && !isDemoMode) {
         return (
             <LoginView onLoginSuccess={(newToken) => {
                 setToken(newToken);
