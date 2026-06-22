@@ -1071,8 +1071,31 @@ def parse_text_api():
     
     try:
         api_key = os.environ.get("OPENAI_API_KEY")
+        api_key = os.environ.get("OPENAI_API_KEY")
         if not api_key:
-            return jsonify({"error": "AI parsing offline (API Key missing in .env)"}), 503
+            # Fallback regex parsing if API key is missing
+            import re
+            amount_match = re.search(r'(?:rs\.?|inr|₹|\$|for|@)\s*([\d\.,]+)', text, re.IGNORECASE)
+            qty_match = re.search(r'(\d+)\s*(?:bags|pcs|units|x)?', text, re.IGNORECASE)
+            amount = 0.0
+            if amount_match:
+                try:
+                    amount = float(amount_match.group(1).replace(',', ''))
+                except:
+                    pass
+            qty = 1
+            if qty_match:
+                try:
+                    qty = int(qty_match.group(1))
+                except:
+                    pass
+            
+            return jsonify({
+                "amount": amount,
+                "merchant": "Extracted Offline (No API Key)",
+                "quantity": qty,
+                "item_id": available_items[0]['Item_ID'] if available_items else None
+            }), 200
 
         import requests as http_requests
         import json

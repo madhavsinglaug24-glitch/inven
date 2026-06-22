@@ -242,7 +242,7 @@ input[type=number] {
 .btn-debit:hover { background: var(--accent-red-dim); border-color: var(--accent-red); }
 
 .fab-camera {
-    position: fixed; bottom: 24px; right: 24px;
+    position: fixed; bottom: 24px; right: 48px;
     width: 56px; height: 56px; border-radius: 50%;
     background-color: var(--accent-teal); color: #fff;
     display: flex; align-items: center; justify-content: center;

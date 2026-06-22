@@ -54,9 +54,19 @@ export function setupMockApi() {
             }), { status: 200, headers: { 'Content-Type': 'application/json' } });
         }
 
-        // Return Mock Inventory Data
+        // Mock Inventory Data
         if (url.includes('/inventory')) {
             return new Response(JSON.stringify(mockInventory), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        }
+
+        // Mock Parse Text Data
+        if (url.includes('/parse_text')) {
+            return new Response(JSON.stringify({
+                amount: 1500,
+                merchant: "AI Extracted (Mock)",
+                quantity: 10,
+                item_id: "ITM001"
+            }), { status: 200, headers: { 'Content-Type': 'application/json' } });
         }
 
         // Mock Inventory History Data
