@@ -4,7 +4,7 @@ import { Modal } from './Modal';
 import { Camera, PackagePlus, PackageMinus, Loader } from 'lucide-react';
 import { API_BASE } from '../api';
 
-export const ScannerModal = ({ isOpen, onClose, token, items, onRefresh, initialMode }) => {
+export const ScannerModal = ({ isOpen, onClose, token, items, onRefresh, mode }) => {
     const [file, setFile] = useState(null);
     const [preview, setPreview] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -22,9 +22,9 @@ export const ScannerModal = ({ isOpen, onClose, token, items, onRefresh, initial
     useEffect(() => {
         if (isOpen) {
             reset();
-            setStep(initialMode === 'manual' ? 'manual' : 'upload');
+            setStep(mode === 'manual' ? 'manual' : 'upload');
         }
-    }, [isOpen, initialMode]);
+    }, [isOpen, mode]);
 
     const reset = () => {
         setFile(null);
