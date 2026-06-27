@@ -201,7 +201,7 @@ python app.py
 python tests/edge_case_tests.py
 ```
 
-Covers amount validation, balance integrity (±₹0.01), self-transfer invariants, guarded deletes, and date edge cases. Expect **14/14 passing** against a running server with `inventory.db`.
+Covers amount validation, balance integrity (±₹0.01), self-transfer invariants, guarded deletes, and date edge cases.
 
 ---
 
